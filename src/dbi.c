@@ -39,6 +39,26 @@ int dbi_DbObjCmd(
 		error = db->open(interp,db,objc,objv);
 		if (error) {return TCL_ERROR;}
 		return TCL_OK;
+	} else if ((cmdlen == 6)&&(strncmp(cmd,"create",6) == 0)) {
+		if (db->create == NULL) {
+			Tcl_AppendResult(interp,db->type, " type: create not supported",NULL);
+			return TCL_ERROR;
+		}
+		error = db->create(interp,db,objc,objv);
+		if (error) {return TCL_ERROR;}
+		return TCL_OK;
+	} else if ((cmdlen == 4)&&(strncmp(cmd,"drop",4) == 0)) {
+		if (db->drop == NULL) {
+			Tcl_AppendResult(interp,db->type, " type: drop not supported",NULL);
+			return TCL_ERROR;
+		}
+		if (objc != 2) {
+			Tcl_WrongNumArgs(interp, 2, objv, "");
+			return TCL_ERROR;
+		}
+		error = db->drop(interp,db);
+		if (error) {return TCL_ERROR;}
+		return TCL_OK;
 	} else	if ((cmdlen == 4)&&(strncmp(cmd,"exec",4) == 0)) {
 		Tcl_Obj *temp, *nullvalue = NULL, *command = NULL;
 		char *string;
@@ -89,7 +109,7 @@ int dbi_DbObjCmd(
 	} else if ((cmdlen == 5)&&(strncmp(cmd,"fetch",5) == 0)) {
 		Tcl_Obj *tuple = NULL, *field = NULL, *nullvalue = NULL;
 		char *string;
-		int i,stringlen,fetch_option = DBI_FETCH_DATA,t,f;
+		int i,stringlen,fetch_option = DBI_FETCH_DATA, t = -1, f = -1;
 		if (db->fetch == NULL) {
 			Tcl_AppendResult(interp,db->type, " type: fetch not supported",NULL);
 			return TCL_ERROR;
@@ -282,9 +302,11 @@ int dbi_DbObjCmd(
 			type = SERIAL_DELETE;
 		} else	if ((cmdlen == 3)&&(strncmp(cmd,"set",3) == 0)) {
 			type = SERIAL_SET;
+		} else	if ((cmdlen == 4)&&(strncmp(cmd,"next",4) == 0)) {
+			type = SERIAL_NEXT;
 		} else {
 			Tcl_ResetResult(interp);
-			Tcl_AppendResult(interp,"bad suboption \"", cmd, "\" for serial: must be one of add, delete or set", (char *)NULL);
+			Tcl_AppendResult(interp,"bad suboption \"", cmd, "\" for serial: must be one of add, delete, set or next", (char *)NULL);
 			return TCL_ERROR;
 		}
 		if (objc == 6) {
@@ -295,7 +317,7 @@ int dbi_DbObjCmd(
 		return TCL_OK;
 	}
 	Tcl_ResetResult(interp);
-	Tcl_AppendResult(interp,"bad option \"", cmd, "\": must be one of open, configure, exec, fetch, tables, tableinfo, serial, close", (char *)NULL);
+	Tcl_AppendResult(interp,"bad option \"", cmd, "\": must be one of open, configure, exec, fetch, tables, tableinfo, serial, close, create, drop", (char *)NULL);
 	return TCL_ERROR;
 }
 
@@ -389,6 +411,7 @@ int dbi_NewDbObjCmd(
 		db->type = Tcl_GetHashKey(dstypesTable,entry);
 		db->dbdata = NULL;
 		db->open = NULL;
+		db->create = NULL;
 		db->configure = NULL;
 		db->exec = NULL;
 		db->fetch = NULL;

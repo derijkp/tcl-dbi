@@ -23,6 +23,8 @@ typedef struct Dbi {
 	Tcl_Interp *interp;
 	char *type;
 	int (*open)(Tcl_Interp *interp,struct Dbi *db,int objc,Tcl_Obj **objv);
+	int (*create)(Tcl_Interp *interp,struct Dbi *db,int objc,Tcl_Obj **objv);
+	int (*drop)(Tcl_Interp *interp,struct Dbi *db);
 	int (*admin)(Tcl_Interp *interp,struct Dbi *db,int objc,Tcl_Obj **objv);
 	int (*configure)(Tcl_Interp *interp,struct Dbi *db,Tcl_Obj *option,Tcl_Obj *value);
 	int (*tables)(Tcl_Interp *interp,struct Dbi *db);
@@ -52,5 +54,6 @@ int dbi_CreateType(Tcl_Interp *interp,char *type,dbi_TypeCreate (*create));
 #define SERIAL_ADD 1
 #define SERIAL_DELETE 2
 #define SERIAL_SET 3
+#define SERIAL_NEXT 4
 
 EXTERN int Dbi_Init(Tcl_Interp *interp);

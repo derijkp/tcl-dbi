@@ -7,11 +7,11 @@ Group:	Development/Languages/Tcl
 Source:	dbi-0.1.5.src.tar.gz
 URL: http://rrna.uia.ac.be/dbi
 Packager: Peter De Rijk <derijkp@uia.ua.ac.be>
-Requires: tcl >= 8.0.4
+Requires: tcl >= 8.3.2
 Prefix: /usr
 %description
  tcl dbi provides generic access to sql dbms's via different possible backends.
- dbi comes with 2 backends: one for odbc and one for postgresql
+ dbi comes with 3 backends: interbase, odbc, postgresql
 
 %prep
 %setup -n dbi

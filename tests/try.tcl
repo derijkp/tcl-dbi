@@ -1,18 +1,28 @@
-package require Extral
 set type interbase
 source tools.tcl
 set db [dbi $::type db]
-puts "open /home/ib/test.gdb"
-db open /home/ib/test.gdb -user pdr -password pdr
-set table types
-set field i
-set db db
-set args {}
+puts "open /home/ib/testdbi.gdb"
+db open /home/ib/testdbi.gdb
+catch {db exec {drop table use;}} result
+catch {db exec {drop table test;}} result
+catch {db exec {drop table types}} result
+db exec {
+	create table test (
+		id integer not null primary key,
+		first_name varchar(100),
+		name varchar(100),
+		score double precision
+	);
+}
 
-db exec {delete from types}
-db serial delete types i
-db serial add types i
-db exec {insert into types (d) values (?)} 20
-db exec {insert into types (d) values (?)} 21
-db exec {select i,d from types order by d}
+test transactions {autocommit error} {
+	db exec {delete from test;}
+	set r1 [db exec {select first_name from test;}]
+	catch {db exec {
+		insert into test values(1,'Peter','De Rijk',20);
+		insert into test values(2,'John','Doe','error');
+		insert into test (id,first_name) values(3,'Jane');
+	}}
+	list $r1 [db exec {select first_name from test;}]
+} {{} {}}
 

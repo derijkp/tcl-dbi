@@ -110,6 +110,14 @@ proc ::dbi::interbase_tableinfo {db table var} {
 			where RDB$FIELD_NAME = ? } $field_source]
 		foreach {length precision scale fieldtype} [lindex $c 0] break
 		set data(field,$ofield,type) $typetrans($fieldtype)
+		switch $typetrans($fieldtype) {
+			char - varchar {
+				set data(field,$ofield,ftype) $typetrans($fieldtype)($length)
+			}
+			default {
+				set data(field,$ofield,ftype) $typetrans($fieldtype)
+			}
+		}
 		set data(field,$ofield,size) $length
 	}
 	# Get constraints information
@@ -196,12 +204,21 @@ proc ::dbi::interbase_tableinfo {db table var} {
 proc ::dbi::interbase_serial_add {db table field args} {
 	set name srl\$${table}_${field}
 	set btable [string toupper $table]
-	set bfield [string toupper $field]
 	if [llength $args] {set current [lindex $args 0]} else {set current 0}
 	set fieldsource [lindex [lindex [$db exec {
 		select RDB$FIELD_SOURCE
 		from RDB$RELATION_FIELDS
-		where RDB$RELATION_NAME = ? and RDB$FIELD_NAME = ?} $btable $bfield] 0] 0]
+		where RDB$RELATION_NAME = ? and RDB$FIELD_NAME = ?} $btable $field] 0] 0]
+	if {![llength $fieldsource]} {
+		set field [string toupper $field]
+		set fieldsource [lindex [lindex [$db exec {
+			select RDB$FIELD_SOURCE
+			from RDB$RELATION_FIELDS
+			where RDB$RELATION_NAME = ? and RDB$FIELD_NAME = ?} $btable $field] 0] 0]
+		if {![llength $fieldsource]} {
+			error "field \"$field\" not found in table \"$table\""
+		}
+	}
 	set type [$db exec {
 		select RDB$FIELD_TYPE
 		from RDB$FIELDS
@@ -213,7 +230,8 @@ proc ::dbi::interbase_serial_add {db table field args} {
 		create trigger $name for $table before \n\
 		insert as \n\
 		begin \n\
-			new.$field = cast (gen_id($name,1) as $type); \n\
+			if (NEW.\"$field\" is null) then
+			NEW.\"$field\" = cast (gen_id($name,1) as $type); \n\
 		end; \n\
 		set generator $name to $current \
 	"
@@ -232,4 +250,9 @@ proc ::dbi::interbase_serial_set {db table field args} {
 	} else {
 		db exec "select (gen_id($name,0)) from rdb\$database"
 	}
+}
+
+proc ::dbi::interbase_serial_next {db table field} {
+	set name [string toupper srl\$${table}_${field}]
+	db exec "select (gen_id($name,1)) from rdb\$database"
 }

@@ -9,9 +9,13 @@ typedef struct dbi_Interbase_Data {
 	ISC_STATUS status[20];             /* status vector */
 	XSQLDA *out_sqlda;                 /* out sqlda */
 	XSQLDA *in_sqlda;                  /* in sqlda */
+	Tcl_Obj *database;
 	char *dpb;
+	int dpbpos;
 	int dpblen;
 	int autocommit;
+	int cursor_open;
+	int out_sqlda_filled;
 	int t;
 	int nrows;
 	int respos;
