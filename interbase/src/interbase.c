@@ -174,18 +174,19 @@ int dbi_Interbase_Error(
 {
 	ISC_STATUS *status_vector = dbdata->status;
 	Tcl_Obj *errormsg;
-	char msg[512];
 	long SQLCODE;
 	int error;
 	if (strlen(premsg) != 0) {
 		Tcl_AppendResult(interp,"error ",premsg,":\n", NULL);
 	}
-	SQLCODE = isc_sqlcode(status_vector);
-	isc_sql_interprete(SQLCODE, msg, 512);
-	errormsg = Tcl_NewObj();
-	while(isc_interprete(msg + 1, &status_vector)) {
-/*		Tcl_AppendResult(interp,msg+1," - ", NULL); */
-		Tcl_AppendStringsToObj(errormsg,msg+1," - ", NULL);
+	if (status_vector[0] == 1 && status_vector[1]) {
+		char msg[512];
+		SQLCODE = isc_sqlcode(status_vector);
+		isc_sql_interprete(SQLCODE, msg, 512);
+		errormsg = Tcl_NewObj();
+		while(isc_interprete(msg + 1, &status_vector)) {
+			Tcl_AppendStringsToObj(errormsg,msg+1," - ", NULL);
+		}
 	}
 	dbi_Interbase_TclEval(interp,dbdata,"::dbi::interbase::errorclean",1,&errormsg);	
 	if (dbdata->cursor_open != 0) {dbi_Interbase_Free_Stmt(dbdata,DSQL_close);}
@@ -329,8 +330,6 @@ int dbi_Interbase_Prepare_out_sqlda(
 				var->sqldata = (char*)Tcl_Alloc(sizeof(float));
 				break;
 			case SQL_DOUBLE:
-				var->sqldata = (char*)Tcl_Alloc(sizeof(double));
-				break;
 			case SQL_D_FLOAT:
 				var->sqldata = (char*)Tcl_Alloc(sizeof(double));
 				break;
@@ -419,14 +418,14 @@ int dbi_Interbase_Prepare_in_sqlda(
 				var->sqldata = (char *)Tcl_Alloc(sizeof(long));
 				break;
 			case SQL_INT64:
-				var->sqldata = (char *)Tcl_Alloc(sizeof(long));
+				var->sqldata = (char *)Tcl_Alloc(sizeof(ISC_INT64));
 				break;
 			case SQL_FLOAT:
 				var->sqldata = (char *)Tcl_Alloc(sizeof(long));
 				break;
 			case SQL_D_FLOAT:
 			case SQL_DOUBLE:
-				var->sqldata = (char *)Tcl_Alloc(sizeof(long));
+				var->sqldata = (char *)Tcl_Alloc(sizeof(double));
 				break;
 			case SQL_TIMESTAMP:
 				var->sqldata = (char *)Tcl_Alloc(sizeof(ISC_TIMESTAMP));
@@ -499,7 +498,7 @@ int dbi_Interbase_Fill_in_sqlda(
 			case SQL_TEXT:
 				var->sqldata = Tcl_GetStringFromObj(objv[ipos],&size);
 				if (size > 32767) {
-					Tcl_AppendResult(interp,"String argument to large");
+					Tcl_AppendResult(interp,"String argument to large",NULL);
 					goto error;
 				}
 				var->sqllen = (short)size;
@@ -564,8 +563,12 @@ int dbi_Interbase_Fill_in_sqlda(
 				break;
 			case SQL_D_FLOAT:
 			case SQL_DOUBLE:
-				error = Tcl_GetDoubleFromObj(interp,objv[ipos],(double *)(var->sqldata));
+				{
+				double temp;
+				error = Tcl_GetDoubleFromObj(interp,objv[ipos],&temp);
 				if (error) {goto error;}
+				*(double *)(var->sqldata) = temp;
+				}
 				break;
 			case SQL_TIMESTAMP:
 				{
@@ -1087,7 +1090,7 @@ int dbi_Interbase_Fetch(
 	switch (fetch_option) {
 		case Lines:
 			Tcl_AppendResult(interp,"dbi_interbase: fetch lines not supported", NULL);
-			return TCL_OK;
+			return TCL_ERROR;
 		case Fields:
 			error = dbi_Interbase_Fetch_Fields(interp,dbdata,dbdata->out_sqlda,&line);
 			if (error) {goto error;}
@@ -2031,10 +2034,10 @@ int dbi_Interbase_Supports(
 	Tcl_Obj *keyword)
 {
 	static char *keywords[] = {
-		"columnperm","roles","domains","blobparams","blobids","sharedtransactions",
+		"columnperm","roles","domains","blobparams","blobids","sharedtransactions","foreignkeys","checks","permissions",
 		(char *) NULL};
 	enum keywordsIdx {
-		Columnperm, Roles, Domains, Blobparams, Blobids, Sharedtransactions
+		Columnperm, Roles, Domains, Blobparams, Blobids, Sharedtransactions, Foreignkeys,Checks,Permissions
 	};
 	int error,index;
 	if (keyword == NULL) {
@@ -2383,7 +2386,7 @@ int dbi_Interbase_Interface(
 		i = 0;
 		while (interfaces[i] != NULL) {
 			if ((strlen(interfaces[i]) == len) && (strncmp(interfaces[i],interface,len) == 0)) {
-				Tcl_AppendResult(interp,interfaces[i+1]);
+				Tcl_AppendResult(interp,interfaces[i+1],(char *) NULL);
 				return TCL_OK;
 			}
 			i+=2;

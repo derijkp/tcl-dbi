@@ -1000,7 +1000,7 @@ int dbi_odbc_Catalog(
 	int lenbuffer[8];
 	int i,error;
 	if (objc > 8) {
-		Tcl_AppendResult(interp,"objc > 8");return TCL_ERROR;
+		Tcl_AppendResult(interp,"objc > 8",NULL);return TCL_ERROR;
 	}
 	for (i = 0 ; i < objc ; i++) {
 		strbuffer[i] = Tcl_GetStringFromObj(objv[i],lenbuffer+i);
@@ -1049,7 +1049,7 @@ int dbi_odbc_Catalog(
 			} else if ((len == 6)&&(strncmp(string,"rowver",len)==0)) {
 				type = SQL_ROWVER;
 			} else {
-				Tcl_AppendResult(interp,"wrong value for type: must be one of:	best_rowid or rowver");
+				Tcl_AppendResult(interp,"wrong value for type: must be one of:	best_rowid or rowver",NULL);
 				return TCL_ERROR;
 			}
 			string = strbuffer[4];
@@ -1061,7 +1061,7 @@ int dbi_odbc_Catalog(
 			} else if ((len == 7)&&(strncmp(string,"session",len)==0)) {
 				scope = SQL_SCOPE_SESSION;
 			} else {
-				Tcl_AppendResult(interp,"wrong value for scope: must be one of:	currow, transaction or session");
+				Tcl_AppendResult(interp,"wrong value for scope: must be one of:	currow, transaction or session",NULL);
 				return TCL_ERROR;
 			}
 			error = Tcl_GetBooleanFromObj(interp,objv[5],&bool);
@@ -1356,7 +1356,7 @@ int dbi_odbc_Interface(
 		i = 0;
 		while (interfaces[i] != NULL) {
 			if ((strlen(interfaces[i]) == len) && (strncmp(interfaces[i],interface,len) == 0)) {
-				Tcl_AppendResult(interp,interfaces[i+1]);
+				Tcl_AppendResult(interp,interfaces[i+1],NULL);
 				return TCL_OK;
 			}
 			i+=2;

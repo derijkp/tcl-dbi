@@ -93,7 +93,7 @@ int dbi_odbc_bindresult(
 	resultbuffer = (ResultBuffer*) Tcl_Alloc(nfields*sizeof(ResultBuffer));
 	if (!resultbuffer) {
 		dbresult->buffer = NULL;
-		Tcl_AppendResult(interp,"Memory allocation error");
+		Tcl_AppendResult(interp,"Memory allocation error",NULL);
 		return TCL_ERROR;
 	}
 	memset (resultbuffer, 0, nfields*sizeof(resultbuffer));
@@ -148,7 +148,7 @@ int dbi_odbc_bindresult(
 					break;
 			}
 			resultbuffer[i].strResult = (char*)Tcl_Alloc(size);
-			if (!resultbuffer[i].strResult) {Tcl_AppendResult(interp,"Memory allocation error"); goto error;}
+			if (!resultbuffer[i].strResult) {Tcl_AppendResult(interp,"Memory allocation error",NULL); goto error;}
 			memset (resultbuffer[i].strResult, 0, size);
 			/* bind */
 			rc = SQLBindCol(hstmt, (UWORD)(i+1), type, resultbuffer[i].strResult, 

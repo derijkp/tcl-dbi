@@ -10,22 +10,24 @@ set type odbc
 set testdb testdbi
 set type interbase
 set testdb /home/ib/testdbi.gdb
+set type sqlite
+set testdb test.db
 
 set interface dbi/try
 set version 0.1
-set interface::testleak 0
 set name dbi-01
 package require dbi
 package require dbi_$type
 
 puts "create dbi_$type"
 array set opt {
-	-testdb /home/ib/testdbi.gdb
+	-testdb test.db
 	-user2 PDR
 	-lines 1
 	-columnperm 1
 }
 
+set interface::testleak 0
 set object [dbi_$type]
 set object2 [dbi_$type]
 set opt(-object2) $object2
@@ -67,8 +69,6 @@ proc ::dbi::createdb {} {
 			"name" varchar(100),
 			"score" double precision
 		);
-	}
-	$object exec {
 		create table "address" (
 			"id" int not null primary key,
 			"street" varchar(100),
@@ -76,22 +76,45 @@ proc ::dbi::createdb {} {
 			"code" varchar(10),
 			"city" varchar(100)
 		);
-		create table "location" (
-			"type" varchar(100) check ("type" in ('home','work','leisure')),
-			"inhabitant" char(6) references "person"("id"),
-			"address" integer references "address"("id")
-		);
 	}
-	$object exec {
-		create table "use" (
-			"id" integer not null primary key,
-			"person" integer not null unique references "person"("id"),
-			"place" varchar(100),
-			"usetime" timestamp,
-			"score" float check ("score" < 20.0),
-			"score2" float check ("score" < 20.0),
-			check ("score2" > "score")
-		);
+	if {[$object supports foreignkeys]} {
+		$object exec {
+			create table "location" (
+				"type" varchar(100) check ("type" in ('home','work','leisure')),
+				"inhabitant" char(6) references "person"("id"),
+				"address" integer references "address"("id")
+			);
+		}
+		$object exec {
+			create table "use" (
+				"id" integer not null primary key,
+				"person" integer not null unique references "person"("id"),
+				"place" varchar(100),
+				"usetime" timestamp,
+				"score" float check ("score" < 20.0),
+				"score2" float check ("score" < 20.0),
+				check ("score2" > "score")
+			);
+		}
+	} else {
+		$object exec {
+			create table "location" (
+				"type" varchar(100) check ("type" in ('home','work','leisure')),
+				"inhabitant" char(6),
+				"address" integer
+			);
+		}
+		$object exec {
+			create table "use" (
+				"id" integer not null primary key,
+				"person" integer not null unique,
+				"place" varchar(100),
+				"usetime" timestamp,
+				"score" float check ("score" < 20.0),
+				"score2" float check ("score" < 20.0),
+				check ("score2" > "score")
+			);
+		}
 	}
 	$object exec {select "id" from "use"}
 	catch {$object exec {
@@ -119,7 +142,7 @@ proc ::dbi::filldb {} {
 	upvar opt opt
 	$object exec {
 		insert into "person" ("id","first_name","name","score")
-			values ('pdr','Peter', 'De Rijk',20);
+			values ('pdr','Peter', 'De Rijk',20.0);
 		insert into "person" ("id","first_name","name","score")
 			values ('jd','John', 'Do',17.5);
 		insert into "person" ("id","first_name")
@@ -154,21 +177,72 @@ proc ::dbi::opendb {} {
 	upvar opt opt
 	$object open $opt(-testdb)
 }
+
 ::dbi::opendb
-#	::dbi::cleandb
-#	::dbi::createdb
-#	::dbi::filldb
 ::dbi::initdb
 
-interface::test {special table} {
-	catch {$object exec {create table "o$test" (i integer)}}
-	set result [lsort [$object tables]]
-	$object exec {drop table "o$test"}
-	set result
-} {address location {o$test} person t types use v_test}
+$interface::test {autocommit error} {
+	$object exec {delete from "location";}
+	$object exec {delete from "person";}
+	set r1 [$object exec {select "first_name" from "person";}]
+	catch {$object exec {
+		insert into "person" values(1,'Peter','De Rijk',20.0);
+		insert into "person" values(2,'John','Doe','error');
+		insert into "person" ("id","first_name") values(3,'Jane');
+	}}
+	list $r1 [$object exec {select "first_name" from "person";}]
+} {{} {}}
 
-::dbi::interbase::serial_name $object types i
-::dbi::interbase::serial_name $object address id
+interface::test {transactions: syntax error in exec within transaction} {
+	$object exec {delete from "location";}
+	$object exec {delete from "person";}
+	set r1 [$object exec {select "first_name" from "person";}]
+	$object begin
+	catch {$object exec {
+		insert into "person" values(1,'Peter','De Rijk',20.0);
+	}} error
+	catch {$object exec -error {
+		insert into "person" values(2,'John','Doe',18.5);
+	}} error
+	set r2 [$object exec {select "first_name" from "person";}]
+	$object rollback
+	set r3 [$object exec {select "first_name" from "person";}]
+	list $r1 $r2 $r3 [string range $error 0 27]
+} {{} Peter {} {bad option "-error": must be}}
+
+interface::test {transactions: sql error in exec within transaction} {
+	$object exec {delete from "location";}
+	$object exec {delete from "person";}
+	set r1 [$object exec {select "first_name" from "person";}]
+	$object begin
+	catch {$object exec {
+		insert into "person" values(1,'Peter','De Rijk',20.0);
+		insert into "person" values(2,'John','Doe','error');
+		insert into "person" ("id","first_name") values(3,'Jane');
+	}} error
+	set r2 [$object exec {select "first_name" from "person";}]
+	$object rollback
+	set r3 [$object exec {select "first_name" from "person";}]
+	list $r1 $r2 $r3
+} {{} Peter {}}
+
+interface::test {transactions: sql error in exec within transaction, seperate calls} {
+	$object exec {delete from "location";}
+	$object exec {delete from "person";}
+	set r1 [$object exec {select "first_name" from "person";}]
+	$object begin
+	catch {$object exec {
+		insert into "person" values(1,'Peter','De Rijk',20.0);
+	}} error
+	catch {$object exec {
+		insert into "person" values(2,'John','Doe','error');
+		insert into "person" ("id","first_name") values(3,'Jane');
+	}} error
+	set r2 [$object exec {select "first_name" from "person";}]
+	$object rollback
+	set r3 [$object exec {select "first_name" from "person";}]
+	list $r1 $r2 $r3
+} {{} Peter {}}
 
 #puts "tests done"
 #$object close

@@ -75,22 +75,45 @@ proc ::dbi::createdb {} {
 			"code" varchar(10),
 			"city" varchar(100)
 		);
-		create table "location" (
-			"type" varchar(100) check ("type" in ('home','work','leisure')),
-			"inhabitant" char(6) references "person"("id"),
-			"address" integer references "address"("id")
-		);
 	}
-	$object exec {
-		create table "use" (
-			"id" integer not null primary key,
-			"person" integer not null unique references "person"("id"),
-			"place" varchar(100),
-			"usetime" timestamp,
-			"score" float check ("score" < 20.0),
-			"score2" float check ("score" < 20.0),
-			check ("score2" > "score")
-		);
+	if {[$object supports foreignkeys]} {
+		$object exec {
+			create table "location" (
+				"type" varchar(100) check ("type" in ('home','work','leisure')),
+				"inhabitant" char(6) references "person"("id"),
+				"address" integer references "address"("id")
+			);
+		}
+		$object exec {
+			create table "use" (
+				"id" integer not null primary key,
+				"person" integer not null unique references "person"("id"),
+				"place" varchar(100),
+				"usetime" timestamp,
+				"score" float check ("score" < 20.0),
+				"score2" float check ("score" < 20.0),
+				check ("score2" > "score")
+			);
+		}
+	} else {
+		$object exec {
+			create table "location" (
+				"type" varchar(100) check ("type" in ('home','work','leisure')),
+				"inhabitant" char(6),
+				"address" integer
+			);
+		}
+		$object exec {
+			create table "use" (
+				"id" integer not null primary key,
+				"person" integer not null unique,
+				"place" varchar(100),
+				"usetime" timestamp,
+				"score" float check ("score" < 20.0),
+				"score2" float check ("score" < 20.0),
+				check ("score2" > "score")
+			);
+		}
 	}
 	$object exec {select "id" from "use"}
 	catch {$object exec {
@@ -119,7 +142,7 @@ proc ::dbi::filldb {} {
 	upvar opt opt
 	$object exec {
 		insert into "person" ("id","first_name","name","score")
-			values ('pdr','Peter', 'De Rijk',20);
+			values ('pdr','Peter', 'De Rijk',20.0);
 		insert into "person" ("id","first_name","name","score")
 			values ('jd','John', 'Do',17.5);
 		insert into "person" ("id","first_name")
@@ -221,7 +244,7 @@ interface::test {non select query with -nullvalue parameter} {
 
 interface::test {non select query without -nullvalue parameter} {
 	catch {$object exec {delete from "person" where "id" = 'nul'}}
-	$object exec {insert into "person" values (?,?,?,?)} nul hasnull {} 10
+	$object exec {insert into "person" values (?,?,?,?)} nul hasnull {} 10.0
 	set result [$object exec -nullvalue NULL {select * from "person" where "id" = 'nul'}]
 	$object exec {delete from "person" where "id" = 'nul'}
 	set result	
@@ -229,7 +252,7 @@ interface::test {non select query without -nullvalue parameter} {
 
 interface::test {non select query with -nullvalue update to NULL} {
 	catch {$object exec {delete from "person" where "id" = 'nul'}}
-	$object exec -nullvalue {} {insert into "person" values (?,?,?,?)} nul hasnull {} 10
+	$object exec -nullvalue {} {insert into "person" values (?,?,?,?)} nul hasnull {} 10.0
 	lappend result [lindex [$object exec -nullvalue NULL {select * from "person" where "id" = 'nul'}] 0]
 	$object exec -nullvalue {} {update "person" set "score" = ? where "id" = 'nul'} {}
 	lappend result [lindex [$object exec -nullvalue NULL {select * from "person" where "id" = 'nul'}] 0]
@@ -476,8 +499,8 @@ interface::test {serial basic} {
 	$object exec {delete from "types"}
 	catch {$object serial delete types i}
 	$object serial add types i
-	$object exec {insert into "types" ("d") values (20)}
-	$object exec {insert into "types" ("d") values (21)}
+	$object exec {insert into "types" ("d") values (20.0)}
+	$object exec {insert into "types" ("d") values (21.0)}
 	$object exec {select "i","d" from "types" order by "d"}
 } {{1 20.0} {2 21.0}}
 
@@ -485,10 +508,10 @@ interface::test {serial set} {
 	$object exec {delete from "types"}
 	catch {$object serial delete types i}
 	$object serial add types i 1
-	$object exec {insert into "types" ("d") values (20)}
+	$object exec {insert into "types" ("d") values (20.0)}
 	$object serial set "types" i 8
 	set i [$object serial set types i]
-	$object exec {insert into "types" ("d") values (21)}
+	$object exec {insert into "types" ("d") values (21.0)}
 	list $i [$object exec {select "i","d" from "types" order by "d"}]
 } {8 {{2 20.0} {9 21.0}}}
 
@@ -496,8 +519,8 @@ interface::test {serial overrule} {
 	$object exec {delete from "types"}
 	catch {$object serial delete types i}
 	$object serial add types i 1
-	$object exec {insert into "types" ("d") values (20)}
-	$object exec {insert into "types" ("i","d") values (9,21)}
+	$object exec {insert into "types" ("d") values (20.0)}
+	$object exec {insert into "types" ("i","d") values (9,21.0)}
 	$object exec {select "i","d" from "types" order by "d"}
 } {{2 20.0} {9 21.0}}
 
@@ -505,11 +528,18 @@ interface::test {serial next} {
 	$object exec {delete from "types"}
 	catch {$object serial delete types i}
 	$object serial add types i
-	$object exec {insert into "types" ("d") values (20)}
+	$object exec {insert into "types" ("d") values (20.0)}
 	set i [$object serial next types i]
-	$object exec {insert into "types" ("d") values (20)}
+	$object exec {insert into "types" ("d") values (20.1)}
 	list $i [$object exec {select "i" from "types" order by "d"}]
 } {2 {1 3}}
+
+interface::test {serial cache error test} {
+	$object exec {delete from "types"}
+	catch {$object serial delete types i}
+	$object serial add types i
+	catch {$object serial set types i}
+} {0}
 
 dbi::initdb
 
@@ -583,34 +613,37 @@ interface::test {info views} {
 interface::test {info access select} {
 	$object exec "grant select on \"person\" to \"$opt(-user2)\""
 	list [$object info access select $opt(-user2)] [lsort [$object info access select [$object info user]]]
-} {person {address location person types use v_test}}
+} {person {address location person types use v_test}} {skipon {![$object supports permissions]}} {skipon {![$object supports lines]}}
 
 interface::test {info access select table} {
 	$object exec "grant select on \"person\" to \"$opt(-user2)\""
 	list [$object info access select $opt(-user2) person] [$object info access select [$object info user] person]
-} {{id first_name name score} {id first_name name score}}
+} {{id first_name name score} {id first_name name score}} {skipon {![$object supports permissions]}}
 
 interface::test {info access insert} {
 	$object exec "grant insert on \"person\" to \"$opt(-user2)\""
 	list [$object info access insert $opt(-user2)] [$object info access insert [$object info user]]
-} {person {address location person types use v_test}}
-
+} {person {address location person types use v_test}} {skipon {![$object supports permissions]}}
 
 interface::test {info access update} {
 	$object exec "revoke update on \"person\" from $opt(-user2)"
 	$object exec "grant update on \"person\" to $opt(-user2)"
 	list [$object info access update $opt(-user2)] [$object info access update [$object info user]]
-} {person {address location person types use v_test}}
+} {person {address location person types use v_test}} {skipon {![$object supports permissions]}}
 
 interface::test {info access select table} {
 	list [$object info access select $opt(-user2) use] [$object info access select $opt(-user2) person] [$object info access select [$object info user] person]
-} {{} {id first_name name score} {id first_name name score}}
+} {{} {id first_name name score} {id first_name name score}} {skipon {![$object supports permissions]}}
 
 interface::test {info access update table} {
 	$object exec "revoke update on \"person\" from $opt(-user2)"
 	$object exec "grant update(\"id\",\"first_name\") on \"person\" to $opt(-user2)"
 	list [lsort [$object info access update $opt(-user2) person]] [lsort [$object info access update [$object info user] person]]
-} {{first_name id} {first_name id name score}} {skipon {![$object supports columnperm]}}
+} {{first_name id} {first_name id name score}} {skipon {![$object supports columnperm]}} {skipon {![$object supports permissions]}}
+
+interface::test {info referenced} {
+	$object info referenced person
+} {location {inhabitant id} use {person id}} {skipon {![$object supports columnperm]}} {skipon {![$object supports foreignkeys]}}
 
 interface::test {info views should not mess up a resultset} {
 	$object exec -usefetch {select * from "person"}
@@ -854,7 +887,7 @@ interface::test {clone transaction sharing} {
 	$object begin
 	$clone exec {
 		insert into "person" ("id","first_name","name","score")
-			values ('new','new','test',20);
+			values ('new','new','test',20.0);
 	}
 	set oresult [$object exec {select * from "person" where "id" = 'new'}]
 	set cresult [$clone exec {select * from "person" where "id" = 'new'}]
@@ -869,7 +902,7 @@ interface::test {clone transaction sharing from clone} {
 	$object begin
 	$object exec {
 		insert into "person" ("id","first_name","name","score")
-			values ('new','new','test',20);
+			values ('new','new','test',20.0);
 	}
 	set oresult [$object exec {select * from "person" where "id" = 'new'}]
 	set cresult [$clone exec {select * from "person" where "id" = 'new'}]
@@ -883,7 +916,7 @@ interface::test {clone transaction sharing test without clone} {
 	$object begin
 	$object exec {
 		insert into "person" ("id","first_name","name","score")
-			values ('new','new','test',20);
+			values ('new','new','test',20.0);
 	}
 	set oresult [$object exec {select * from "person" where "id" = 'new'}]
 	$object rollback
@@ -902,7 +935,7 @@ interface::test {transactions} {
 	set r1 [$object exec {select "first_name" from "person" order by "id";}]
 	$object begin
 	$object exec {
-		insert into "person" values(1,'Peter','De Rijk',20);
+		insert into "person" values(1,'Peter','De Rijk',20.0);
 	}
 	$object exec {
 		insert into "person" values(2,'John','Doe',17.5);
@@ -913,7 +946,7 @@ interface::test {transactions} {
 	set r3 [$object exec {select "first_name" from "person" order by "id";}]
 	$object begin
 	$object exec {
-		insert into "person" values(1,'Peter','De Rijk',20);
+		insert into "person" values(1,'Peter','De Rijk',20.0);
 	}
 	$object exec {
 		insert into "person" values(2,'John','Doe',17.5);
@@ -929,7 +962,7 @@ interface::test {autocommit error} {
 	$object exec {delete from "person";}
 	set r1 [$object exec {select "first_name" from "person";}]
 	catch {$object exec {
-		insert into "person" values(1,'Peter','De Rijk',20);
+		insert into "person" values(1,'Peter','De Rijk',20.0);
 		insert into "person" values(2,'John','Doe','error');
 		insert into "person" ("id","first_name") values(3,'Jane');
 	}}
@@ -942,7 +975,7 @@ interface::test {transactions: syntax error in exec within transaction} {
 	set r1 [$object exec {select "first_name" from "person";}]
 	$object begin
 	catch {$object exec {
-		insert into "person" values(1,'Peter','De Rijk',20);
+		insert into "person" values(1,'Peter','De Rijk',20.0);
 	}} error
 	catch {$object exec -error {
 		insert into "person" values(2,'John','Doe',18.5);
@@ -959,7 +992,7 @@ interface::test {transactions: sql error in exec within transaction} {
 	set r1 [$object exec {select "first_name" from "person";}]
 	$object begin
 	catch {$object exec {
-		insert into "person" values(1,'Peter','De Rijk',20);
+		insert into "person" values(1,'Peter','De Rijk',20.0);
 		insert into "person" values(2,'John','Doe','error');
 		insert into "person" ("id","first_name") values(3,'Jane');
 	}} error
@@ -975,7 +1008,7 @@ interface::test {transactions: sql error in exec within transaction, seperate ca
 	set r1 [$object exec {select "first_name" from "person";}]
 	$object begin
 	catch {$object exec {
-		insert into "person" values(1,'Peter','De Rijk',20);
+		insert into "person" values(1,'Peter','De Rijk',20.0);
 	}} error
 	catch {$object exec {
 		insert into "person" values(2,'John','Doe','error');

@@ -50,7 +50,7 @@ interface::test {primary key} {
 
 interface::test {interface match} {
 	lsort [$object supports]
-} {blobids blobparams columnperm domains roles sharedtransactions}
+} {blobids blobparams checks columnperm domains foreignkeys permissions roles sharedtransactions}
 
 interface::test {transactions via exec} {
 	$object exec {delete from "location";}

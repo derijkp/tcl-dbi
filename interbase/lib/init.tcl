@@ -10,7 +10,7 @@ namespace eval dbi::interbase {}
 # $Format: "set ::dbi::interbase::version 0.$ProjectMajorVersion$"$
 set ::dbi::interbase::version 0.8
 # $Format: "set ::dbi::interbase::patchlevel $ProjectMinorVersion$"$
-set ::dbi::interbase::patchlevel 5
+set ::dbi::interbase::patchlevel 6
 package provide dbi_interbase $::dbi::interbase::version
 
 proc ::dbi::interbase::init {name testcmd} {
@@ -365,6 +365,33 @@ proc ::dbi::interbase::info {db args} {
 				error "wrong # args: should be \"$db info table tablename\""
 			}
 		}
+		referenced {
+			if {$len == 2} {
+				set table [lindex $args 1]
+				set result {}
+				foreach {relation name index} [$db exec -flat {
+					select  RDB$RELATION_NAME,RDB$CONSTRAINT_NAME, RDB$INDEX_NAME from "RDB$RELATION_CONSTRAINTS"
+					where "RDB$CONSTRAINT_TYPE" =?
+				} {FOREIGN KEY}] {
+					set field [::dbi::interbase::indexsegments $db $index]
+					set temp2 [lindex [$db exec {
+						select rel.RDB$RELATION_NAME, rel.RDB$INDEX_NAME,
+						ref.RDB$UPDATE_RULE, ref.RDB$DELETE_RULE
+						from RDB$RELATION_CONSTRAINTS rel, RDB$REF_CONSTRAINTS ref
+						where rel.RDB$CONSTRAINT_NAME = ref. RDB$CONST_NAME_UQ
+							and ref.RDB$CONSTRAINT_NAME = ?
+					} $name] 0]
+					set reffield [::dbi::interbase::indexsegments $db [lindex $temp2 1]]
+					set reftable [lindex $temp2 0]
+					if {[string equal $reftable $table]} {
+						lappend result $relation [list $field $reffield]
+					}
+				}
+				return $result
+			} else {
+				error "wrong # args: should be \"$db info referenced tablename\""
+			}
+		}
 		default {
 			error "error: info about $type not supported"
 		}
@@ -425,6 +452,7 @@ proc ::dbi::interbase::serial_add {db table field args} {
 	$db exec [subst {
 		set generator "$name" to $current
 	}]
+	set ::dbi::interbase::shared($table,$field) $name
 	return $current
 }
 
@@ -472,25 +500,30 @@ proc ::dbi::interbase::serial_delete {db table field} {
 	if {[string equal $name srl\$${table}_${field}]} {
 		catch {$db exec {delete from rdb$generators where rdb$generator_name = ?} $name}
 	}
+	set ::dbi::interbase::shared($table,$field) error
 }
 
 proc ::dbi::interbase::serial_name {db table field} {
 	upvar #0 ::dbi::interbase::shared shared
 	if {![::info exists shared($table,$field)]} {
-		set pattern {[\n\t ]*begin[\n\t ]*if \(NEW."([^"])+" is null\) then[\n\t ]*NEW."([^"])+" = cast \(gen_id\("srl\$([^_"]+)_([^_"]+)",1\) as integer\);[\n\t ]*end}
+		foreach tempfield [$db fields $table] {
+			set shared($table,$tempfield) error
+		}
+		set pattern {[\n\t ]*begin[\n\t ]*if \(NEW."([^"]+)" is null\) then[\n\t ]*NEW."([^"]+)" = cast \(gen_id\("(srl\$[^"]+)",1\) as integer\);[\n\t ]*end}
 		foreach trigger [$db exec {
 			select RDB$TRIGGER_SOURCE,RDB$RELATION_NAME
 			from RDB$TRIGGERS where RDB$RELATION_NAME = ?
 		} $table] {
-			if {[regexp $pattern $trigger temp field1 field2 ttable field]} {
-				set shared($table,$field) srl\$${ttable}_${field}
+			if {[regexp $pattern $trigger temp field1 field2 name]} {
+				set shared($table,$field2) $name
 			}
 		}
-		if {![::info exists shared($table,$field)]} {
-			set shared($table,$field) srl\$${table}_${field}
-		}
 	}
-	return $shared($table,$field)
+	if {[string equal $shared($table,$field) error]} {
+		return -code error "field \"$field\" in table \"$table\" is not a serial"
+	} else {
+		return $shared($table,$field)
+	}
 }
 
 proc ::dbi::interbase::serial_set {db table field args} {

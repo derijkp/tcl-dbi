@@ -622,10 +622,10 @@ int dbi_Postgresql_Supports(
 	Tcl_Obj *keyword)
 {
 	static char *keywords[] = {
-		"lines","backfetch","transactions","sharedtransactions",
+		"lines","backfetch","transactions","sharedtransactions","foreignkeys","checks","permissions",
 		(char *) NULL};
 	enum keywordsIdx {
-		Lines, Backfetch,Transactions,Sharedtransactions
+		Lines, Backfetch,Transactions,Sharedtransactions,Foreignkeys,Checks,Permissions
 	};
 	int error,index;
 	if (keyword == NULL) {
@@ -731,7 +731,7 @@ int dbi_Postgresql_Interface(
 		i = 0;
 		while (interfaces[i] != NULL) {
 			if ((strlen(interfaces[i]) == len) && (strncmp(interfaces[i],interface,len) == 0)) {
-				Tcl_AppendResult(interp,interfaces[i+1]);
+				Tcl_AppendResult(interp,interfaces[i+1],NULL);
 				return TCL_OK;
 			}
 			i+=2;
