@@ -1,10 +1,10 @@
 Summary:	odbc access for Tcl
 Name:		dbi_odbc
-Version:	0.8.1
+Version:	0.8.4
 Release:	1
 Copyright:	BSD
 Group:	Development/Languages/Tcl
-Source:	dbi-0.8.1.src.tar.gz
+Source:	dbi-0.8.4.src.tar.gz
 URL: http://rrna.uia.ac.be/dbi
 Packager: Peter De Rijk <derijkp@uia.ua.ac.be>
 Requires: tcl >= 8.3.2 interface >= 0.8 dbi >= 0.8

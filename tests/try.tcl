@@ -160,12 +160,15 @@ proc ::dbi::opendb {} {
 #	::dbi::filldb
 ::dbi::initdb
 
-interface::test {foreign key} {
-	$object exec {
-		insert into "location" ("type", "inhabitant", "address") 
-		values ('home',10000,1)
-	}
-} {^violation of FOREIGN KEY constraint ".*" on field "inhabitant" in table "location".*} error regexp
+interface::test {special table} {
+	catch {$object exec {create table "o$test" (i integer)}}
+	set result [lsort [$object tables]]
+	$object exec {drop table "o$test"}
+	set result
+} {address location {o$test} person t types use v_test}
+
+::dbi::interbase::serial_name $object types i
+::dbi::interbase::serial_name $object address id
 
 #puts "tests done"
 #$object close

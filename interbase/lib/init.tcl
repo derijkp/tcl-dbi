@@ -10,7 +10,7 @@ namespace eval dbi::interbase {}
 # $Format: "set ::dbi::interbase::version 0.$ProjectMajorVersion$"$
 set ::dbi::interbase::version 0.8
 # $Format: "set ::dbi::interbase::patchlevel $ProjectMinorVersion$"$
-set ::dbi::interbase::patchlevel 4
+set ::dbi::interbase::patchlevel 5
 package provide dbi_interbase $::dbi::interbase::version
 
 proc ::dbi::interbase::init {name testcmd} {
@@ -193,7 +193,7 @@ proc ::dbi::interbase::info {db args} {
 			}
 		}
 		tables {
-			set result [$db exec {select rdb$relation_name from rdb$relations where RDB$SYSTEM_FLAG = 0}]
+			set result [$db exec -flat {select rdb$relation_name from rdb$relations where RDB$SYSTEM_FLAG = 0}]
 		}
 		systemtables {
 			set result ""
@@ -428,16 +428,74 @@ proc ::dbi::interbase::serial_add {db table field args} {
 	return $current
 }
 
-proc ::dbi::interbase::serial_delete {db table field} {
-	set name srl\$${table}_${field}
+proc ::dbi::interbase::serial_share {db table field stable sfield} {
+	upvar #0 ::dbi::interbase::typetrans typetrans
+	upvar #0 ::dbi::interbase::shared shared
 	set db [privatedb $db]
+	set triggername srl\$${table}_${field}
+	set name srl\$${stable}_${sfield}
+	set btable $table
+	set fieldsource [lindex [lindex [$db exec {
+		select RDB$FIELD_SOURCE
+		from RDB$RELATION_FIELDS
+		where RDB$RELATION_NAME = ? and RDB$FIELD_NAME = ?} $btable $field] 0] 0]
+	if {![llength $fieldsource]} {
+		set field $field
+		set fieldsource [lindex [lindex [$db exec {
+			select RDB$FIELD_SOURCE
+			from RDB$RELATION_FIELDS
+			where RDB$RELATION_NAME = ? and RDB$FIELD_NAME = ?} $btable $field] 0] 0]
+		if {![llength $fieldsource]} {
+			error "field \"$field\" not found in table \"$table\""
+		}
+	}
+	set type [$db exec {
+		select RDB$FIELD_TYPE
+		from RDB$FIELDS
+		where RDB$FIELD_NAME = ? } $fieldsource]
+	set type $typetrans($type)
+	$db exec [subst {
+		create trigger "$triggername" for "$table" before
+		insert as
+		begin
+			if (NEW."$field" is null) then
+			NEW."$field" = cast (gen_id("$name",1) as $type);
+		end;
+	}]
+	set shared($table,$field) $name
+}
+
+proc ::dbi::interbase::serial_delete {db table field} {
+	set db [privatedb $db]
+	set name [::dbi::interbase::serial_name $db $table $field]
 	catch {$db exec "drop trigger \"$name\""}
-	catch {$db exec {delete from rdb$generators where rdb$generator_name = ?} $name}
+	if {[string equal $name srl\$${table}_${field}]} {
+		catch {$db exec {delete from rdb$generators where rdb$generator_name = ?} $name}
+	}
+}
+
+proc ::dbi::interbase::serial_name {db table field} {
+	upvar #0 ::dbi::interbase::shared shared
+	if {![::info exists shared($table,$field)]} {
+		set pattern {[\n\t ]*begin[\n\t ]*if \(NEW."([^"])+" is null\) then[\n\t ]*NEW."([^"])+" = cast \(gen_id\("srl\$([^_"]+)_([^_"]+)",1\) as integer\);[\n\t ]*end}
+		foreach trigger [$db exec {
+			select RDB$TRIGGER_SOURCE,RDB$RELATION_NAME
+			from RDB$TRIGGERS where RDB$RELATION_NAME = ?
+		} $table] {
+			if {[regexp $pattern $trigger temp field1 field2 ttable field]} {
+				set shared($table,$field) srl\$${ttable}_${field}
+			}
+		}
+		if {![::info exists shared($table,$field)]} {
+			set shared($table,$field) srl\$${table}_${field}
+		}
+	}
+	return $shared($table,$field)
 }
 
 proc ::dbi::interbase::serial_set {db table field args} {
-	set name srl\$${table}_${field}
 	set db [privatedb $db]
+	set name [::dbi::interbase::serial_name $db $table $field]
 	if [llength $args] {
 		$db exec "set generator \"$name\" to [lindex $args 0]"
 	} else {
@@ -447,7 +505,7 @@ proc ::dbi::interbase::serial_set {db table field args} {
 
 proc ::dbi::interbase::serial_next {db table field} {
 	set db [privatedb $db]
-	set name srl\$${table}_${field}
+	set name [::dbi::interbase::serial_name $db $table $field]
 	$db exec "select (gen_id(\"$name\",1)) from rdb\$database"
 }
 

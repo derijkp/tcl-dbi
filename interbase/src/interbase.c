@@ -2092,7 +2092,7 @@ int dbi_Interbase_Tables(
 {
 	int error;
 	Tcl_Obj *cmd = Tcl_NewStringObj("select rdb$relation_name from rdb$relations where RDB$SYSTEM_FLAG = 0",-1);
-	error = dbi_Interbase_Exec(interp,dbdata,cmd,0,NULL,0,NULL);
+	error = dbi_Interbase_Exec(interp,dbdata,cmd,EXEC_FLAT,NULL,0,NULL);
 	Tcl_DecrRefCount(cmd);
 	return error;
 }
@@ -2127,17 +2127,15 @@ int dbi_Interbase_Serial(
 	Tcl_Interp *interp,
 	dbi_Interbase_Data *dbdata,
 	Tcl_Obj *subcmd,
-	Tcl_Obj *table,
-	Tcl_Obj *field,
-	Tcl_Obj *current)
+	int objc,
+	Tcl_Obj **objv)
 {
-	Tcl_Obj *cmd,*dbcmd;
 	int error,index;
     static char *subCmds[] = {
-		"add", "delete", "set", "next",
+		"add", "delete", "set", "next", "share",
 		(char *) NULL};
     enum ISubCmdIdx {
-		Add, Delete, Set, Next
+		Add, Delete, Set, Next, Share
     };
 	error = Tcl_GetIndexFromObj(interp, subcmd, subCmds, "suboption", 0, (int *) &index);
 	if (error != TCL_OK) {
@@ -2145,34 +2143,21 @@ int dbi_Interbase_Serial(
 	}
     switch (index) {
 	    case Add:
-			cmd = Tcl_NewStringObj("::dbi::interbase::serial_add",-1);
+			error = dbi_Interbase_TclEval(interp,dbdata,"::dbi::interbase::serial_add",objc,objv);	
 			break;
 		case Delete:
-			cmd = Tcl_NewStringObj("::dbi::interbase::serial_delete",-1);
-			current = NULL;
+			error = dbi_Interbase_TclEval(interp,dbdata,"::dbi::interbase::serial_delete",objc,objv);	
 			break;
 		case Set:
-			cmd = Tcl_NewStringObj("::dbi::interbase::serial_set",-1);
+			error = dbi_Interbase_TclEval(interp,dbdata,"::dbi::interbase::serial_set",objc,objv);	
 			break;
 		case Next:
-			cmd = Tcl_NewStringObj("::dbi::interbase::serial_next",-1);
+			error = dbi_Interbase_TclEval(interp,dbdata,"::dbi::interbase::serial_next",objc,objv);	
+			break;
+		case Share:
+			error = dbi_Interbase_TclEval(interp,dbdata,"::dbi::interbase::serial_share",objc,objv);	
 			break;
 	}
-	Tcl_IncrRefCount(cmd);
-	dbcmd = Tcl_NewObj();
-	Tcl_GetCommandFullName(interp, dbdata->token, dbcmd);
-	error = Tcl_ListObjAppendElement(interp,cmd,dbcmd);
-	if (error) {Tcl_DecrRefCount(cmd);Tcl_DecrRefCount(dbcmd);return error;}
-	error = Tcl_ListObjAppendElement(interp,cmd,table);
-	if (error) {Tcl_DecrRefCount(cmd);return error;}
-	error = Tcl_ListObjAppendElement(interp,cmd,field);
-	if (error) {Tcl_DecrRefCount(cmd);return error;}
-	if (current != NULL) {
-		error = Tcl_ListObjAppendElement(interp,cmd,current);
-		if (error) {Tcl_DecrRefCount(cmd);return error;}
-	}
-	error = Tcl_EvalObj(interp,cmd);
-	Tcl_DecrRefCount(cmd);
 	return error;
 }
 
@@ -2631,11 +2616,7 @@ int Dbi_interbase_DbObjCmd(
 			Tcl_WrongNumArgs(interp, 2, objv, "option table field ?value?");
 			return TCL_ERROR;
 		}
-		if (objc == 6) {
-			return dbi_Interbase_Serial(interp,dbdata,objv[2],objv[3],objv[4],objv[5]);
-		} else {
-			return dbi_Interbase_Serial(interp,dbdata,objv[2],objv[3],objv[4],NULL);
-		}
+		return dbi_Interbase_Serial(interp,dbdata,objv[2],objc-3,objv+3);
 	case Drop:
 		if (objc != 2) {
 			Tcl_WrongNumArgs(interp, 2, objv, "");

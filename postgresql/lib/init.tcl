@@ -10,7 +10,7 @@ namespace eval dbi::postgresql {}
 # $Format: "set ::dbi::postgresql::version 0.$ProjectMajorVersion$"$
 set ::dbi::postgresql::version 0.8
 # $Format: "set ::dbi::postgresql::patchlevel $ProjectMinorVersion$"$
-set ::dbi::postgresql::patchlevel 4
+set ::dbi::postgresql::patchlevel 5
 package provide dbi_postgresql $::dbi::postgresql::version
 
 proc ::dbi::postgresql::string_split {string splitstring} {

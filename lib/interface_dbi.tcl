@@ -547,6 +547,13 @@ interface::test {tables 2} {
 	lsort $tables
 } {address location person types use v_test}
 
+interface::test {special table} {
+	catch {$object exec {create table "o$test" (i integer)}}
+	set result [lsort [$object tables]]
+	$object exec {drop table "o$test"}
+	set result
+} {address location {o$test} person types use v_test}
+
 interface::test {db fields} {
 	$object fields person
 } {id first_name name score}

@@ -26,7 +26,7 @@ do
 done
 
 ac_given_srcdir=.
-ac_given_INSTALL="/usr/bin/install -c"
+ac_given_INSTALL="/usr//bin/install -c"
 
 trap 'rm -fr Makefile conftest*; exit 1' 1 2 15
 
@@ -72,7 +72,7 @@ s%@EXEEXT@%%g
 s%@CYGPATH@%echo%g
 s%@TCL_DBGX@%%g
 s%@TCL_BIN_DIR@%/usr/lib%g
-s%@TCL_SRC_DIR@%/home/vince/rpm/BUILD/tcltk-8.3.2/tcl8.3.2%g
+s%@TCL_SRC_DIR@%/home/snailtalk/RPM/BUILD/tcltk-8.3.3/tcl8.3.3%g
 s%@TCL_LIB_FILE@%libtcl8.3.so%g
 s%@TCL_LIBS@%-ldl  -lieee -lm%g
 s%@TCL_DEFS@% -DHAVE_UNISTD_H=1 -DHAVE_LIMITS_H=1 -DHAVE_GETCWD=1 -DHAVE_OPENDIR=1 -DHAVE_STRSTR=1 -DHAVE_STRTOL=1 -DHAVE_TMPNAM=1 -DHAVE_WAITPID=1 -DHAVE_UNISTD_H=1 -DHAVE_SYS_PARAM_H=1 -DUSE_TERMIOS=1 -DHAVE_SYS_TIME_H=1 -DTIME_WITH_SYS_TIME=1 -DHAVE_TM_ZONE=1 -DHAVE_TM_GMTOFF=1 -DHAVE_TIMEZONE_VAR=1 -DHAVE_ST_BLKSIZE=1 -DSTDC_HEADERS=1 -DNEED_MATHERR=1 -DHAVE_SIGNED_CHAR=1 -DHAVE_SYS_IOCTL_H=1 %g

@@ -214,6 +214,20 @@ interface::test {newblob} {
 	list [string equal $odata $data] [string length $data] [string range $data 1000 1009]
 } {1 10000 -000000100}
 
+interface::test {serial share} {
+	$object exec {delete from "location";}
+	$object exec {delete from "address";}
+	$object exec {delete from "types"}
+	catch {$object serial delete address id}
+	catch {$object serial delete types i}
+	$object serial add types i
+	$object serial share address id types i
+	$object exec {insert into "types" ("d") values (20)}
+	$object exec {insert into "types" ("d") values (21)}
+	$object exec {insert into "address" ("street") values ('test')}
+	$object exec {select "id","street" from "address" order by "id"}
+} {{3 test}}
+
 $object destroy
 $object2 destroy
 

@@ -12,7 +12,7 @@
 # See the file "license.terms" for information on usage and redistribution
 # of this file, and for a DISCLAIMER OF ALL WARRANTIES.
 #
-# RCS: @(#) $Id: Makefile 1.5.1.1 Fri, 04 Jan 2002 17:58:38 +0100 peter $
+# RCS: @(#) $Id: Makefile 1.5.1.2 Tue, 12 Feb 2002 09:50:31 +0100 peter $
 
 #========================================================================
 # Edit the following few lines when writing a new extension
@@ -110,7 +110,7 @@ pkgincludedir = $(includedir)/dbi_interbase0.8
 
 top_builddir = .
 
-INSTALL = /usr/bin/install -c
+INSTALL = /usr//bin/install -c
 INSTALL_PROGRAM = ${INSTALL}
 INSTALL_DATA = ${INSTALL} -m 644
 INSTALL_SCRIPT = ${INSTALL_PROGRAM}
@@ -127,7 +127,7 @@ POST_UNINSTALL = :
 PACKAGE = dbi_interbase
 VERSION = 0.8
 CC = cc
-CFLAGS_DEBUG = -g -Wall
+CFLAGS_DEBUG = -g
 CFLAGS_DEFAULT = -O -D__NO_STRING_INLINES -D__NO_MATH_INLINES
 CFLAGS_OPTIMIZE = -O -D__NO_STRING_INLINES -D__NO_MATH_INLINES
 CLEANFILES = extratcl
@@ -151,7 +151,7 @@ TCL_EXTRA_CFLAGS =
 TCL_LD_FLAGS = -rdynamic
 TCL_LIBS = -ldl  -lieee -lm
 TCL_SHLIB_LD_LIBS = ${LIBS}
-TCL_SRC_DIR = /home/vince/rpm/BUILD/tcltk-8.3.2/tcl8.3.2
+TCL_SRC_DIR = /home/snailtalk/RPM/BUILD/tcltk-8.3.3/tcl8.3.3
 TCL_DBGX = 
 TCL_STUB_LIB_FILE = libtclstub8.3${TCL_DBGX}.a
 TCL_STUB_LIB_SPEC = -L/usr/lib -ltclstub8.3${TCL_DBGX}
@@ -169,7 +169,7 @@ TCL_LIB_SPEC = -L/usr/lib -ltcl8.3${TCL_DBGX}
 
 AUTOCONF = autoconf
 
-LDFLAGS = $(LDFLAGS_DEBUG)
+LDFLAGS = $(LDFLAGS_DEFAULT)
 
 INCLUDES = -I"/usr//include" $(INTERBASE_INCLUDE)
 
@@ -185,7 +185,7 @@ CONFIG_CLEAN_FILES = mkIndex.tcl
 CPPFLAGS = 
 LIBS = 
 AR = ar
-CFLAGS = ${CFLAGS_DEBUG} ${CFLAGS_WARNING} ${SHLIB_CFLAGS}
+CFLAGS = ${CFLAGS_DEFAULT} ${CFLAGS_WARNING} ${SHLIB_CFLAGS}
 COMPILE = $(CC) $(DEFS) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(AM_CFLAGS) $(CFLAGS)
 CCLD = $(CC)
 LINK = $(CCLD) $(AM_CFLAGS) $(CFLAGS) $(LDFLAGS) -o $@
