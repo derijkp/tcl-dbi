@@ -13,6 +13,9 @@ set ::dbi::postgresql::version 0.8
 set ::dbi::postgresql::patchlevel 9
 package provide dbi_postgresql $::dbi::postgresql::version
 
+source $dbi::postgresql::dir/lib/package.tcl
+package::init $dbi::postgresql::dir dbi_postgresql
+
 proc ::dbi::postgresql::string_split {string splitstring} {
 	set result ""
 	set len [string length $splitstring]
@@ -27,63 +30,6 @@ proc ::dbi::postgresql::string_split {string splitstring} {
 	}
 	return $result
 }
-
-proc ::dbi::postgresql::init {name testcmd} {
-	global tcl_platform
-	foreach var {version patchlevel execdir dir bindir datadir} {
-		variable $var
-	}
-	#
-	# If the following directories are present in the same directory as pkgIndex.tcl, 
-	# we can use them otherwise use the value that should be provided by the install
-	#
-	if [file exists [file join $execdir lib]] {
-		set dir $execdir
-	} else {
-		set dir {@TCLLIBDIR@}
-	}
-	if [file exists [file join $execdir bin]] {
-		set bindir [file join $execdir bin]
-	} else {
-		set bindir {@BINDIR@}
-	}
-	if [file exists [file join $execdir data]] {
-		set datadir [file join $execdir data]
-	} else {
-		set datadir {@DATADIR@}
-	}
-	#
-	# Try to find the compiled library in several places
-	#
-	if {"[info commands $testcmd]" != "$testcmd"} {
-		set libbase {@LIB_LIBRARY@}
-		if [regexp ^@ $libbase] {
-			if {"$tcl_platform(platform)" == "windows"} {
-				regsub {\.} $version {} temp
-				set libbase $name$temp[info sharedlibextension]
-			} else {
-				set libbase lib${name}$version[info sharedlibextension]
-			}
-		}
-		foreach libfile [list \
-			[file join $dir build $libbase] \
-			[file join $dir .. $libbase] \
-			[file join {@LIBDIR@} $libbase] \
-			[file join {@BINDIR@} $libbase] \
-			[file join $dir $libbase] \
-		] {
-			if [file exists $libfile] {break}
-		}
-		#
-		# Load the shared library if present
-		# If not, Tcl code will be loaded when necessary
-		#
-		load $libfile
-		catch {unset libbase}
-	}
-}
-::dbi::postgresql::init dbi_postgresql dbi_postgresql
-rename ::dbi::postgresql::init {}
 
 #
 # Procs
@@ -146,70 +92,6 @@ proc ::dbi::postgresql::fieldsinfo {db table} {
 
 array set ::dbi::postgresql::typetrans {bpchar char int4 integer int2 smallint float8 double}
 
-#proc ::dbi::postgresql::tableinfo {db table var} {
-#	set db [privatedb $db]
-#	upvar $var data
-#	upvar ::dbi::postgresql::typetrans typetrans
-#	catch {unset data}
-#	set c [$db exec "\
-#		select attnum,attname,typname,attlen,attnotnull,atttypmod,usename,usesysid,pg_class.oid,relpages,reltuples,relhaspkey,relhasrules,relacl \
-#		from pg_class,pg_user,pg_attribute,pg_type \
-#		where (pg_class.relname='$table') and (pg_class.oid=pg_attribute.attrelid) and (pg_class.relowner=pg_user.usesysid) and (pg_attribute.atttypid=pg_type.oid) \
-#		order by attnum"] 
-#	if ![llength $c] {error "table \"$table\" does not exist"}
-#	foreach {attnum attname typname attlen attnotnull atttypmod usename usesysid pg_class.oid relpages reltuples relhaspkey relhasrules relacl} [lindex $c 0] break
-#	set data(owner) $usename
-#	set data(oid) ${pg_class.oid}
-#	set data(ownerid) $usesysid
-#	set data(numtuples) $reltuples
-#	set data(numpages) $relpages
-#	set data(permissions) $relacl
-#	set data(hasrules) [? {"$relhasrules" == "t"} 1 0]
-#	foreach line [lrange $c 6 end] {
-#		set field [lindex $line 1]
-#		lappend data(fields) $field
-#		foreach {attnum attname typname attlen attnotnull atttypmod usename usesysid pg_class.oid relpages reltuples relhaspkey relhasrules relacl} $line break
-#		if [::info exists typetrans($typname)] {
-#			set data(field,$field,type) $typetrans($typname)
-#		} else {
-#			set data(field,$field,type) $typname
-#		}
-#		set data(field,$field,size) $attlen
-#		set data(field,$field,fsize) $atttypmod
-#		set data(field,$field,notnull) [? {"$attnotnull" == "t"} 1 0]
-#	}
-#	foreach line [$db exec "select oid,indkey,indexrelid,indisprimary,indisunique from pg_index where (pg_class.relname='$table') and (pg_class.oid=pg_index.indrelid)"] {
-#		foreach {oid indkey indexrelid indisprimary indisunique} $line break
-#		set indexname [$db exec "select relname from pg_class where oid=$indexrelid"]
-#		lappend data(indices) $indexname
-#		foreach num $indkey {
-#			incr num -1
-#			lappend data(index,[lindex $data(fields) $num],name) $indexname
-#		}
-#		set data(index,$indexname,isprimary) [? {"$indisprimary" == "t"} 1 0]
-#		set data(index,$indexname,isunique) [? {"$indisunique" == "t"} 1 0]
-#		if $data(index,$indexname,isprimary) {
-#			lappend data(primarykey) $data(index,$indexname,key)
-#		}
-#	}
-#	foreach line [$db exec "select oid,tgname,tgtype,tgargs from pg_trigger where (pg_class.relname='$table') and (pg_class.oid=pg_trigger.tgrelid)"] {
-#		foreach {oid tgname tgtype tgargs} $line break
-#		if ![regexp ^RI_ConstraintTrigger_ $tgname] continue
-#		if {$tgtype == 21} {
-#			set line [string_split $tgargs \\000]
-#			set data(foreignkey,[lindex $line 4]) [list [lindex $line 2] [lindex $line 5]]
-#			lappend data(foreignkeys) [lindex $line 4]
-#		} elseif {$tgtype == 9} {
-#			set line [string_split $tgargs \\000]
-#			lappend data(referencedby,[lindex $line 1]) [lrange $line 4 5]
-#			lappend data(referencedby) [lindex $line 1]
-#		}
-#	}
-#	foreach line [$db exec "SELECT rcsrc FROM pg_relcheck r, pg_class c WHERE c.relname='$table' AND c.oid = r.rcrelid"] {
-#		lappend data(constraints) [lindex $line 0]
-#	}
-#}
-
 proc ::dbi::postgresql::serial_add {db table field args} {
 	set db [privatedb $db]
 	set name ${table}_${field}_seq
@@ -262,6 +144,162 @@ proc ::dbi::postgresql::serial_next {db table field} {
 	$db exec [subst -nobackslashes -nocommands {
 		select nextval('$name');
 	}]
+}
+
+proc ::dbi::postgresql::table_info_old {db table} {
+	upvar ::dbi::postgresql::typetrans typetrans
+	set result ""
+	set c [$db exec "\
+		select oid,relpages,reltuples,relhaspkey,relhasrules,relowner,relacl \
+		from pg_class \
+		where pg_class.relname='$table'"] 
+	foreach {pg_class_oid relpages reltuples relhaspkey relhasrules relowner relacl} [lindex $c 0] break
+	set owner [$db exec "select usename from pg_user where usesysid = $relowner"] 
+	set c [$db exec "\
+		select attnum,attname,typname,attlen,attnotnull,atttypmod \
+		from pg_attribute,pg_type \
+		where (pg_attribute.attrelid = $pg_class_oid) and (pg_attribute.atttypid=pg_type.oid) \
+		order by attnum"] 
+	set fields {}
+	foreach line $c {
+		foreach {attnum attname typname attlen attnotnull atttypmod} $line break
+		if {$attnum < 0} continue
+		lappend fields $attname
+		if [::info exists typetrans($typname)] {
+			lappend result type,$attname $typetrans($typname)
+		} else {
+			lappend result type,$attname $typname
+		}
+		if {$atttypmod == -1} {
+			lappend result length,$attname $attlen
+		} else {
+			lappend result length,$attname [expr {$atttypmod-4}]
+		}
+		if {"$attnotnull" == "t"} {
+			lappend result notnull,$attname 1
+		}
+	}
+	lappend result fields $fields
+	lappend result owner $owner
+	lappend result oid ${pg_class_oid}
+	lappend result ownerid $relowner
+	lappend result numtuples $reltuples
+	lappend result numpages $relpages
+	lappend result permissions $relacl
+	set c [$db exec "select indkey,indexrelid,indisprimary,indisunique from pg_index where (pg_index.indrelid = $pg_class_oid)"]
+	foreach line $c {
+		foreach {indkey indexrelid indisprimary indisunique} $line break
+		set indexname [$db exec "select relname from pg_class where oid=$indexrelid"]
+		lappend indices $indexname
+		set indkeylist {}
+		foreach num $indkey {
+			incr num -1
+			lappend indkeylist [lindex $fields $num]
+		}
+		lappend result index,$indkeylist,name $indexname
+		if {"$indisprimary" == "t"} {
+			lappend result primary,$indkeylist $indexname
+		}
+		if {"$indisunique" == "t"} {
+			lappend result unique,$indkeylist $indexname
+		}
+	}
+	set c [$db exec "select oid,tgname,tgtype,tgargs from pg_trigger where (pg_class.relname='$table') and (pg_class.oid=pg_trigger.tgrelid)"]
+	foreach line $c {
+		foreach {oid tgname tgtype tgargs} $line break
+		if ![regexp ^RI_ConstraintTrigger_ $tgname] continue
+		if {$tgtype == 21} {
+			set templine [string_split $tgargs \\000]
+			lappend result foreign,[lindex $templine 4] [list [lindex $templine 2] [lindex $templine 5]]
+		} elseif {$tgtype == 9} {
+			set templine [string_split $tgargs \\000]
+			lappend keepref(referencedby,[lindex $templine 5]) [list [lindex $templine 1] [lindex $templine 4]]
+		}
+	}
+	eval lappend result [array get keepref]
+	set c [$db exec "SELECT rcname,rcsrc FROM pg_relcheck r, pg_class c WHERE c.relname='$table' AND c.oid = r.rcrelid"]
+	foreach line $c {
+		lappend result constraint,[lindex $line 1] [lindex $line 0]
+	}
+	return $result
+}
+
+proc ::dbi::postgresql::table_info_new {db table} {
+	upvar ::dbi::postgresql::typetrans typetrans
+	set result ""
+	set c [$db exec "\
+		select oid,relpages,reltuples,relhaspkey,relhasrules,relowner,relacl \
+		from pg_class \
+		where pg_class.relname='$table'"] 
+	foreach {pg_class_oid relpages reltuples relhaspkey relhasrules relowner relacl} [lindex $c 0] break
+	set owner [$db exec "select usename from pg_user where usesysid = $relowner"] 
+	set c [$db exec "\
+		select attnum,attname,typname,attlen,attnotnull,atttypmod \
+		from pg_attribute,pg_type \
+		where (pg_attribute.attrelid = $pg_class_oid) and (pg_attribute.atttypid=pg_type.oid) \
+		order by attnum"] 
+	set fields {}
+	foreach line $c {
+		foreach {attnum attname typname attlen attnotnull atttypmod} $line break
+		if {$attnum < 0} continue
+		lappend fields $attname
+		if [::info exists typetrans($typname)] {
+			lappend result type,$attname $typetrans($typname)
+		} else {
+			lappend result type,$attname $typname
+		}
+		if {$atttypmod == -1} {
+			lappend result length,$attname $attlen
+		} else {
+			lappend result length,$attname [expr {$atttypmod-4}]
+		}
+		if {"$attnotnull" == "t"} {
+			lappend result notnull,$attname 1
+		}
+	}
+	lappend result fields $fields
+	lappend result owner $owner
+	lappend result oid ${pg_class_oid}
+	lappend result ownerid $relowner
+	lappend result numtuples $reltuples
+	lappend result numpages $relpages
+	lappend result permissions $relacl
+	set c [$db exec "select indkey,indexrelid,indisprimary,indisunique from pg_index where (pg_index.indrelid = $pg_class_oid)"]
+	foreach line $c {
+		foreach {indkey indexrelid indisprimary indisunique} $line break
+		set indexname [$db exec "select relname from pg_class where oid=$indexrelid"]
+		lappend indices $indexname
+		set indkeylist {}
+		foreach num $indkey {
+			incr num -1
+			lappend indkeylist [lindex $fields $num]
+		}
+		lappend result index,$indkeylist,name $indexname
+		if {"$indisprimary" == "t"} {
+			lappend result primary,$indkeylist $indexname
+		}
+		if {"$indisunique" == "t"} {
+			lappend result unique,$indkeylist $indexname
+		}
+	}
+	set c [$db exec "select oid,tgname,tgtype,tgargs from pg_trigger where (pg_class.relname='$table') and (pg_class.oid=pg_trigger.tgrelid)"]
+	foreach line $c {
+		foreach {oid tgname tgtype tgargs} $line break
+		if ![regexp ^RI_ConstraintTrigger_ $tgname] continue
+		if {$tgtype == 21} {
+			set templine [string_split $tgargs \\000]
+			lappend result foreign,[lindex $templine 4] [list [lindex $templine 2] [lindex $templine 5]]
+		} elseif {$tgtype == 9} {
+			set templine [string_split $tgargs \\000]
+			lappend keepref(referencedby,[lindex $templine 5]) [list [lindex $templine 1] [lindex $templine 4]]
+		}
+	}
+	eval lappend result [array get keepref]
+	set c [$db exec {SELECT conname,consrc FROM pg_constraint r, pg_class c WHERE c.relname=? AND c.oid = r.conrelid} $table]
+	foreach line $c {
+		lappend result constraint,[lindex $line 1] [lindex $line 0]
+	}
+	return $result
 }
 
 proc ::dbi::postgresql::info {db args} {
@@ -334,81 +372,16 @@ proc ::dbi::postgresql::info {db args} {
 		}
 		table {
 			if {$len == 2} {
-				upvar ::dbi::postgresql::typetrans typetrans
+				variable dbtype
+				if {![::info exists dbtype($db)]} {
+					if {[lsearch [$db info systemtables] pg_relcheck] == -1} {
+						set dbtype($db) new
+					} else {
+						set dbtype($db) old
+					}
+				}
 				set table [lindex $args 1]
-				set result ""
-				set c [$db exec "\
-					select oid,relpages,reltuples,relhaspkey,relhasrules,relowner,relacl \
-					from pg_class \
-					where pg_class.relname='$table'"] 
-				foreach {pg_class_oid relpages reltuples relhaspkey relhasrules relowner relacl} [lindex $c 0] break
-				set owner [$db exec "select usename from pg_user where usesysid = $relowner"] 
-				set c [$db exec "\
-					select attnum,attname,typname,attlen,attnotnull,atttypmod \
-					from pg_attribute,pg_type \
-					where (pg_attribute.attrelid = $pg_class_oid) and (pg_attribute.atttypid=pg_type.oid) \
-					order by attnum"] 
-				set fields {}
-				foreach line $c {
-					foreach {attnum attname typname attlen attnotnull atttypmod} $line break
-					if {$attnum < 0} continue
-					lappend fields $attname
-					if [::info exists typetrans($typname)] {
-						lappend result type,$attname $typetrans($typname)
-					} else {
-						lappend result type,$attname $typname
-					}
-					if {$atttypmod == -1} {
-						lappend result length,$attname $attlen
-					} else {
-						lappend result length,$attname [expr {$atttypmod-4}]
-					}
-					if {"$attnotnull" == "t"} {
-						lappend result notnull,$attname 1
-					}
-				}
-				lappend result fields $fields
-				lappend result owner $owner
-				lappend result oid ${pg_class_oid}
-				lappend result ownerid $relowner
-				lappend result numtuples $reltuples
-				lappend result numpages $relpages
-				lappend result permissions $relacl
-				set c [$db exec "select indkey,indexrelid,indisprimary,indisunique from pg_index where (pg_index.indrelid = $pg_class_oid)"]
-				foreach line $c {
-					foreach {indkey indexrelid indisprimary indisunique} $line break
-					set indexname [$db exec "select relname from pg_class where oid=$indexrelid"]
-					lappend indices $indexname
-					set indkeylist {}
-					foreach num $indkey {
-						incr num -1
-						lappend indkeylist [lindex $fields $num]
-					}
-					lappend result index,$indkeylist,name $indexname
-					if {"$indisprimary" == "t"} {
-						lappend result primary,$indkeylist $indexname
-					}
-					if {"$indisunique" == "t"} {
-						lappend result unique,$indkeylist $indexname
-					}
-				}
-				set c [$db exec "select oid,tgname,tgtype,tgargs from pg_trigger where (pg_class.relname='$table') and (pg_class.oid=pg_trigger.tgrelid)"]
-				foreach line $c {
-					foreach {oid tgname tgtype tgargs} $line break
-					if ![regexp ^RI_ConstraintTrigger_ $tgname] continue
-					if {$tgtype == 21} {
-						set templine [string_split $tgargs \\000]
-						lappend result foreign,[lindex $templine 4] [list [lindex $templine 2] [lindex $templine 5]]
-					} elseif {$tgtype == 9} {
-						set templine [string_split $tgargs \\000]
-						lappend keepref(referencedby,[lindex $templine 5]) [list [lindex $templine 1] [lindex $templine 4]]
-					}
-				}
-				eval lappend result [array get keepref]
-				set c [$db exec "SELECT rcname,rcsrc FROM pg_relcheck r, pg_class c WHERE c.relname='$table' AND c.oid = r.rcrelid"]
-				foreach line $c {
-					lappend result constraint,[lindex $line 1] [lindex $line 0]
-				}
+				set result [::dbi::postgresql::table_info_$dbtype($db) $db $table]
 			} else {
 				error "wrong # args: should be \"$db info table tablename\""
 			}

@@ -17,10 +17,10 @@ Installation
 You should be able to obtain the latest version of dbi via www on url
 http://rrna.uia.ac.be/dbi/.
 
-Usually you can build the binaries and install the package using the following steps:
-cd to the dbi directory
-cd build
+Compiled packages should be created using the following steps in the package directory:
+(You can also build in any other directory, if you change the path to the configure command)
 ./configure
+make
 make install
 
 The configure command has several options that can be examined using

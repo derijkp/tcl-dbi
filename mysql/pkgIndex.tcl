@@ -12,10 +12,6 @@ package ifneeded dbi_mysql 0.8 \
 [subst -nocommands {
 	namespace eval ::dbi {}
 	namespace eval ::dbi::mysql {}
-	set ::dbi::mysql::execdir $dir
-	if [file exists [file join $dir lib init.tcl]] {
-		source [file join $dir lib init.tcl]
-	} else {
-		source [file join @TCLLIBDIR@ lib init.tcl]
-	}
+	set ::dbi::mysql::dir [list $dir]
+	source [file join [list $dir] lib init.tcl]
 }]

@@ -7,6 +7,7 @@ set interface dbi
 # $Format: "set version 0.$ProjectMajorVersion$"$
 set version 0.8
 
+package require interface
 package require dbi
 package require dbi_mysql
 

@@ -12,10 +12,6 @@ package ifneeded dbi_sqlite 0.8 \
 [subst -nocommands {
 	namespace eval ::dbi {}
 	namespace eval ::dbi::sqlite {}
-	set ::dbi::sqlite::execdir $dir
-	if [file exists [file join $dir lib init.tcl]] {
-		source [file join $dir lib init.tcl]
-	} else {
-		source [file join @TCLLIBDIR@ lib init.tcl]
-	}
+	set ::dbi::sqlite::dir [list $dir]
+	source [file join [list $dir] lib init.tcl]
 }]

@@ -4,7 +4,9 @@ package require interface
 proc ::interfaces::dbi_admin-0.8 {option args} {
 	interface::implement dbi_admin $::dbi::version [file join $::dbi::dir doc xml interface_dbi.n.xml] {
 		-testdb testdbi
+		-openargs {}
 	} $option $args
+	if {![::info exists opt(-openargs)]} {set opt(-openargs) {}}
 	
 	# test interface command
 	# ----------------------
@@ -30,46 +32,52 @@ proc ::interfaces::dbi_admin-0.8 {option args} {
 	interface::test {create} {
 		catch {$object close}
 		catch {
-			$object open $opt(-testdb)
+			eval {$object open $opt(-testdb)} $opt(-openargs)
 			$object drop
 		}
-		$object create $opt(-testdb)
-		$object open $opt(-testdb)
+		eval {$object create $opt(-testdb)} $opt(-openargs)
+		eval {$object open $opt(-testdb)} $opt(-openargs)
 		$object tables
 	} {}
 	
 	interface::test {create and drop} {
 		catch {$object close}
 		catch {
-			$object open $opt(-testdb)
+			eval {$object open $opt(-testdb)} $opt(-openargs)
 			$object drop
 		}
-		$object create $opt(-testdb)
-		$object open $opt(-testdb)
+		eval {$object create $opt(-testdb)} $opt(-openargs)
+		eval {$object open $opt(-testdb)} $opt(-openargs)
 		$object drop
 		$object exec { }
 	} {dbi object has no open database, open a connection first} error
 	
 	interface::test {create again after drop} {
 		catch {$object close}
-		$object create $opt(-testdb)
-		$object open $opt(-testdb)
+		eval {$object create $opt(-testdb)} $opt(-openargs)
+		eval {$object open $opt(-testdb)} $opt(-openargs)
 		$object tables
 	} {}
 	
+	catch {
+		$object close
+		eval {$object open $opt(-testdb)} $opt(-openargs)
+		$object drop
+	}
 	interface::test {create, drop, create and open with clone present} {
 		catch {$object close}
-		$object open $opt(-testdb)
+		eval {$object create $opt(-testdb)} $opt(-openargs)
+		eval {$object open $opt(-testdb)} $opt(-openargs)
 		$object drop
-		$object create $opt(-testdb)
-		$object open $opt(-testdb)
+		eval {$object create $opt(-testdb)} $opt(-openargs)
+		eval {$object open $opt(-testdb)} $opt(-openargs)
 		set clone [$object clone]
 		$object exec {create table "test" (i integer, t varchar(100))}
 		$clone exec {insert into "test" values (1,'abcdefgh')}
 		$object exec {select * from "test"}
 		$object drop
-		$object create $opt(-testdb)
-		$object open $opt(-testdb)
+		eval {$object create $opt(-testdb)} $opt(-openargs)
+		eval {$object open $opt(-testdb)} $opt(-openargs)
 		set clone [$object clone]
 		$object exec {create table "test" (i integer, t varchar(100))}
 		$object exec {insert into "test" values (1,'abcdefgh')}

@@ -8,71 +8,66 @@
 #	replaced in the actual Makefile.
 #
 # Copyright (c) 1999 Scriptics Corporation.
+# Copyright (c) 2002 ActiveState SRL.
 #
 # See the file "license.terms" for information on usage and redistribution
 # of this file, and for a DISCLAIMER OF ALL WARRANTIES.
 #
-# RCS: @(#) $Id: Makefile 1.2 Fri, 13 Sep 2002 18:39:35 +0200 peter $
+# RCS: @(#) $Id: Makefile.in,v 1.41 2002/07/12 00:12:19 hobbs Exp $
 
 #========================================================================
 # Edit the following few lines when writing a new extension
 #========================================================================
 
 #========================================================================
-# Change the name of the variable "exampleA_LIB_FILE" to match the one
-# used in the configure script.  This is the parameterized name of the
-# library that we are building.
-#========================================================================
-
-lib_BINARIES=$(dbi_sqlite_LIB_FILE)
-bin_BINARIES=
-BINARIES=$(lib_BINARIES) $(bin_BINARIES)
-SOURCE_DIR=$(srcdir)/../src
-
-#========================================================================
 # Enumerate the names of the source files included in this package.
 # This will be used when a dist target is added to the Makefile.
+# EXTRA_SOURCES will be replaced by WIN_SOURCES or UNIX_SOURCES, as is
+# appropriate for your platform.  It is not important to specify the
+# directory, as long as it is the $(srcdir) or in the generic, win or
+# unix subdirectory.
 #========================================================================
 
-dbi_sqlite_SOURCES = $(SOURCE_DIR)/sqlite.c
-SOURCES = $(dbi_sqlite_SOURCES)
+dbi_sqlite_SOURCES	= sqlite.c encode.c $(UNIX_SOURCES)
+
+WIN_SOURCES	= 
+UNIX_SOURCES	= 
 
 #========================================================================
-# Enumerate the names of the object files included in this package.
-# These objects are created and linked into the final library.  In
-# most cases these object files will correspond to the source files
-# above.
+# Identify the object files.  This replaces .c with .$(OBJEXT) for all
+# the named source files.   These objects are created and linked into the
+# final library.  In these do not correspond directly to the source files
+# above, you will need to enumerate the object files here.
+# Normally we would use $(OBJEXT), but certain make executables won't do
+# the extra macro in a macro conversion properly.
 #
+# "dbi_sqlite_LIB_FILE" refers to the library (dynamic or static as per
+# configuration options) composed of the named objects.
 #========================================================================
 
-dbi_sqlite_OBJECTS = sqlite.$(OBJEXT)
-OBJECTS = $(dbi_sqlite_OBJECTS)
+dbi_sqlite_OBJECTS	= $(dbi_sqlite_SOURCES:.c=.o)
+dbi_sqlite_LIB_FILE	= libdbi_sqlite0.8.so
 
 #========================================================================
-# The substitution of "exampleA_LIB_FILE" into the variable name below
-# allows us to refer to the objects for the library without knowing the name
-# of the library in advance.  It also lets us use the "$@" variable in
-# the rule for building the library, so we can refer to both the list of 
-# objects and the library itself in a platform-independent manner.
+# RUNTIME_SOURCES identifies Tcl runtime files that are associated with
+# this package that need to be installed, if any.
 #========================================================================
 
-dbi_sqlite_LIB_FILE = libdbi_sqlite0.8.so
-$(dbi_sqlite_LIB_FILE)_OBJECTS = $(dbi_sqlite_OBJECTS)
+#RUNTIME_SOURCES =
 
 #========================================================================
 # This is a list of header files to be installed
 #========================================================================
 
-GENERIC_HDRS=$(SOURCE_DIR)/sqlite.h
+GENERIC_HDRS	= 
 
 #========================================================================
 # Add additional lines to handle any additional AC_SUBST cases that
 # have been added to the configure script.
 #========================================================================
 
-SAMPLE_NEW_VAR=@SAMPLE_NEW_VAR@
-SQLITE_INCLUDE=-I"/usr/include"
-SQLITE_LIB=-L"/usr/lib" -lsqlite
+SQLITE_LIB = -L"/usr/local/lib" -lsqlite
+
 
 #========================================================================
 # Nothing of the variables below this line need to be changed.  Please
@@ -80,115 +75,108 @@ SQLITE_LIB=-L"/usr/lib" -lsqlite
 # correct.
 #========================================================================
 
-SHELL = /bin/sh
+#========================================================================
+# The variable "$(PACKAGE)_LIB_FILE" is the parameterized name of the
+# library that we are building.
+#========================================================================
 
-srcdir = .
-top_srcdir = .
-prefix = /usr
-exec_prefix = ${prefix}
+lib_BINARIES	= $($(PACKAGE)_LIB_FILE)
+BINARIES	= $(lib_BINARIES)
 
-bindir = ${exec_prefix}/bin
-sbindir = ${exec_prefix}/sbin
-libexecdir = ${exec_prefix}/libexec
-datadir = ${prefix}/share
-sysconfdir = ${prefix}/etc
-sharedstatedir = ${prefix}/com
-localstatedir = ${prefix}/var
-libdir = ${exec_prefix}/lib
-infodir = ${prefix}/info
-mandir = ${prefix}/man
-includedir = ${prefix}/include
-oldincludedir = /usr/include
-tcllibdir = ${prefix}/lib
+SHELL		= /bin/sh
 
-DESTDIR =
+srcdir		= ..
+prefix		= /usr/local
+exec_prefix	= /usr/local
 
-pkgdatadir = $(datadir)/dbi_sqlite0.8
-pkglibdir = $(libdir)/dbi_sqlite0.8
-pkgtcllibdir = $(tcllibdir)/dbi_sqlite0.8
-pkgincludedir = $(includedir)/dbi_sqlite0.8
+bindir		= ${exec_prefix}/bin
+libdir		= ${exec_prefix}/lib
+datadir		= ${prefix}/share
+mandir		= ${prefix}/man
+includedir	= ${prefix}/include
 
-top_builddir = .
+DESTDIR		=
 
-INSTALL = /usr/bin/install -c
-INSTALL_PROGRAM = ${INSTALL}
-INSTALL_DATA = ${INSTALL} -m 644
-INSTALL_SCRIPT = ${INSTALL_PROGRAM}
-INSTALL_STRIP_FLAG =
-transform = s,x,x,
+PKG_DIR		= $(PACKAGE)$(VERSION)
+pkgdatadir	= $(datadir)/$(PKG_DIR)
+pkglibdir	= $(libdir)/$(PKG_DIR)
+pkgincludedir	= $(includedir)/$(PKG_DIR)
 
-NORMAL_INSTALL = :
-PRE_INSTALL = :
-POST_INSTALL = :
-NORMAL_UNINSTALL = :
-PRE_UNINSTALL = :
-POST_UNINSTALL = :
+top_builddir	= .
 
-PACKAGE = dbi_sqlite
-VERSION = 0.8
-CC = cc
-CFLAGS_DEBUG = -g
-CFLAGS_DEFAULT = -O -D__NO_STRING_INLINES -D__NO_MATH_INLINES
-CFLAGS_OPTIMIZE = -O -D__NO_STRING_INLINES -D__NO_MATH_INLINES
-CLEANFILES = extratcl
-EXEEXT = 
-LDFLAGS_DEBUG = @LDFLAGS_DEBUG@
-LDFLAGS_DEFAULT = @LDFLAGS_OPTIMIZE@
-LDFLAGS_OPTIMIZE = @LDFLAGS_OPTIMIZE@
-MAKE_LIB = ${SHLIB_LD} -o $@ $($@_OBJECTS) ${SHLIB_LDFLAGS} ${SHLIB_LD_LIBS}
-MAKE_SHARED_LIB = ${SHLIB_LD} -o $@ $($@_OBJECTS) ${SHLIB_LDFLAGS} ${SHLIB_LD_LIBS}
-MAKE_STATIC_LIB = ${STLIB_LD} $@ $($@_OBJECTS)
-OBJEXT = o
-RANLIB = :
-SHLIB_CFLAGS = -fPIC
-SHLIB_LD = gcc -pipe -shared
-SHLIB_LDFLAGS = 
-SHLIB_LD_LIBS = -L/usr/lib -ltclstub8.3${TCL_DBGX}
-STLIB_LD = ar cr
-TCL_BIN_DIR = /usr/lib
-TCL_DEFS =  -DHAVE_UNISTD_H=1 -DHAVE_LIMITS_H=1 -DHAVE_GETCWD=1 -DHAVE_OPENDIR=1 -DHAVE_STRSTR=1 -DHAVE_STRTOL=1 -DHAVE_TMPNAM=1 -DHAVE_WAITPID=1 -DHAVE_UNISTD_H=1 -DHAVE_SYS_PARAM_H=1 -DUSE_TERMIOS=1 -DHAVE_SYS_TIME_H=1 -DTIME_WITH_SYS_TIME=1 -DHAVE_TM_ZONE=1 -DHAVE_TM_GMTOFF=1 -DHAVE_TIMEZONE_VAR=1 -DHAVE_ST_BLKSIZE=1 -DSTDC_HEADERS=1 -DNEED_MATHERR=1 -DHAVE_SIGNED_CHAR=1 -DHAVE_SYS_IOCTL_H=1 
-TCL_EXTRA_CFLAGS = 
-TCL_LD_FLAGS = -rdynamic
-TCL_LIBS = -ldl  -lieee -lm
-TCL_SHLIB_LD_LIBS = ${LIBS}
-TCL_SRC_DIR = /home/snailtalk/RPM/BUILD/tcltk-8.3.3/tcl8.3.3
-TCL_DBGX = 
-TCL_STUB_LIB_FILE = libtclstub8.3${TCL_DBGX}.a
-TCL_STUB_LIB_SPEC = -L/usr/lib -ltclstub8.3${TCL_DBGX}
-TCL_TOOL_DIR_NATIVE = @TCL_TOOL_DIR_NATIVE@
-TCL_TOP_DIR_NATIVE = @TCL_TOP_DIR_NATIVE@
-TCL_UNIX_DIR_NATIVE = @TCL_UNIX_DIR_NATIVE@
-TCL_WIN_DIR_NATIVE = @TCL_WIN_DIR_NATIVE@
-INCLUDE_DIR_NATIVE = @INCLUDE_DIR_NATIVE@
-TCL_BMAP_DIR_NATIVE = @TCL_BMAP_DIR_NATIVE@
-TCL_PLATFORM_DIR_NATIVE = @TCL_PLATFORM_DIR_NATIVE@
-TCL_GENERIC_DIR_NATIVE = @TCL_GENERIC_DIR_NATIVE@
-TCLSH_PROG = /usr/bin/tclsh8.3
-SHARED_BUILD = 1
-TCL_LIB_SPEC = -L/usr/lib -ltcl8.3${TCL_DBGX}
+INSTALL		= /usr//bin/install -c
+INSTALL_PROGRAM	= ${INSTALL}
+INSTALL_DATA	= ${INSTALL} -m 644
+INSTALL_SCRIPT	= ${INSTALL_PROGRAM}
 
-AUTOCONF = autoconf
+PACKAGE		= dbi_sqlite
+VERSION		= 0.8
+CC		= gcc -pipe
+CFLAGS_DEBUG	= -g
+CFLAGS_DEFAULT	= $(CFLAGS_OPTIMIZE)
+CFLAGS_OPTIMIZE	= -O -D__NO_STRING_INLINES -D__NO_MATH_INLINES
+CLEANFILES	= pkgIndex.tcl
+EXEEXT		= 
+LDFLAGS_DEBUG	= 
+LDFLAGS_DEFAULT	= $(LDFLAGS_OPTIMIZE)
+LDFLAGS_OPTIMIZE = 
+MAKE_LIB	= ${SHLIB_LD} -o $@ $($(PACKAGE)_OBJECTS) ${SHLIB_LDFLAGS} ${SHLIB_LD_LIBS} 
+MAKE_SHARED_LIB	= ${SHLIB_LD} -o $@ $($(PACKAGE)_OBJECTS) ${SHLIB_LDFLAGS} ${SHLIB_LD_LIBS}
+MAKE_STATIC_LIB	= ${STLIB_LD} $@ $($(PACKAGE)_OBJECTS)
+OBJEXT		= o
+RANLIB		= :
+SHLIB_CFLAGS	= -fPIC
+SHLIB_LD	= gcc -pipe -shared
+SHLIB_LDFLAGS	= $(LDFLAGS_DEFAULT)
+SHLIB_LD_LIBS	= ${LIBS} -L/home/peter/tcl/tcl8.4.3/unix -ltclstub8.4  -L"/usr/local/lib" -lsqlite 
+STLIB_LD	= ${AR} cr
+TCL_DEFS	=  -DHAVE_UNISTD_H=1 -DHAVE_LIMITS_H=1 -D_LARGEFILE64_SOURCE=1 -DTCL_WIDE_INT_TYPE=long\ long -DHAVE_STRUCT_STAT64=1 -DHAVE_TYPE_OFF64_T=1 -DHAVE_GETCWD=1 -DHAVE_OPENDIR=1 -DHAVE_STRSTR=1 -DHAVE_STRTOL=1 -DHAVE_STRTOLL=1 -DHAVE_STRTOULL=1 -DHAVE_TMPNAM=1 -DHAVE_WAITPID=1 -DHAVE_UNISTD_H=1 -DHAVE_SYS_PARAM_H=1 -DUSE_TERMIOS=1 -DHAVE_SYS_TIME_H=1 -DTIME_WITH_SYS_TIME=1 -DHAVE_TM_ZONE=1 -DHAVE_GMTIME_R=1 -DHAVE_LOCALTIME_R=1 -DHAVE_TM_GMTOFF=1 -DHAVE_TIMEZONE_VAR=1 -DHAVE_ST_BLKSIZE=1 -DSTDC_HEADERS=1 -DHAVE_SIGNED_CHAR=1 -DHAVE_LANGINFO=1 -DPEEK_XCLOSEIM=1 -DHAVE_SYS_IOCTL_H=1 
+TCL_BIN_DIR	= /home/peter/dev/tcl8.4.3/unix
+TCL_SRC_DIR	= /home/peter/tcl/tcl8.4.3
+# This is necessary for packages that use private Tcl headers
+TCL_TOP_DIR_NATIVE	= $(TCL_SRC_DIR)
+# Not used, but retained for reference of what libs Tcl required
+TCL_LIBS	= -ldl  -lieee -lm
 
-LDFLAGS = $(LDFLAGS_DEFAULT)
+TK_SRC_DIR	= @TK_SRC_DIR@
+TK_BIN_DIR	= @TK_BIN_DIR@
+TK_LIBS		= @TK_LIBS@
 
-INCLUDES = -I"/usr/include" $(SQLITE_INCLUDE)
+#========================================================================
+# TCLLIBPATH seeds the auto_path in Tcl's init.tcl so we can test our
+# package without installing.  The other environment variables allow us
+# to test against an uninstalled Tcl.  Add special env vars that you
+# require for testing here (like TCLX_LIBRARY).
+#========================================================================
 
-EXTRA_CFLAGS = $(TCL_DEFS) $(PROTO_FLAGS) $(SECURITY_FLAGS) $(MEM_DEBUG_FLAGS) $(KEYSYM_FLAGS) $(NO_DEPRECATED_FLAGS) $(TCL_EXTRA_CFLAGS)
+EXTRA_PATH	= $(top_builddir):$(TCL_BIN_DIR):$(TK_BIN_DIR)
+TCLSH_ENV	= TCL_LIBRARY=`echo $(TCL_SRC_DIR)/library` \
+		  TK_LIBRARY=`echo $(TK_SRC_DIR)/library` \
+		  LD_LIBRARY_PATH="$(EXTRA_PATH):$(LD_LIBRARY_PATH)" \
+		  LIBPATH="$(EXTRA_PATH):${LIBPATH}" \
+		  SHLIB_PATH="$(EXTRA_PATH):${SHLIB_PATH}" \
+		  PATH="$(EXTRA_PATH):$(PATH)" \
+		  TCLLIBPATH="$(top_builddir)"
+TCLSH_PROG	= /home/peter/dev/tcl8.4.3/unix/tclsh
+WISH_PROG	= @WISH_PROG@
+TCLSH		= $(TCLSH_ENV) $(TCLSH_PROG)
+SHARED_BUILD	= 1
 
-DEFS =  -DVERSION=\"0.8\" -DUSE_TCL_STUBS=1  $(EXTRA_CFLAGS)
+INCLUDES	= -I$(TCL_TOP_DIR_NATIVE)/generic -I$(TCL_TOP_DIR_NATIVE)/unix -I"/usr/local/include"
+# when using tk
+#INCLUDES	= -I$(TCL_TOP_DIR_NATIVE)/generic -I$(TCL_TOP_DIR_NATIVE)/unix -I"/usr/local/include" @TK_INCLUDES@ @TK_XINCLUDES@
 
-ACLOCAL_M4 = $(top_srcdir)/aclocal.m4
-CONFIGDIR = $(top_srcdir)
-mkinstalldirs = $(SHELL) $(CONFIGDIR)/mkinstalldirs
-CONFIG_CLEAN_FILES = mkIndex.tcl
+EXTRA_CFLAGS	= $(MEM_DEBUG_FLAGS) 
 
-CPPFLAGS = 
-LIBS = 
-AR = ar
-CFLAGS = ${CFLAGS_DEFAULT} ${CFLAGS_WARNING} ${SHLIB_CFLAGS}
-COMPILE = $(CC) $(DEFS) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(AM_CFLAGS) $(CFLAGS)
-CCLD = $(CC)
-LINK = $(CCLD) $(AM_CFLAGS) $(CFLAGS) $(LDFLAGS) -o $@
+DEFS		= $(TCL_DEFS)  -DVERSION=\"0.8\" -D_LARGEFILE64_SOURCE=1 -DTCL_WIDE_INT_TYPE=long\ long -DHAVE_STRUCT_STAT64=1 -DHAVE_TYPE_OFF64_T=1 -DHAVE_UNISTD_H=1 -DHAVE_SYS_PARAM_H=1 -DUSE_TCL_STUBS=1  $(EXTRA_CFLAGS)
+
+CONFIG_CLEAN_FILES = Makefile
+
+CPPFLAGS	= 
+LIBS		=   -L"/usr/local/lib" -lsqlite 
+AR		= ar
+CFLAGS		=  ${CFLAGS_DEFAULT} ${CFLAGS_WARNING} ${SHLIB_CFLAGS}
+COMPILE		= $(CC) $(DEFS) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(AM_CFLAGS) $(CFLAGS)
 
 #========================================================================
 # Start of user-definable TARGETS section
@@ -211,46 +199,36 @@ all: binaries libraries doc
 # of the Makefile, in the "BINARIES" variable.
 #========================================================================
 
-binaries: $(BINARIES)
+binaries: $(BINARIES) pkgIndex.tcl
 
 libraries:
-	( echo \
-	  auto_mkindex $(srcdir)/../lib \;\
-	  exit; ) | $(TCLSH_PROG)
 
 doc:
+		$(TCLSH_PROG) $(srcdir)/build/makedoc.tcl srcdir \$(srcdir)
+	
 
-install: all install-binaries install-libraries install-doc
+uninstall:
+	$(TCLSH_PROG) $(srcdir)/build/uninstall.tcl srcdir $(srcdir) pkglibdir "$(DESTDIR)$(pkglibdir)" pkgtcllibdir "$(DESTDIR)$(pkgtcllibdir)" pkgdatadir "$(DESTDIR)$(pkgdatadir)" pkgincludedir "$(DESTDIR)$(pkgincludedir)" bindir "$(DESTDIR)$(bindir)" mandir "$(DESTDIR)$(mandir)" package dbi_sqlite version 0.8
+
+install: all
+	$(TCLSH_PROG) $(srcdir)/build/install.tcl srcdir $(srcdir) pkglibdir "$(DESTDIR)$(pkglibdir)" pkgtcllibdir "$(DESTDIR)$(pkgtcllibdir)" pkgdatadir "$(DESTDIR)$(pkgdatadir)" pkgincludedir "$(DESTDIR)$(pkgincludedir)" bindir "$(DESTDIR)$(bindir)" mandir "$(DESTDIR)$(mandir)" package dbi_sqlite version 0.8
 
 install-binaries: binaries install-lib-binaries install-bin-binaries
+	if test "x$(SHARED_BUILD)" = "x1"; then \
+	    $(INSTALL_DATA) pkgIndex.tcl $(DESTDIR)$(pkglibdir); \
+	fi
 
 #========================================================================
 # This rule installs platform-independent files, such as header files.
 #========================================================================
 
 install-libraries: libraries
-#	$(mkinstalldirs) $(includedir)
-#	@echo "Installing header files in $(includedir)"
-#	@for i in $(GENERIC_HDRS) ; do \
-#	    echo "Installing $$i" ; \
-#	    $(INSTALL_DATA) $$i $(includedir) ; \
-#	done;
-	$(mkinstalldirs)  $(DESTDIR)$(pkgtcllibdir)/lib
-	$(INSTALL_DATA) $(srcdir)/../lib/*.tcl $(DESTDIR)$(pkgtcllibdir)/lib
-	$(INSTALL_DATA) $(srcdir)/../lib/tclIndex $(DESTDIR)$(pkgtcllibdir)/lib
-	$(INSTALL_DATA) $(srcdir)/../README $(DESTDIR)$(pkgtcllibdir)
-	echo "Adapting pkgIndex.tcl"
-	$(TCLSH_PROG) $(srcdir)/install-replace.tcl \
-		$(srcdir)/../pkgIndex.tcl $(DESTDIR)$(pkglibdir)/pkgIndex.tcl \
-		@TCLLIBDIR@ "$(DESTDIR)$(tcllibdir)/dbi_sqlite0.8" \
-	echo "Adapting init.tcl"
-	$(TCLSH_PROG) $(srcdir)/install-replace.tcl \
-		$(srcdir)/../lib/init.tcl $(DESTDIR)$(pkgtcllibdir)/lib/init.tcl \
-		@LIB_LIBRARY@ "$(dbi_sqlite_LIB_FILE)" \
-		@LIBDIR@ "$(DESTDIR)$(libdir)" \
-		@TCLLIBDIR@ "$(DESTDIR)$(tcllibdir)/dbi_sqlite0.8" \
-		@DATADIR@ "$(DESTDIR)$(datadir)" \
-		@BINDIR@ "$(DESTDIR)$(bindir)"
+	@mkdir -p $(DESTDIR)$(includedir)
+	@echo "Installing header files in $(DESTDIR)$(includedir)"
+	@for i in $(GENERIC_HDRS) ; do \
+	    echo "Installing $$i" ; \
+	    $(INSTALL_DATA) $$i $(DESTDIR)$(includedir) ; \
+	done;
 
 #========================================================================
 # Install documentation.  Unix manpages should go in the $(mandir)
@@ -258,67 +236,114 @@ install-libraries: libraries
 #========================================================================
 
 install-doc: doc
-#	$(mkinstalldirs) $(mandir)/man1
-#	$(mkinstalldirs) $(mandir)/man3
-	$(mkinstalldirs) $(mandir)/mann
-	@echo "Installing documentation in $(mandir)"
-	@for i in $(srcdir)/../doc/man/*.n; \
-	    do \
+	@mkdir -p $(DESTDIR)$(mandir)/mann
+	@echo "Installing documentation in $(DESTDIR)$(mandir)"
+	@for i in $(srcdir)/doc/*.n; do \
 	    echo "Installing $$i"; \
-	    rm -f $(mandir)/mann/$$i; \
-	    $(INSTALL_DATA) $$i $(mandir)/mann ; \
-	    done
-#	TCLLIBPATH="$(srcdir)/.." \
-#	$(TCLSH_PROG) $(srcdir)/makedoc.tcl
-#	$(mkinstalldirs) $(DESTDIR)$(pkgtcllibdir)/docs
-#	$(INSTALL_DATA) $(srcdir)/../docs/* $(DESTDIR)$(pkgtcllibdir)/docs
+	    rm -f $(DESTDIR)$(mandir)/mann/`basename $$i`; \
+	    $(INSTALL_DATA) $$i $(DESTDIR)$(mandir)/mann ; \
+	done
 
 test: binaries libraries
-	TCL_LIBRARY=$(TCL_LIBRARY_DIR) \
-	LD_LIBRARY_PATH=$(BUILD_DIR):$(TCL_BIN_DIR):$(LD_LIBRARY_PATH) \
-	TCLLIBPATH="$(srcdir)/.." \
-	PATH="$(BUILD_DIR)":"$(TCL_BIN_DIR)":"$(PATH)" \
-	TCL_TEST_DIR=$(srcdir)/../tests \
-	TCL_TEST_ONLYERRORS=1 \
-	$(TCLSH_PROG) `echo $(srcdir)/../tests/all.tcl` $(TCLTESTARGS)
+	$(TCLSH) `echo $(srcdir)/tests/all.tcl` $(TESTFLAGS)
+
+shell: binaries libraries
+	@$(TCLSH) $(SCRIPT)
+
+gdb:
+	$(TCLSH_ENV) gdb $(TCLSH_PROG) $(SCRIPT)
 
 depend:
 
 #========================================================================
-# Enumerate the names of the object files included in this package.
-# These objects are created and linked into the final library.  In
-# most cases these object files will correspond to the source files
-# above.
+# $($(PACKAGE)_LIB_FILE) should be listed as part of the BINARIES variable
+# mentioned above.  That will ensure that this target is built when you
+# run "make binaries".
 #
-# $(exampleA_LIB_FILE) should be listed as part of the BINARIES variable
-# at the top of the Makefile.  That will ensure that this target is built
-# when you run "make binaries".
-#
-# You shouldn't need to modify this target, except to change the package
-# name from "exampleA" to your package's name.
+# The $($(PACKAGE)_OBJECTS) objects are created and linked into the final
+# library.  In most cases these object files will correspond to the
+# source files above.
 #========================================================================
 
-$(dbi_sqlite_LIB_FILE): $(dbi_sqlite_OBJECTS)
-	-rm -f $(dbi_sqlite_LIB_FILE)
-	${SHLIB_LD} -o $@ $($@_OBJECTS) ${SHLIB_LDFLAGS} ${SHLIB_LD_LIBS} $(SQLITE_LIB)
-	$(RANLIB) $(dbi_sqlite_LIB_FILE)
+$($(PACKAGE)_LIB_FILE): $($(PACKAGE)_OBJECTS)
+	-rm -f $($(PACKAGE)_LIB_FILE)
+	${MAKE_LIB}
+	$(RANLIB) $($(PACKAGE)_LIB_FILE)
 
 #========================================================================
 # We need to enumerate the list of .c to .o lines here.
-# Unfortunately, there does not seem to be any other way to do this
-# in a Makefile-independent way.  We can't use VPATH because it picks up
-# object files that may be located in the source directory.
 #
 # In the following lines, $(srcdir) refers to the toplevel directory
 # containing your extension.  If your sources are in a subdirectory,
 # you will have to modify the paths to reflect this:
 #
-# exampleA.$(OBJEXT): $(srcdir)/src/win/exampleA.c
-# 	$(COMPILE) -c `echo $(srcdir)/src/win/exampleA.c` -o $@
+# sample.$(OBJEXT): $(srcdir)/generic/sample.c
+# 	$(COMPILE) -c `echo $(srcdir)/generic/sample.c` -o $@
+#
+# Setting the VPATH variable to a list of paths will cause the makefile
+# to look into these paths when resolving .c to .obj dependencies.
+# As necessary, add $(srcdir):$(srcdir)/compat:....
 #========================================================================
 
-sqlite.$(OBJEXT): $(SOURCE_DIR)/sqlite.c
-	$(COMPILE) -c `echo $(SOURCE_DIR)/sqlite.c` -o $@
+VPATH = $(srcdir)/generic:$(srcdir)/unix:$(srcdir)/win
+
+.c.$(OBJEXT):
+	$(COMPILE) -c `echo $<` -o $@
+
+#========================================================================
+# Create the pkgIndex.tcl file.
+# It is usually easiest to let Tcl do this for you with pkg_mkIndex, but
+# you may find that you need to customize the package.  If so, either
+# modify the -hand version, or create a pkgIndex.tcl.in file and have
+# the configure script output the pkgIndex.tcl by editing configure.in.
+#========================================================================
+
+pkgIndex.tcl:
+	( echo pkg_mkIndex . $($(PACKAGE)_LIB_FILE) \; exit; ) | $(TCLSH)
+
+pkgIndex.tcl-hand:
+	(echo 'package ifneeded $(PACKAGE) $(VERSION) \
+	    [list load [file join $$dir $($(PACKAGE)_LIB_FILE)]]'\
+	) > pkgIndex.tcl
+
+#========================================================================
+# Distribution creation
+# You may need to tweak this target to make it work correctly.
+#========================================================================
+
+#COMPRESS	= tar cvf $(PKG_DIR).tar $(PKG_DIR); compress $(PKG_DIR).tar
+COMPRESS	= gtar zcvf $(PKG_DIR).tar.gz $(PKG_DIR)
+DIST_ROOT	= /tmp/dist
+DIST_DIR	= $(DIST_ROOT)/$(PKG_DIR)
+
+dist-clean:
+	rm -rf $(DIST_DIR) $(DIST_ROOT)/$(PKG_DIR).tar.*
+
+dist: dist-clean
+	mkdir -p $(DIST_DIR)
+	cp -p $(srcdir)/ChangeLog $(srcdir)/README* $(srcdir)/license* \
+		$(srcdir)/aclocal.m4 $(srcdir)/configure $(srcdir)/*.in \
+		$(DIST_DIR)/
+	chmod 664 $(DIST_DIR)/Makefile.in $(DIST_DIR)/aclocal.m4
+	chmod 775 $(DIST_DIR)/configure $(DIST_DIR)/configure.in
+
+	cp -p $(srcdir)/*.[ch] $(DIST_DIR)/
+
+	mkdir $(DIST_DIR)/tclconfig
+	cp $(srcdir)/tclconfig/install-sh $(srcdir)/tclconfig/tcl.m4 \
+		$(DIST_DIR)/tclconfig/
+	chmod 664 $(DIST_DIR)/tclconfig/tcl.m4
+	chmod +x $(DIST_DIR)/tclconfig/install-sh
+
+	list='demos doc generic library mac tests unix win'; \
+	for p in $$list; do \
+	    if test -d $(srcdir)/$$p ; then \
+		mkdir $(DIST_DIR)/$$p; \
+		cp -p $(srcdir)/$$p/*.* $(DIST_DIR)/$$p/; \
+	    fi; \
+	done
+
+	(cd $(DIST_ROOT); $(COMPRESS);)
 
 #========================================================================
 # End of user-definable section
@@ -331,88 +356,88 @@ sqlite.$(OBJEXT): $(SOURCE_DIR)/sqlite.c
 
 clean:  
 	-test -z "$(BINARIES)" || rm -f $(BINARIES)
-	-rm -f *.o core *.core
-	-rm -f *.$(OBJEXT)
+	-rm -f *.$(OBJEXT) core *.core
 	-test -z "$(CLEANFILES)" || rm -f $(CLEANFILES)
 
 distclean: clean
 	-rm -f *.tab.c
-	-rm -f Makefile $(CONFIG_CLEAN_FILES)
-	-rm -f config.cache config.log stamp-h stamp-h[0-9]*
-	-rm -f config.status
+	-rm -f $(CONFIG_CLEAN_FILES)
+	-rm -f config.cache config.log config.status
 
 #========================================================================
 # Install binary object libraries.  On Windows this includes both .dll and
 # .lib files.  Because the .lib files are not explicitly listed anywhere,
 # we need to deduce their existence from the .dll file of the same name.
-# Additionally, the .dll files go into the bin directory, but the .lib
-# files go into the lib directory.  On Unix platforms, all library files
-# go into the lib directory.
+# Library files go into the lib directory.
+# In addition, this will generate the pkgIndex.tcl
+# file in the install location (assuming it can find a usable tclsh shell)
 #
 # You should not have to modify this target.
 #========================================================================
 
-install-lib-binaries: installdirs
+install-lib-binaries:
+	@mkdir -p $(DESTDIR)$(pkglibdir)
 	@list='$(lib_BINARIES)'; for p in $$list; do \
 	  if test -f $$p; then \
+	    echo " $(INSTALL_PROGRAM) $$p $(DESTDIR)$(pkglibdir)/$$p"; \
+	    $(INSTALL_PROGRAM) $$p $(DESTDIR)$(pkglibdir)/$$p; \
+	    echo " $(RANLIB) $(DESTDIR)$(pkglibdir)/$$p"; \
+	    $(RANLIB) $(DESTDIR)$(pkglibdir)/$$p; \
 	    ext=`echo $$p|sed -e "s/.*\.//"`; \
 	    if test "x$$ext" = "xdll"; then \
-	        echo " $(INSTALL_DATA) $$p $(DESTDIR)$(bindir)/$$p"; \
-	        $(INSTALL_DATA) $$p $(DESTDIR)$(bindir)/$$p; \
 		lib=`basename $$p|sed -e 's/.[^.]*$$//'`.lib; \
 		if test -f $$lib; then \
-		    echo " $(INSTALL_DATA) $$lib $(DESTDIR)$(libdir)/$$lib"; \
-	            $(INSTALL_DATA) $$lib $(DESTDIR)$(libdir)/$$lib; \
+		    echo " $(INSTALL_DATA) $$lib $(DESTDIR)$(pkglibdir)/$$lib"; \
+	            $(INSTALL_DATA) $$lib $(DESTDIR)$(pkglibdir)/$$lib; \
 		fi; \
-	    else \
-		echo " $(INSTALL_DATA) $$p $(DESTDIR)$(libdir)/$$p"; \
-	        $(INSTALL_DATA) $$p $(DESTDIR)$(libdir)/$$p; \
 	    fi; \
-	  else :; fi; \
+	  fi; \
 	done
-	@list='$(lib_BINARIES)'; for p in $$list; do \
-	  if test -f $$p; then \
-	    echo " $(RANLIB) $(DESTDIR)$(libdir)/$$p"; \
-	    $(RANLIB) $(DESTDIR)$(libdir)/$$p; \
-	  else :; fi; \
+	@list='$(RUNTIME_SOURCES)'; for p in $$list; do \
+	  if test -f $(srcdir)/library/$$p; then \
+	    echo " Install $$p $(DESTDIR)$(pkglibdir)/$$p"; \
+	    $(INSTALL_DATA) $(srcdir)/library/$$p $(DESTDIR)$(pkglibdir)/$$p; \
+	  fi; \
 	done
 
 #========================================================================
-# Install binary executables (e.g. .exe files)
+# Install binary executables (e.g. .exe files and dependent .dll files)
+# This is for files that must go in the bin directory (located next to
+# wish and tclsh), like dependent .dll files on Windows.
 #
-# You should not have to modify this target.
+# You should not have to modify this target, except to define bin_BINARIES
+# above if necessary.
 #========================================================================
 
-install-bin-binaries: installdirs
+install-bin-binaries:
+	@mkdir -p $(DESTDIR)$(bindir)
 	@list='$(bin_BINARIES)'; for p in $$list; do \
 	  if test -f $$p; then \
-	    echo " $(INSTALL) $$p $(DESTDIR)$(bindir)/$$p"; \
-	    $(INSTALL) $$p $(DESTDIR)$(bindir)/$$p; \
-	  else :; fi; \
+	    echo " $(INSTALL_PROGRAM) $$p $(DESTDIR)$(bindir)/$$p"; \
+	    $(INSTALL_PROGRAM) $$p $(DESTDIR)$(bindir)/$$p; \
+	  fi; \
 	done
 
-.SUFFIXES: .c .o .obj
+.SUFFIXES: .c .$(OBJEXT)
 
 Makefile: $(srcdir)/Makefile.in  $(top_builddir)/config.status
 	cd $(top_builddir) \
 	  && CONFIG_FILES=$@ CONFIG_HEADERS= $(SHELL) ./config.status
 
 uninstall-binaries:
-	@$(NORMAL_UNINSTALL)
-	list='$(BINARIES)'; for p in $$list; do \
-	  rm -f $(DESTDIR)$(libdir)/$$p; \
+	list='$(lib_BINARIES)'; for p in $$list; do \
+	  rm -f $(DESTDIR)$(pkglibdir)/$$p; \
+	done
+	list='$(RUNTIME_SOURCES)'; for p in $$list; do \
+	  rm -f $(DESTDIR)$(pkglibdir)/$$p; \
+	done
+	list='$(bin_BINARIES)'; for p in $$list; do \
+	  rm -f $(DESTDIR)$(bindir)/$$p; \
 	done
 
-installdirs:
-	$(mkinstalldirs)  $(DESTDIR)$(libdir)
-	$(mkinstalldirs)  $(DESTDIR)$(bindir)
-	$(mkinstalldirs)  $(DESTDIR)$(pkglibdir)
-	$(mkinstalldirs)  $(DESTDIR)$(pkgtcllibdir)
-	$(mkinstalldirs)  $(DESTDIR)$(datadir)
-
-.PHONY: all binaries clean depend distclean doc install installdirs \
-libraries test
+.PHONY: all binaries clean depend distclean doc install libraries test
 
 # Tell versions [3.59,3.63) of GNU make to not export all variables.
 # Otherwise a system limit (for SysV at least) may be exceeded.
 .NOEXPORT:
+

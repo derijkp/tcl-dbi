@@ -3,6 +3,7 @@
 exec tclsh "$0" "$@"
 puts "source [info script]"
 
+package require interface
 package require dbi
 package require dbi_postgresql
 
@@ -23,3 +24,4 @@ $object2 destroy
 
 interface testsummarize
 
+$db info table location

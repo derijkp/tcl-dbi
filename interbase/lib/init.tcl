@@ -13,61 +13,8 @@ set ::dbi::interbase::version 0.8
 set ::dbi::interbase::patchlevel 9
 package provide dbi_interbase $::dbi::interbase::version
 
-proc ::dbi::interbase::init {name testcmd} {
-	global tcl_platform
-	foreach var {version patchlevel execdir dir bindir datadir} {
-		variable $var
-	}
-	#
-	# If the following directories are present in the same directory as pkgIndex.tcl, 
-	# we can use them otherwise use the value that should be provided by the install
-	#
-	if [file exists [file join $execdir lib]] {
-		set dir $execdir
-	} else {
-		set dir {@TCLLIBDIR@}
-	}
-	if [file exists [file join $execdir bin]] {
-		set bindir [file join $execdir bin]
-	} else {
-		set bindir {@BINDIR@}
-	}
-	if [file exists [file join $execdir data]] {
-		set datadir [file join $execdir data]
-	} else {
-		set datadir {@DATADIR@}
-	}
-	#
-	# Try to find the compiled library in several places
-	#
-	if {"[info commands $testcmd]" != "$testcmd"} {
-		set libbase {@LIB_LIBRARY@}
-		if [regexp ^@ $libbase] {
-			if {"$tcl_platform(platform)" == "windows"} {
-				regsub {\.} $version {} temp
-				set libbase $name$temp[info sharedlibextension]
-			} else {
-				set libbase lib${name}$version[info sharedlibextension]
-			}
-		}
-		foreach libfile [list \
-			[file join $dir build $libbase] \
-			[file join $dir .. $libbase] \
-			[file join {@LIBDIR@} $libbase] \
-			[file join {@BINDIR@} $libbase] \
-			[file join $dir $libbase] \
-		] {
-			if [file exists $libfile] {break}
-		}
-		#
-		# Load the shared library
-		#
-		load $libfile
-		catch {unset libbase}
-	}
-}
-::dbi::interbase::init dbi_interbase dbi_interbase
-rename ::dbi::interbase::init {}
+source $dbi::interbase::dir/lib/package.tcl
+package::init $dbi::interbase::dir dbi_interbase
 
 array set ::dbi::interbase::typetrans {261 blob 14 char 40 cstring 11 d_float 27 double 10 float 16 int64 8 integer 9 quad 7 smallint 12 date 13 time 35 timestamp 37 varchar}
 
@@ -789,12 +736,14 @@ proc ::dbi::interbase::serial_next {db table field} {
 }
 
 proc ::dbi::interbase::errorclean {db error} {
-	if {[regexp {^violation of FOREIGN KEY constraint "([^"]+)"} $error temp index]} {
-		foreach  {table field} [::dbi::interbase::index_info $db $index] break
-		regsub {on table} $error [subst {on field "$field" in table}] error
-	} elseif {[regexp {^violation of PRIMARY or UNIQUE KEY constraint "([^"]+)"} $error temp index]} {
-		foreach  {table field} [::dbi::interbase::index_info $db $index] break
-		regsub {on table} $error [subst {on field "$field" in table}] error
+	catch {
+		if {[regexp {^violation of FOREIGN KEY constraint "([^"]+)"} $error temp index]} {
+			foreach  {table field} [::dbi::interbase::index_info $db $index] break
+			regsub {on table} $error [subst {on field "$field" in table}] error
+		} elseif {[regexp {^violation of PRIMARY or UNIQUE KEY constraint "([^"]+)"} $error temp index]} {
+			foreach  {table field} [::dbi::interbase::index_info $db $index] break
+			regsub {on table} $error [subst {on field "$field" in table}] error
+		}
 	}
 	return $error
 }

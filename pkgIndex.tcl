@@ -11,10 +11,6 @@
 package ifneeded dbi 0.8 \
 [subst -nocommands {
 	namespace eval ::dbi {}
-	set ::dbi::execdir $dir
-	if [file exists [file join $dir lib init.tcl]] {
-		source [file join $dir lib init.tcl]
-	} else {
-		source [file join @TCLLIBDIR@ lib init.tcl]
-	}
+	set ::dbi::dir [list $dir]
+	source [file join [list $dir] lib init.tcl]
 }]

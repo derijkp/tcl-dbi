@@ -15,6 +15,7 @@ set interface dbi/try
 set version 0.1
 set interface::testleak 0
 set name dbi-01
+package require interface
 package require dbi
 package require dbi_$type
 

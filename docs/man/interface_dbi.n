@@ -1,0 +1,365 @@
+'\"
+'\" Generated from docs/xml/interface_dbi.n.xml
+'\"
+.so man.macros
+.TH interface_dbi n "" dbi ""
+.BS
+.SH NAME
+interface_dbi \- interface for SQL database access
+.BE
+.SH DESCRIPTION
+.PP
+The dbi interface is designed for creating access to different SQL databases.
+It presents a generic api to open, query, and change databases.
+.SH "THE DBI INTERFACE"
+.TP
+\&\fB\fBobjectName\fP \fBopen\fP \fIdatabase\fB ?\fIarg\fB ...?
+\&\fROpens the given 'database'. Extra arguments can (must) be given, depending on the backend
+used. \fIdatabase\fR is an identifier of the database. What this is exactly, can depend on
+the implementation.
+.RS
+.PP
+\&\fIarg ..\fR usually consists of one or more of the following optional parameters:
+.IP "\fB-user  \fIusername\fP\fR"
+connect to the database as  instead of connecting as the
+current user.
+.IP "\fB  \fIusername\fP-password  \fIpassword\fP\fR"
+provide a password if required
+.IP "\fB-role  \fIrole\fP\fR"
+connect using the given
+.IP "\fB  \fIrole\fP-host  \fIhost\fP\fR"
+connect to a database on a different host
+.RE
+.TP
+\&\fB\fBobjectName\fP \fBexec\fP ?\fIoptions\fB? \fIsql\fB ?\fIparam\fB ...?
+\&\fRExecutes arbitrary SQL commands in the currently open database. when a select
+query has been processed, and the -usefetch option is not used, the command returns a list
+of lists: each element of this list contains the selected values of one record (in a list).
+Otherwise nothing is returned
+.RS
+.PP
+\&\fIsql\fR contains the commands to be executed. When \fIsql\fR contains
+placeholders (indicated by ?), extra parameters must be given (\fIparam\fR, that will
+be used to fill in the gaps. If an sql error occurs, all changes made in the current
+transaction will be rolled back. If no explicit has been explicitly started by the user
+using "objectName begin", this means all changes made in the current exec.
+.PP
+The following \fIoptions\fR can be present:
+.IP "\fB-flat\fR"
+if present, the result will be returned as a flat list instead of a list of lists.
+Each element in the list will contain the value of one column. eg. If a query returns
+2 rows of each 2 elements, a list of 4 elements is returned
+.IP "\fB-usefetch\fR"
+if present, the command does not return the resultset of a select query as a list.
+The fetch method will be used to get the results instead.
+.IP "\fB-nullvalue  \fInullval\fP\fR"
+nullval will be returned for each NULL value in the result instead of an empty string
+For sql commands using input parameters, parameters which are given a value of nullval
+will put a NULL value in the ?
+.IP "\fB-blobid\fR"
+if present, return blobids instead of blob values for select queries. The id can be used to access the
+blob using the blob subcommand (eg. to get only parts of really large blob). If the dbi object does not
+support this function (check with "object supportd blobid"), this option will be ignored
+For update and insert functions, the blob fields must be given a blobid (created with the newblob subcommand)
+as a parameter.
+.IP "\fB-cache\fR"
+if present, the current query is cached (using prepared statement) for future use. If the
+same query is run again with the -cache option, it will run faster. dbi objects that do not
+support caching should ignore the option
+.PP
+
+example:
+
+.CS
+db exec {select "value" from "test_table" where "id" = ?} 100
+
+.CE
+.RE
+.TP
+\&\fB\fBobjectName\fP \fBfetch\fP ?\fIoptions\fB? ?\fIoption\fB? ?\fIline\fB? ?\fIfield\fB?
+\&\fRFetches one line of data of the result of a previous query. This will only work after
+the exec method has been invoked with the -usefetch option. Normally, the next line in
+the result will be fetched. The optional arguments can be used to fetch a specific
+line and/or field. by specifying \fIoption\fR, other information about the result may
+be obtained.
+.RS
+.PP
+When calling exec again, the results are cleared, and cannot be fetched any longer
+using the fetch method. If you want to use the exec method while keeping the
+resultset available, use a clone (see further) of the dbi object.
+.PP
+If present, \fIline\fR is an an integer >= 0 indicating which line of the result to fetch.
+If \fIline\fR is "current", the current line will be fetched. Not all databases allow
+backward positioning in a result set, so not all objects that support the dbi interface
+will be able to fetch lines earlier than the current line. \fIfield\fR is also an integer
+>= 0 indicating the field of the result to fetch.
+.PP
+If \fIoption\fR is present,
+information about the result is returned instead of the result data itself. It can have
+any of the following values:
+.TP
+pos
+return the current position in the result. The first line is position 0
+.TP
+fields
+return the fields present in the resultset
+.TP
+isnull
+returns 1 if the result contains a NULL value at the given line and field
+.TP
+lines
+returns the number of lines in the result. This function cannot always be supported by a dbi object
+.PP
+The following \fIoptions\fR can be present:
+.IP "\fB-nullvalue  \fInullval\fP\fR"
+nullval will be returned for each NULL value in the result instead of an empty string
+.PP
+
+examples:
+
+.CS
+db fetch
+.CE
+
+
+.CS
+db fetch isnull current 1
+.CE
+.RE
+.TP
+\&\fB\fBobjectName\fP \fBtables\fP
+\&\fRReturns a list with tables present in the current database
+.TP
+\&\fB\fBobjectName\fP \fBfields\fP \fItableName\fB
+\&\fRReturns a list with the fields present in the \fItableName\fR
+.TP
+\&\fB\fBobjectName\fP \fBclose\fP
+\&\fRCloses the current database connection
+.TP
+\&\fB\fBobjectName\fP \fBbegin\fP
+\&\fRStarts a transaction
+.TP
+\&\fB\fBobjectName\fP \fBcommit\fP
+\&\fRCommits the current transaction
+.TP
+\&\fB\fBobjectName\fP \fBrollback\fP
+\&\fRDoes a rollback for the current transaction
+.TP
+\&\fB\fBobjectName\fP \fBdestroy\fP
+\&\fRDestroys the dbi object
+.TP
+\&\fB\fBobjectName\fP \fBserial\fP \fIoption\fB args ...
+\&\fRCreates or manages a serial field
+.RS
+.TP
+\&\fB\fBobjectName\fP \fBserial\fP add \fItable\fB \fIfield\fB ?\fIvalue\fB?
+\&\fRConverts the integer field \fIfield\fR in the given \fItable\fR into a serial
+field (using generators, triggers, ...) and optionally initialise it with \fIvalue\fR
+.TP
+\&\fB\fBobjectName\fP \fBserial\fP delete \fItable\fB \fIfield\fB
+\&\fRReturns the given serial field in the given table into a normal integer field
+.TP
+\&\fB\fBobjectName\fP \fBserial\fP set \fItable\fB \fIfield\fB ?\fIvalue\fB?
+\&\fRReturns the current value for given serial field. If the argument \fIvalue\fR
+is present, the given serial field will be set to this value first.
+.TP
+\&\fB\fBobjectName\fP \fBserial\fP next \fItable\fB \fIfield\fB
+\&\fRIncrements the current value of the given serial field by 1, and return the new value
+.RE
+.TP
+\&\fB\fBobjectName\fP \fBinfo\fP \fIoption\fB args ...
+\&\fRReturns information about the database, database tables, etc.
+Which information is returned depends on \fIoption\fR. Some options require further
+arguments. The options and information available can depend on the database and on the
+implementation of the interface. eg. some databases do not support roles, so you cannot
+get information about them. Some options that should be avaiable are:
+.RS
+.TP
+\&\fB\fBobjectName\fP \fBinfo\fP \fBuser\fP
+\&\fRReturns the current user for the database connection
+.TP
+\&\fB\fBobjectName\fP \fBinfo\fP \fBsystemtables\fP
+\&\fRReturns the systemtables. These are not included in the list returned by
+"objectName tables".
+.TP
+\&\fB\fBobjectName\fP \fBinfo\fP \fBviews\fP
+\&\fRReturns a list of all views in the current database
+.TP
+\&\fB\fBobjectName\fP \fBinfo\fP \fBaccess\fP \fIaccesstype\fB \fIuser\fB ?\fItable\fB?
+\&\fRReturns information about the accessibility of tables, ....
+\&\fIaccesstype\fR determines the type of access that is queried and can be one of:
+.RS
+.nf
+.ta 5.5c 11c
+\&\fB
+select
+insert
+delete
+update
+reference\fP
+.fi
+If the \fItable\fR argument is not given, the command returns a list of
+all tables \fIuser\fR has access to; If the \fItable\fR argument is not provided,
+a list of all fields in the given table \fIuser\fR has access to is returned
+.RE
+.TP
+\&\fB\fBobjectName\fP \fBinfo\fP \fBtable\fP \fItable\fB
+\&\fRReturns information about the table \fItable\fR. This information is returned
+in the form of a list containing pairs of elements (a map). The first element in each pair
+is a keyword and the second  element  of  each pair  is the value for that keyword. Possible
+pairs are:
+.RS
+.TP
+fields
+list containing all fields in the table
+.TP
+type,\fIfield\fR
+type of field \fIfield\fR
+.TP
+length,\fIfield\fR
+size of field \fIfield\fR
+.TP
+notnull,\fIfield\fR
+1 if field \fIfield\fR has a not null constraint, otherwise not present
+.TP
+primary,\fIfield\fR
+present if field \fIfield\fR is a primary key, may contain the index
+.TP
+unique,\fIfield\fR
+present if field \fIfield\fR has a unique constraint, may contain the index
+.TP
+foreign,\fIfield\fR
+list with table and field referenced by the field \fIfield\fR. Is only present if the field \fIfield\fR has a foreign key constraint
+.TP
+constraint,constraint
+\&'constraint' is a constraint defined for the table, may contain the index enforcingg the constraint as a value
+.RE
+.TP
+\&\fB\fBobjectName\fP \fBinfo\fP \fBdomains\fP
+\&\fRReturns a list of all domains in the current database
+.TP
+\&\fB\fBobjectName\fP \fBinfo\fP \fBdomain\fP
+\&\fRReturns the definition of the domain provided as an argument
+.TP
+\&\fB\fBobjectName\fP \fBinfo\fP \fBroles\fP
+\&\fRReturns all roles in the database. If the optional argument username is
+provided, only roles accessible by the given user are returned
+.RE
+.TP
+\&\fB\fBobjectName\fP \fBsupports\fP ?\fIkeyword\fB?
+\&\fRReturns 1 if the object supports the feature indicated by \fIkeyword\fR, and 0
+if it does not. If \fIkeyword\fR is not provided, the keywords for all features are returned
+followed by 0 for unsupported features and 1 for supported. Following keywords can be available:
+.RS
+.TP
+lines
+support for "objectName fetch lines"
+.TP
+backfetch
+support for going back when fetching results
+.TP
+serials
+support for making a field into a serial
+.TP
+sharedserials
+support for sharing a serial field between two tables
+.TP
+blobparams
+support for blobs through parameters
+.TP
+blobids
+support for blobs using blobids, and the blob and newblob subcommands
+.TP
+transactions
+support for transactions
+.TP
+sharedtransactions
+a clone shares the same transaction with its parent
+.TP
+foreignkeys
+the dbms backend supports foreign keys
+.TP
+checks
+the dbms backend supports foreign keys
+.TP
+views
+the dbms backend supports views
+.TP
+columnperm
+support for working with permissions per column
+.TP
+roles
+support for roles
+.TP
+domains
+support for domains
+.RE
+.TP
+\&\fB\fBobjectName\fP \fBblob\fP \fIoption\fB args ...
+\&\fRmanipulate blobs via a blobid returned by exec/fetch using the -blobid option. This is
+not supported for all dbi objects (check with "object supports blobids"). Also, not all subcommands
+presented here are supported for all objects.
+.RS
+.TP
+\&\fB\fBobjectName\fP \fBblob\fP \fBopen\fP \fIblobid\fB
+\&\fRopen the blob identified by the given \fIblobid\fR for processing
+.TP
+\&\fB\fBobjectName\fP \fBblob\fP \fBget\fP ?\fIsize\fB?
+\&\fRget the remaining data in the open blob. If \fIsize\fR is given, only return \fIsize\fR bytes
+of the blob data
+.TP
+\&\fB\fBobjectName\fP \fBblob\fP \fBskip\fP \fIsize\fB
+\&\fRskip \fIsize\fR bytes from the open blob
+.TP
+\&\fB\fBobjectName\fP \fBblob\fP \fBclose\fP
+\&\fRclose the blob currently opened
+.RE
+.TP
+\&\fB\fBobjectName\fP \fBnewblob\fP \fIoption\fB args ...
+\&\fRmanipulate blobs via a blobid returned by exec/fetch using the -blobid option. This is
+not supported for all dbi objects (check with "object supports blobids"). Also, not all subcommands
+presented here are supported for all objects.
+.RS
+.TP
+\&\fB\fBobjectName\fP \fBnewblob\fP \fBcreate\fP \fIblobid\fB
+\&\fRcreate a new blob. The blobid for this blob will be returned when you close the new blob
+.TP
+\&\fB\fBobjectName\fP \fBnewblob\fP \fBput\fP \fIdata\fB
+\&\fRappend \fIdata\fR to the newly created blob
+.TP
+\&\fB\fBobjectName\fP \fBnewblob\fP \fBclose\fP
+\&\fRclose the newly created blob. This function will return the blobid
+.RE
+.TP
+\&\fB\fBobjectName\fP \fBclone\fP ?\fIname\fB?
+\&\fRCreates a clone of the dbi object. You will be able invoke the clone using the
+command \fIname\fR. If not provided, a name will be created and returned as a result.
+A clone is an object very similar to the dbi object it spawned from. It supports the same
+methods, and has the same connection parameters (user, etc.) A clone is dependend on its
+parent: If the parent is destroyed, or its connection closed, the clone will be destroyed.
+Closing a clone will also destroy it. A clone can be eg. be created for using exec while
+keeping open a resultset for fetching data line by line, or to compare different resultsets
+using fetch. Creating a clone has several advantages to creating a new connection:
+.RS
+.IP "\(bu"
+The user of the interface does not have to know the parameters of the connection to
+temporarily spawn a clone
+.IP "\(bu"
+If the backend database api allows it, a clone actually shares the connection with its
+parent, making the creation of a clone a lot faster then creating a new connection.
+.PP
+If possible, a clone also shares transactions with its parent. Since this is not always
+possible; You can check if it actually does this using "objectName supports sharedtransactions".
+.RE
+.TP
+\&\fB\fBobjectName\fP \fBclones\fP
+\&\fRReturns a list of clones spawned from the dbi object. This command will give an
+error when invoked from a clone.
+.TP
+\&\fB\fBobjectName\fP \fBparent\fP
+\&\fRReturns the parent dbi object that spawned this clone. A dbi object
+that is not a clone, will return its own name.
+.SH "SEE ALSO"
+interface, interface_dbi_admin
+.SH KEYWORDS
+interface, database, sql, dbi

@@ -1,0 +1,13 @@
+set c [file_read ~/tmp/roosmap.ps]
+set temp [regexp -all -inline {[^(]+(\\\))?\)A} $c]
+set temp [list_remove $temp {}]
+set temp [list_regsub -all {\\\)\)A$} $temp {}]
+set temp [list_regsub -all { -- \)A$} $temp {}]
+set pos [list_find -glob $temp {*)A}]
+set list [list_sub $temp -exclude $pos]
+
+set f [open ~/move/roosmap.list w]
+foreach {key value} $list {
+	puts $f [list $key $value]
+}
+close $f

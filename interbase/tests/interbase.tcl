@@ -7,14 +7,18 @@ set interface dbi
 # $Format: "set version 0.$ProjectMajorVersion$"$
 set version 0.8
 
+package require interface
 package require dbi
 package require dbi_interbase
 
 set object [dbi_interbase]
 set object2 [dbi_interbase]
 
+#interface test dbi_admin-$version $object \
+#	-testdb /home/ib/testdbi.gdb
+# cs
 interface test dbi_admin-$version $object \
-	-testdb /home/ib/testdbi.gdb
+	-testdb localhost:/home/ib/testdbi.gdb -openargs {-user test -password blabla}
 
 interface::test {destroy without opening a database} {
 	dbi_interbase	db
@@ -22,8 +26,15 @@ interface::test {destroy without opening a database} {
 	set a 1
 } 1
 
+#array set opt [subst {
+#	-testdb /home/ib/testdbi.gdb
+#	-user2 PDR
+#	-object2 $object2
+#}]
+# cs
 array set opt [subst {
-	-testdb /home/ib/testdbi.gdb
+	-testdb localhost:/home/ib/testdbi.gdb
+	-openargs {-user test -password blabla}
 	-user2 PDR
 	-object2 $object2
 }]
@@ -202,6 +213,7 @@ interface::test {newblob} {
 			"data" blob
 		)
 	}
+	$object begin
 	$object newblob create
 	set odata {}
 	for {set i 0} {$i < 1000} {incr i} {
@@ -210,6 +222,7 @@ interface::test {newblob} {
 	}
 	set id [$object newblob close]
 	$object exec -blobid {insert into bl values (?,?)} 1 $id
+	$object commit
 	set data [$object exec {select "data" from bl where "id" = 1}]
 	list [string equal $odata $data] [string length $data] [string range $data 1000 1009]
 } {1 10000 -000000100}

@@ -1,0 +1,24 @@
+'\"
+'\" Generated from ../doc/xml/dbi_mysql.n.xml
+'\"
+.so man.macros
+.TH dbi_mysql n "" dbi ""
+.BS
+.SH NAME
+dbi_mysql \- create dbi object for accessing mysql databases
+.SH SYNOPSIS
+.nf
+\&\fBdbi_interface\fP ?\fIobjectName\fR?
+.fi
+.BE
+.SH DESCRIPTION
+.PP
+The \fBdbi_mysql\fP command creates an object \fIobjectName\fR that can
+be used to connect to mysql databases using its native API. If \fIobjectName\fR
+is not provided, a name will be automatically generated and returned by the command
+The object created supports the dbi interface for
+accessing and querying databases.
+.SH "SEE ALSO"
+interface_dbi, interface_dbi_admin
+.SH KEYWORDS
+dbi, mysql, interface, database, sql

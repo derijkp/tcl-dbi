@@ -3,38 +3,61 @@
 exec tclsh "$0" "$@"
 puts "source [info script]"
 
+package require interface
 namespace eval interface {}
 set type odbc
 set testdb testdbi
-set type interbase
-set testdb /home/ib/testdbi.gdb
 set type mysql
 set testdb test
 set type postgresql
 set testdb testdbi
 set type sqlite
 set testdb test.db
-
+set type interbase
+set testdb localhost:/home/ib/testdbi.gdb
 set interface dbi/try
 set version 0.1
 set name dbi-01
 package require dbi
 package require dbi_$type
+dbi_$type db
+db open localhost:/home/ib/gentli-molgen.fdb -user gentli -password dimpvddb
+db exec {select * from "individual" where sounds("firstn") = sounds('Peter')}
+db exec {select * from "project"}
 
-puts "create dbi_$type"
-array set opt {
-	-testdb test
-	-openargs {}
-	-user2 PDR
-	-lines 1
-	-columnperm 1
-}
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 set interface::testleak 0
 set object [dbi_$type]
 set object2 [dbi_$type]
+puts "create dbi_$type"
+array set opt [subst {
+	-testdb $testdb
+	-openargs {-user test -password blabla}
+	-user2 PDR
+	-object2 $object2
+}]
+
 set opt(-object2) $object2
 set opt(-testdb) $testdb
+
+# procedures used to setup databases
+# ----------------------------------
+
 proc ::dbi::cleandb {} {
 	upvar object object
 	upvar opt opt
@@ -48,28 +71,17 @@ proc ::dbi::cleandb {} {
 		catch {$object exec {drop view "v_test"}} result
 		append fresult $result\n
 	}
-	catch {$object exec {drop table "duse"}} result
-	append fresult $result\n
-	catch {$object exec {drop table "use"}} result
-	append fresult $result\n
-	catch {$object exec {drop table "test"}} result
-	append fresult $result\n
-	catch {$object exec {drop table "types"}} result
-	append fresult $result\n
-	catch {$object exec {drop table "location"}} result
-	append fresult $result\n
-	catch {$object exec {drop table "address"}} result
-	append fresult $result\n
-	catch {$object exec {drop table "person"}} result
-	append fresult $result\n
-	catch {$object exec {drop table bl}} result
-	append fresult $result\n
-	catch {$object exec {drop table "multi"}} result
-	append fresult $result\n
-	catch {$object exec {drop table "t"}} result
-	append fresult $result\n
+	catch {$object exec {
+		alter table "use" drop constraint use_htest
+	}} result
+	foreach table {duse use test types location address person bl multi t} {
+		catch {$object exec [subst {delete from "$table"}]} result
+		catch {$object exec [subst {drop table "$table"}]} result
+		append fresult $result\n
+	}
 	return $fresult
 }
+
 proc ::dbi::ifsupp {feature string} {
 	upvar object object
 	if {[$object supports $feature]} {
@@ -78,6 +90,7 @@ proc ::dbi::ifsupp {feature string} {
 		return ""
 	}
 }
+
 proc ::dbi::createdb {} {
 	upvar object object
 	upvar opt opt
@@ -111,7 +124,7 @@ proc ::dbi::createdb {} {
 			"usetime" timestamp,
 			"score" float[ifsupp check { check ("score" < 20.0)}],
 			"score2" float[ifsupp check { check ("score" < 20.0),
-			check ("score2" > "score")}]
+			constraint use_htest check ("score2" > "score")}]
 		);
 	}]
 	$object exec {select "id" from "use"}
@@ -136,7 +149,7 @@ proc ::dbi::createdb {} {
 		create table "multi" (
 			"i" integer not null,
 			"si" smallint not null,
-			"vc" varchar(10),
+			"vc" varchar(10) not null,
 			"c" char(10),
 			"f" float,
 			"d" double precision,
@@ -152,6 +165,7 @@ proc ::dbi::createdb {} {
 	}
 	catch {$object serial add address id}
 }
+
 proc ::dbi::filldb {} {
 	upvar object object
 	upvar opt opt
@@ -180,6 +194,7 @@ proc ::dbi::filldb {} {
 	}
 	catch {$object serial set address id 4}
 }
+
 proc ::dbi::initdb {} {
 	upvar object object
 	upvar opt opt
@@ -187,36 +202,48 @@ proc ::dbi::initdb {} {
 	::dbi::createdb
 	::dbi::filldb
 }
+
 proc ::dbi::opendb {} {
 	upvar object object
 	upvar opt opt
+parray opt
+	if {![::info exists opt(-openargs)]} {set opt(-openargs) {}}
 	eval {$object open $opt(-testdb)} $opt(-openargs)
 }
+
+# -------------------------------------------------------
+# 							Tests
+# -------------------------------------------------------
+
 ::dbi::opendb
+
 ::dbi::initdb
 
-interface::test {parameters with comments and literals} {
-	$object exec {select "id",'?' /* selecting what ? */ from "person" where "name" = ? and "score" = ?} {De Rijk} 20
-} {{pdr ?}}
+	$object exec {delete from "person"  where "id" = ?} test
+	$object exec {insert into "person" ("id","name") values(?,?)} test {a'b'}
+#	$object exec {select "name" from "person" where "id" = ?} test
 
-interface::test {fetch fields when no result} {
-	$object exec -usefetch {select * from "person" where "id" = 'blabla'}
-	$object fetch fields
-} {id first_name name score}
+	$object exec {delete from "person"  where "id" = ?} test
+#	$object exec {insert into "person" ("id","name") values(?,?)} test {a'b'c'd'e'f'}
+#	$object exec {select "name" from "person" where "id" = ?} test
 
-interface::test {serial cache error test} {
-	$object exec {delete from "types"}
-	catch {$object serial delete types i}
-	$object serial add types i
-	$object exec {insert into "types"("vc") values('a')}
-	set pos1 [$object serial set types i]
-	$object exec {delete from "types"}
-	catch {$object serial delete types i}
-	$object serial add types i
-	$object exec {insert into "types"("vc") values('a')}
-	set pos2 [$object serial set types i]
-	expr {$pos1 == $pos2}
-} 1 {skipon {![$object supports serials]}}
+# serial
+# ------
+
+$object exec [subst {delete from "location"}]
+$object exec [subst {drop table "location"}]
+$object exec [subst {delete from "person"}]
+$object exec [subst {drop table "person"}]
+
+#	foreach table {location person} {
+#		catch {$object exec [subst {delete from "$table"}]} result
+#		catch {$object exec [subst {drop table "$table"}]} result
+#	}
+
+$object exec {select * from "use"}
+
+
+
 
 #puts "tests done"
 #$object close

@@ -1,9 +1,9 @@
-package require interface
+namespace eval interface {}
 
 # $Format: "proc ::interfaces::dbi-0.$ProjectMajorVersion$ {option args} {"$
 proc ::interfaces::dbi-0.8 {option args} {
 
-interface::implement dbi $::dbi::version [file join $::dbi::dir doc xml interface_dbi.n.xml] {
+interface::implement dbi $::dbi::version [file join $::dbi::dir docs xml interface_dbi.n.xml] {
 	-testdb testdbi
 	-user2 guest
 	-object2 {}
@@ -43,26 +43,14 @@ proc ::dbi::cleandb {} {
 		catch {$object exec {drop view "v_test"}} result
 		append fresult $result\n
 	}
-	catch {$object exec {drop table "duse"}} result
-	append fresult $result\n
-	catch {$object exec {drop table "use"}} result
-	append fresult $result\n
-	catch {$object exec {drop table "test"}} result
-	append fresult $result\n
-	catch {$object exec {drop table "types"}} result
-	append fresult $result\n
-	catch {$object exec {drop table "location"}} result
-	append fresult $result\n
-	catch {$object exec {drop table "address"}} result
-	append fresult $result\n
-	catch {$object exec {drop table "person"}} result
-	append fresult $result\n
-	catch {$object exec {drop table bl}} result
-	append fresult $result\n
-	catch {$object exec {drop table "multi"}} result
-	append fresult $result\n
-	catch {$object exec {drop table "t"}} result
-	append fresult $result\n
+	catch {$object exec {
+		alter table "use" drop constraint use_htest
+	}} result
+	foreach table {duse use test types location address person bl multi t} {
+		catch {$object exec [subst {delete from "$table"}]} result
+		catch {$object exec [subst {drop table "$table"}]} result
+		append fresult $result\n
+	}
 	return $fresult
 }
 
@@ -108,7 +96,7 @@ proc ::dbi::createdb {} {
 			"usetime" timestamp,
 			"score" float[ifsupp check { check ("score" < 20.0)}],
 			"score2" float[ifsupp check { check ("score" < 20.0),
-			check ("score2" > "score")}]
+			constraint use_htest check ("score2" > "score")}]
 		);
 	}]
 	$object exec {select "id" from "use"}
@@ -155,7 +143,7 @@ proc ::dbi::filldb {} {
 	upvar opt opt
 	$object exec {
 		insert into "person" ("id","first_name","name","score")
-			values ('pdr','Peter', 'De Rijk',20.0);
+			values ('pdr','Peter', 'De Rijk',19.5);
 		insert into "person" ("id","first_name","name","score")
 			values ('jd','John', 'Do',17.5);
 		insert into "person" ("id","first_name")
@@ -235,19 +223,19 @@ interface::test {create and fill table} {
 
 interface::test {select} {
 	$object exec {select * from "person"}
-} {{pdr Peter {De Rijk} 20.0} {jd John Do 17.5} {o Oog {} {}}}
+} {{pdr Peter {De Rijk} 19.5} {jd John Do 17.5} {o Oog {} {}}}
 
 interface::test {select again} {
 	$object exec {select * from "person"}
-} {{pdr Peter {De Rijk} 20.0} {jd John Do 17.5} {o Oog {} {}}}
+} {{pdr Peter {De Rijk} 19.5} {jd John Do 17.5} {o Oog {} {}}}
 
 interface::test {select with -flat} {
 	$object exec -flat {select * from "person"}
-} {pdr Peter {De Rijk} 20.0 jd John Do 17.5 o Oog {} {}}
+} {pdr Peter {De Rijk} 19.5 jd John Do 17.5 o Oog {} {}}
 
 interface::test {select with -nullvalue} {
 	$object exec -nullvalue NULL {select * from "person"}
-} {{pdr Peter {De Rijk} 20.0} {jd John Do 17.5} {o Oog NULL NULL}}
+} {{pdr Peter {De Rijk} 19.5} {jd John Do 17.5} {o Oog NULL NULL}}
 
 interface::test {non select query with -nullvalue parameter} {
 	catch {$object exec {delete from "person" where "id" = 'nul'}}
@@ -259,21 +247,21 @@ interface::test {non select query with -nullvalue parameter} {
 
 interface::test {non select query without -nullvalue parameter} {
 	catch {$object exec {delete from "person" where "id" = 'nul'}}
-	$object exec {insert into "person" values (?,?,?,?)} nul hasnull {} 10.0
+	$object exec {insert into "person" values (?,?,?,?)} nul hasnull {} 9.5
 	set result [$object exec -nullvalue NULL {select * from "person" where "id" = 'nul'}]
 	$object exec {delete from "person" where "id" = 'nul'}
 	set result	
-} {{nul hasnull {} 10.0}}
+} {{nul hasnull {} 9.5}}
 
 interface::test {non select query with -nullvalue update to NULL} {
 	catch {$object exec {delete from "person" where "id" = 'nul'}}
-	$object exec -nullvalue {} {insert into "person" values (?,?,?,?)} nul hasnull {} 10.0
+	$object exec -nullvalue {} {insert into "person" values (?,?,?,?)} nul hasnull {} 9.5
 	lappend result [lindex [$object exec -nullvalue NULL {select * from "person" where "id" = 'nul'}] 0]
 	$object exec -nullvalue {} {update "person" set "score" = ? where "id" = 'nul'} {}
 	lappend result [lindex [$object exec -nullvalue NULL {select * from "person" where "id" = 'nul'}] 0]
 	$object exec {delete from "person" where "id" = 'nul'}
 	set result	
-} {{nul hasnull NULL 10.0} {nul hasnull NULL NULL}}
+} {{nul hasnull NULL 9.5} {nul hasnull NULL NULL}}
 
 interface::test {error: select "try" from "person"} {
 	$object exec {select "try" from "person"}
@@ -286,7 +274,7 @@ interface::test {select fetch} {
 interface::test {1 fetch} {
 	$object exec -usefetch {select * from "person"}
 	$object fetch
-} {pdr Peter {De Rijk} 20.0}
+} {pdr Peter {De Rijk} 19.5}
 
 interface::test {2 fetch} {
 	$object exec -usefetch {select * from "person"}
@@ -327,7 +315,7 @@ interface::test {fetch and two objects} {
 	$opt(-object2) info table person
 	$opt(-object2) close
 	$object fetch
-} {pdr Peter {De Rijk} 20.0}
+} {pdr Peter {De Rijk} 19.5}
 
 # testing for fetching by number: is not always supported
 # -------------------------------------------------------
@@ -423,14 +411,14 @@ interface::test {fetch current after fetch 0} {
 	$object fetch 0
 	$object fetch current
 	$object fetch current
-} {pdr Peter {De Rijk} 20.0}
+} {pdr Peter {De Rijk} 19.5}
 
 interface::test {fetch current after fetch} {
 	$object exec -usefetch {select * from "person"}
 	$object fetch
 	$object fetch current
 	$object fetch current
-} {pdr Peter {De Rijk} 20.0}
+} {pdr Peter {De Rijk} 19.5}
 
 interface::test {fetch fields} {
 	$object exec -usefetch {select * from "person"}
@@ -465,7 +453,7 @@ interface::test {backfetch} {
 	$object fetch
 	$object fetch
 	$object fetch 0
-} {pdr Peter {De Rijk} 20.0} {skipon {![$object supports backfetch]}}
+} {pdr Peter {De Rijk} 19.5} {skipon {![$object supports backfetch]}}
 
 interface::test {fetch and begin/rollback} {
 	$object exec -usefetch {select * from "person"}
@@ -489,15 +477,15 @@ interface::test {fetch after select error} {
 
 interface::test {parameter} {
 	$object exec {select * from "person" where "name" = ?} {De Rijk}
-} {{pdr Peter {De Rijk} 20.0}}
+} {{pdr Peter {De Rijk} 19.5}}
 
 interface::test {parameters} {
-	$object exec {select * from "person" where "name" = ? and "score" = ?} {De Rijk} 20
-} {{pdr Peter {De Rijk} 20.0}}
+	$object exec {select * from "person" where "name" = ? and "score" = ?} {De Rijk} 19.5
+} {{pdr Peter {De Rijk} 19.5}}
 
 interface::test {char parameter} {
 	$object exec {select * from "person" where "id" = ?} pdr
-} {{pdr Peter {De Rijk} 20.0}}
+} {{pdr Peter {De Rijk} 19.5}}
 
 interface::test {parameters} {
 	$object exec {select * from "person" where "name" = ? and "score" = ?} {De Rijk} 19
@@ -508,7 +496,7 @@ interface::test {parameters error} {
 } {wrong number of arguments given to exec while executing command: "select * from "person" where "name" = ?"} error
 
 interface::test {parameters with comments and literals} {
-	$object exec {select "id",'?' /* selecting what ? */ from "person" where "name" = ? and "score" = ?} {De Rijk} 20
+	$object exec {select "id",'?' /* selecting what ? */ from "person" where "name" = ? and "score" = ?} {De Rijk} 19.5
 } {{pdr ?}}
 
 interface::test {parameters with 2 quotes} {
@@ -533,36 +521,36 @@ interface::test {serial basic} {
 	$object exec {delete from "types"}
 	catch {$object serial delete types i}
 	$object serial add types i
-	$object exec {insert into "types" ("d") values (20.0)}
-	$object exec {insert into "types" ("d") values (21.0)}
+	$object exec {insert into "types" ("d") values (19.5)}
+	$object exec {insert into "types" ("d") values (21.5)}
 	$object exec {select "i","d" from "types" order by "d"}
-} {{1 20.0} {2 21.0}} {skipon {![$object supports serials]}}
+} {{1 19.5} {2 21.5}} {skipon {![$object supports serials]}}
 
 interface::test {serial set} {
 	$object exec {delete from "types"}
 	catch {$object serial delete types i}
 	$object serial add types i 1
-	$object exec {insert into "types" ("d") values (20.0)}
+	$object exec {insert into "types" ("d") values (19.5)}
 	$object serial set "types" i 8
 	set i [$object serial set types i]
-	$object exec {insert into "types" ("d") values (21.0)}
+	$object exec {insert into "types" ("d") values (21.5)}
 	list $i [$object exec {select "i","d" from "types" order by "d"}]
-} {8 {{2 20.0} {9 21.0}}} {skipon {![$object supports serials]}}
+} {8 {{2 19.5} {9 21.5}}} {skipon {![$object supports serials]}}
 
 interface::test {serial overrule} {
 	$object exec {delete from "types"}
 	catch {$object serial delete types i}
 	$object serial add types i 1
-	$object exec {insert into "types" ("d") values (20.0)}
-	$object exec {insert into "types" ("i","d") values (9,21.0)}
+	$object exec {insert into "types" ("d") values (19.5)}
+	$object exec {insert into "types" ("i","d") values (9,21.5)}
 	$object exec {select "i","d" from "types" order by "d"}
-} {{2 20.0} {9 21.0}} {skipon {![$object supports serials]}}
+} {{2 19.5} {9 21.5}} {skipon {![$object supports serials]}}
 
 interface::test {serial next} {
 	$object exec {delete from "types"}
 	catch {$object serial delete types i}
 	$object serial add types i
-	$object exec {insert into "types" ("d") values (20.0)}
+	$object exec {insert into "types" ("d") values (19.5)}
 	set i [$object serial next types i]
 	$object exec {insert into "types" ("d") values (20.1)}
 	list $i [$object exec {select "i" from "types" order by "d"}]
@@ -655,8 +643,11 @@ interface::test {table info} {
 interface::test {table info 2} {
 	array set a [$object info table types]
 	set result ""
+	array set trans {doubleprecision double}
 	foreach name [lsort [array names a type,*]] {
-		lappend result $a($name)
+		set type $a($name)
+		if {[info exists trans($type)]} {set type $trans($type)}
+		lappend result $type
 	}
 	set result
 } {char double date float integer smallint time timestamp varchar}
@@ -745,7 +736,7 @@ interface::test {-cache simple} {
 	puts cache1:[time {$object exec -cache {select * from "person" where "name" = 'De Rijk'}}]
 	puts cache2:[time {$object exec -cache {select * from "person" where "name" = 'De Rijk'}}]
 	$object exec -cache {select * from "person" where "name" = 'De Rijk'}
-} {{pdr Peter {De Rijk} 20.0}}
+} {{pdr Peter {De Rijk} 19.5}}
 
 interface::test {-cache parameter} {
 	puts 1:[time {$object exec {select * from "person" where "name" = ?} {De Rijk}}]
@@ -753,7 +744,7 @@ interface::test {-cache parameter} {
 	puts cache1:[time {$object exec -cache {select * from "person" where "name" = ?} {De Rijk}}]
 	puts cache2:[time {$object exec -cache {select * from "person" where "name" = ?} {De Rijk}}]
 	$object exec -cache {select * from "person" where "name" = ?} {De Rijk}
-} {{pdr Peter {De Rijk} 20.0}}
+} {{pdr Peter {De Rijk} 19.5}}
 
 interface::test {-cache parameter mix} {
 	$object exec -cache {select * from "person" where "name" = ?} {De Rijk}
@@ -768,7 +759,7 @@ interface::test {-cache parameter mix 2} {
 	$object exec -cache {select * from "person" where "name" = ?} Do
 	$object exec -cache {select * from "address" where "number" = ?} 1
 	$object exec -cache {select * from "person" where "name" = ?} {De Rijk}
-} {{pdr Peter {De Rijk} 20.0}}
+} {{pdr Peter {De Rijk} 19.5}}
 
 interface::test {-cache parameter mix with plain} {
 	$object exec -cache {select * from "person" where "name" = ?} {De Rijk}
@@ -778,7 +769,7 @@ interface::test {-cache parameter mix with plain} {
 	$object exec {select * from "address" where "number" = ?} 1
 	$object exec -cache {select * from "address" where "number" = ?} 1
 	$object exec -cache {select * from "person" where "name" = ?} {De Rijk}
-} {{pdr Peter {De Rijk} 20.0}}
+} {{pdr Peter {De Rijk} 19.5}}
 
 interface::test {-cache parameter mix with plain 2} {
 	$object exec {select * from "person" where "name" = ?} {De Rijk}
@@ -786,7 +777,7 @@ interface::test {-cache parameter mix with plain 2} {
 	$object exec -cache {select * from "person" where "name" = ?} {De Rijk}
 	$object exec -cache {select * from "person" where "name" = ?} {De Rijk}
 	$object exec -cache {select * from "person" where "name" = ?} {De Rijk}
-} {{pdr Peter {De Rijk} 20.0}}
+} {{pdr Peter {De Rijk} 19.5}}
 
 # clones
 # ------
@@ -855,7 +846,7 @@ interface::test {-cache parameter in clone} {
 	set result [$clone exec -cache {select * from "person" where "name" = ?} {De Rijk}]
 	$clone close
 	set result
-} {{pdr Peter {De Rijk} 20.0}}
+} {{pdr Peter {De Rijk} 19.5}}
 
 interface::test {-cache parameter in clone, mix} {
 	set clone [$object clone]
@@ -866,7 +857,7 @@ interface::test {-cache parameter in clone, mix} {
 	set result [$clone exec -cache {select * from "person" where "name" = ?} {De Rijk}]
 	$clone close
 	set result
-} {{pdr Peter {De Rijk} 20.0}}
+} {{pdr Peter {De Rijk} 19.5}}
 
 ::dbi::initdb
 interface::test {clone with some fetching} {
@@ -879,7 +870,7 @@ interface::test {clone with some fetching} {
 	set l2 [$object fetch]
 	$clone close
 	list $l1 $l2 [string equal $clist $olist]
-} {{pdr Peter {De Rijk} 20.0} {jd John Do 17.5} 1}
+} {{pdr Peter {De Rijk} 19.5} {jd John Do 17.5} 1}
 
 interface::test {clone of clone goes to parent} {
 	foreach clone [$object clones] {$clone close}
@@ -913,7 +904,7 @@ interface::test {clone and object must be able to mix fetches} {
 	lappend result [$clone fetch]
 	$clone close
 	set result
-} {{pdr Peter {De Rijk} 20.0} {work pdr 1} {jd John Do 17.5} {home pdr 2}}
+} {{pdr Peter {De Rijk} 19.5} {work pdr 1} {jd John Do 17.5} {home pdr 2}}
 
 interface::test {clone and object must be able to mix fetches within a transaction} {
 	set clone [$object clone]
@@ -928,7 +919,7 @@ interface::test {clone and object must be able to mix fetches within a transacti
 	$object rollback
 	$clone close
 	set result
-} {{pdr Peter {De Rijk} 20.0} {work pdr 1} {jd John Do 17.5} {home pdr 2}}
+} {{pdr Peter {De Rijk} 19.5} {work pdr 1} {jd John Do 17.5} {home pdr 2}}
 
 interface::test {info may be implemented using a clone, see if it is respawned ok} {
 	set fields [$object info fields person]
@@ -949,7 +940,7 @@ interface::test {clone transaction sharing} {
 	$object begin
 	$clone exec {
 		insert into "person" ("id","first_name","name","score")
-			values ('new','new','test',20.0);
+			values ('new','new','test',19.5);
 	}
 	set oresult [$object exec {select * from "person" where "id" = 'new'}]
 	set cresult [$clone exec {select * from "person" where "id" = 'new'}]
@@ -957,14 +948,14 @@ interface::test {clone transaction sharing} {
 	set orresult [$clone exec {select * from "person" where "id" = 'new'}]
 	set crresult [$clone exec {select * from "person" where "id" = 'new'}]
 	list $oresult $cresult $orresult $crresult
-} {{{new new test 20.0}} {{new new test 20.0}} {} {}} {skipon {![$object supports sharedtransactions]}}
+} {{{new new test 19.5}} {{new new test 19.5}} {} {}} {skipon {![$object supports sharedtransactions]}}
 
 interface::test {clone transaction sharing from clone} {
 	set clone [$object clone]
 	$object begin
 	$object exec {
 		insert into "person" ("id","first_name","name","score")
-			values ('new','new','test',20.0);
+			values ('new','new','test',19.5);
 	}
 	set oresult [$object exec {select * from "person" where "id" = 'new'}]
 	set cresult [$clone exec {select * from "person" where "id" = 'new'}]
@@ -972,19 +963,19 @@ interface::test {clone transaction sharing from clone} {
 	set orresult [$object exec {select * from "person" where "id" = 'new'}]
 	set crresult [$clone exec {select * from "person" where "id" = 'new'}]
 	list $oresult $cresult $orresult $crresult
-} {{{new new test 20.0}} {{new new test 20.0}} {} {}} {skipon {![$object supports sharedtransactions]}}
+} {{{new new test 19.5}} {{new new test 19.5}} {} {}} {skipon {![$object supports sharedtransactions]}}
 
 interface::test {clone transaction sharing test without clone} {
 	$object begin
 	$object exec {
 		insert into "person" ("id","first_name","name","score")
-			values ('new','new','test',20.0);
+			values ('new','new','test',19.5);
 	}
 	set oresult [$object exec {select * from "person" where "id" = 'new'}]
 	$object rollback
 	set orresult [$object exec {select * from "person" where "id" = 'new'}]
 	list $oresult $orresult
-} {{{new new test 20.0}} {}} {skipon {![$object supports transactions]}}
+} {{{new new test 19.5}} {}} {skipon {![$object supports transactions]}}
 
 # transactions
 # ------------
@@ -997,7 +988,7 @@ interface::test {transactions} {
 	set r1 [$object exec {select "first_name" from "person" order by "id";}]
 	$object begin
 	$object exec {
-		insert into "person" values(1,'Peter','De Rijk',20.0);
+		insert into "person" values(1,'Peter','De Rijk',19.5);
 	}
 	$object exec {
 		insert into "person" values(2,'John','Doe',17.5);
@@ -1008,7 +999,7 @@ interface::test {transactions} {
 	set r3 [$object exec {select "first_name" from "person" order by "id";}]
 	$object begin
 	$object exec {
-		insert into "person" values(1,'Peter','De Rijk',20.0);
+		insert into "person" values(1,'Peter','De Rijk',19.5);
 	}
 	$object exec {
 		insert into "person" values(2,'John','Doe',17.5);
@@ -1024,8 +1015,8 @@ interface::test {autocommit error} {
 	$object exec {delete from "person";}
 	set r1 [$object exec {select "first_name" from "person";}]
 	catch {$object exec {
-		insert into "person" values(1,'Peter','De Rijk',20.0);
-		insert into "person" values(1,'John','Doe','error');
+		insert into "person" values(1,'Peter','De Rijk',19.5);
+		insert into "person" values(1,'John','Doe',error);
 		insert into "person" ("id","first_name") values(3,'Jane');
 	}}
 	list $r1 [$object exec {select "first_name" from "person";}]
@@ -1037,7 +1028,7 @@ interface::test {transactions: syntax error in exec within transaction} {
 	set r1 [$object exec {select "first_name" from "person";}]
 	$object begin
 	catch {$object exec {
-		insert into "person" values(1,'Peter','De Rijk',20.0);
+		insert into "person" values(1,'Peter','De Rijk',19.5);
 	}} error
 	catch {$object exec -error {
 		insert into "person" values(2,'John','Doe',18.5);
@@ -1054,8 +1045,8 @@ interface::test {transactions: sql error in exec within transaction} {
 	set r1 [$object exec {select "first_name" from "person";}]
 	$object begin
 	catch {$object exec {
-		insert into "person" values(1,'Peter','De Rijk',20.0);
-		insert into "person" values(1,'John','Doe','error');
+		insert into "person" values(1,'Peter','De Rijk',19.5);
+		insert into "person" values(1,'John','Doe',error);
 		insert into "person" ("id","first_name") values(3,'Jane');
 	}} error
 	set r2 [$object exec {select "first_name" from "person";}]
@@ -1070,10 +1061,10 @@ interface::test {transactions: sql error in exec within transaction, seperate ca
 	set r1 [$object exec {select "first_name" from "person";}]
 	$object begin
 	catch {$object exec {
-		insert into "person" values(1,'Peter','De Rijk',20.0);
+		insert into "person" values(1,'Peter','De Rijk',19.5);
 	}} error
 	catch {$object exec {
-		insert into "person" values(1,'John','Doe','error');
+		insert into "person" values(1,'John','Doe',error);
 		insert into "person" ("id","first_name") values(3,'Jane');
 	}} error
 	set r2 [$object exec {select "first_name" from "person";}]

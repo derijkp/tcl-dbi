@@ -13,61 +13,8 @@ set ::dbi::mysql::version 0.8
 set ::dbi::mysql::patchlevel 9
 package provide dbi_mysql $::dbi::mysql::version
 
-proc ::dbi::mysql::init {name testcmd} {
-	global tcl_platform
-	foreach var {version patchlevel execdir dir bindir datadir} {
-		variable $var
-	}
-	#
-	# If the following directories are present in the same directory as pkgIndex.tcl, 
-	# we can use them otherwise use the value that should be provided by the install
-	#
-	if [file exists [file join $execdir lib]] {
-		set dir $execdir
-	} else {
-		set dir {@TCLLIBDIR@}
-	}
-	if [file exists [file join $execdir bin]] {
-		set bindir [file join $execdir bin]
-	} else {
-		set bindir {@BINDIR@}
-	}
-	if [file exists [file join $execdir data]] {
-		set datadir [file join $execdir data]
-	} else {
-		set datadir {@DATADIR@}
-	}
-	#
-	# Try to find the compiled library in several places
-	#
-	if {"[info commands $testcmd]" != "$testcmd"} {
-		set libbase {@LIB_LIBRARY@}
-		if [regexp ^@ $libbase] {
-			if {"$tcl_platform(platform)" == "windows"} {
-				regsub {\.} $version {} temp
-				set libbase $name$temp[info sharedlibextension]
-			} else {
-				set libbase lib${name}$version[info sharedlibextension]
-			}
-		}
-		foreach libfile [list \
-			[file join $dir build $libbase] \
-			[file join $dir .. $libbase] \
-			[file join {@LIBDIR@} $libbase] \
-			[file join {@BINDIR@} $libbase] \
-			[file join $dir $libbase] \
-		] {
-			if [file exists $libfile] {break}
-		}
-		#
-		# Load the shared library
-		#
-		load $libfile
-		catch {unset libbase}
-	}
-}
-::dbi::mysql::init dbi_mysql dbi_mysql
-rename ::dbi::mysql::init {}
+source $dbi::mysql::dir/lib/package.tcl
+package::init $dbi::mysql::dir dbi_mysql
 
 #
 # Procs
@@ -157,7 +104,7 @@ proc ::dbi::mysql::info {db args} {
 			set table [lindex $args 1]
 			set fields {}
 			set result ""
-			if {[catch {$db exec -flat "show columns from \"$table\""} list]} {
+			if {[catch {$db exec -flat "show columns from $table"} list]} {
 				error "table \"$table\" does not exist"
 			}
 			foreach {name type null key default extra} $list {
@@ -186,7 +133,7 @@ proc ::dbi::mysql::info {db args} {
 			catch {unset indinfo}
 			foreach {
 				Table Non_unique Key_name Seq_in_index Column_name Collation Cardinality Sub_part Packed Comment
-			} [$db exec -flat "show index from \"$table\""] {
+			} [$db exec -flat "show index from $table"] {
 				lappend ind($Key_name) $Column_name
 				set indinfo(nonunique,$Key_name) $Non_unique
 			}
@@ -207,7 +154,7 @@ proc ::dbi::mysql::info {db args} {
 
 proc ::dbi::mysql::fieldsinfo {db table} {
 	set db [privatedb $db]
-	if {[catch {$db exec "show columns from \"$table\""} list]} {
+	if {[catch {$db exec "show columns from $table"} list]} {
 		error "table \"$table\" does not exist"
 	}
 	set result {}

@@ -13,61 +13,8 @@ set ::dbi::sqlite::version 0.8
 set ::dbi::sqlite::patchlevel 9
 package provide dbi_sqlite $::dbi::sqlite::version
 
-proc ::dbi::sqlite::init {name testcmd} {
-	global tcl_platform
-	foreach var {version patchlevel execdir dir bindir datadir} {
-		variable $var
-	}
-	#
-	# If the following directories are present in the same directory as pkgIndex.tcl, 
-	# we can use them otherwise use the value that should be provided by the install
-	#
-	if [file exists [file join $execdir lib]] {
-		set dir $execdir
-	} else {
-		set dir {@TCLLIBDIR@}
-	}
-	if [file exists [file join $execdir bin]] {
-		set bindir [file join $execdir bin]
-	} else {
-		set bindir {@BINDIR@}
-	}
-	if [file exists [file join $execdir data]] {
-		set datadir [file join $execdir data]
-	} else {
-		set datadir {@DATADIR@}
-	}
-	#
-	# Try to find the compiled library in several places
-	#
-	if {"[info commands $testcmd]" != "$testcmd"} {
-		set libbase {@LIB_LIBRARY@}
-		if [regexp ^@ $libbase] {
-			if {"$tcl_platform(platform)" == "windows"} {
-				regsub {\.} $version {} temp
-				set libbase $name$temp[info sharedlibextension]
-			} else {
-				set libbase lib${name}$version[info sharedlibextension]
-			}
-		}
-		foreach libfile [list \
-			[file join $dir build $libbase] \
-			[file join $dir .. $libbase] \
-			[file join {@LIBDIR@} $libbase] \
-			[file join {@BINDIR@} $libbase] \
-			[file join $dir $libbase] \
-		] {
-			if [file exists $libfile] {break}
-		}
-		#
-		# Load the shared library
-		#
-		load $libfile
-		catch {unset libbase}
-	}
-}
-::dbi::sqlite::init dbi_sqlite dbi_sqlite
-rename ::dbi::sqlite::init {}
+source $dbi::sqlite::dir/lib/package.tcl
+package::init $dbi::sqlite::dir dbi_sqlite
 
 #
 # Procs
@@ -157,7 +104,7 @@ proc ::dbi::sqlite::info {db args} {
 				set table [lindex $args 1]
 				set fields {}
 				set result ""
-				foreach {pos name type nullable default} [$db exec -flat "pragma table_info(\"$table\")"] {
+				foreach {pos name type nullable default temp} [$db exec -flat "pragma table_info(\"$table\")"] {
 					lappend fields $name
 					if {[regexp {^(.*)\(([0-9]+)\)$} $type temp type size]} {
 						lappend result type,$name $type
@@ -198,6 +145,12 @@ proc ::dbi::sqlite::info {db args} {
 					set line [lindex $temp $pos]
 					set column [lindex $line 0]
 					lappend result "primary,$column" 1
+				}
+				foreach {temp temp field reftable reffield} [$db exec -flat "pragma foreign_key_list(\"$table\")"] {
+					foreach key {field reftable reffield} {
+						set $key [string trimright [string trimleft [set $key] \"] \"]
+					}
+					lappend result "foreign,$field" [list $reftable $reffield]
 				}
 			} else {
 				error "wrong # args: should be \"$db info table tablename\""
@@ -247,11 +200,15 @@ proc ::dbi::sqlite::serial_basic {db table field} {
 proc ::dbi::sqlite::serial_shared {db table field} {
 	upvar #0 ::dbi::sqlite::shared shared
 	if {![::info exists shared($table,$field)]} {
-		set temp [$db exec [subst {select sharedtable,sharedfield from _dbi_serials where stable = '$table' and sfield = '$field'}]]
+		set temp [$db exec -flat {select sharedtable,sharedfield from _dbi_serials where stable = ? and sfield = ?} $table $field]
 		if ![llength $temp] {
 			return -code error "no serial on field \"$field\" in table \"$table\""
 		}
-		set shared($table,$field) $temp
+		if {$temp eq "{} {}"} {
+			set shared($table,$field) [list $table $field]
+		} else {
+			set shared($table,$field) $temp
+		}
 	}
 	return $shared($table,$field)
 }
@@ -306,9 +263,9 @@ proc ::dbi::sqlite::serial_set {db table field args} {
 	set db [privatedb $db]
 	foreach {stable sfield} [::dbi::sqlite::serial_shared $db $table $field] break
 	if [llength $args] {
-		$db exec [subst {update _dbi_serials set serial = [lindex $args 0] where stable = '$table' and sfield = '$field'}]
+		$db exec [subst {update _dbi_serials set serial = ? where stable = ? and sfield = ?}] [lindex $args 0] $stable $field
 	} else {
-		return [$db exec {select serial from _dbi_serials where stable = ? and sfield = ?} $table $field]
+		return [$db exec {select serial from _dbi_serials where stable = ? and sfield = ?} $stable $field]
 	}
 }
 
@@ -316,13 +273,14 @@ proc ::dbi::sqlite::serial_next {db table field} {
 	set db [privatedb $db]
 	foreach {stable sfield} [::dbi::sqlite::serial_shared $db $table $field] break
 	$db begin
-	$db exec [subst {update _dbi_serials set serial = serial+1 where stable = '$table' and sfield = '$field'}]
-	set current [$db exec {select serial from _dbi_serials where stable = ? and sfield = ?} $table $field]
+	$db exec [subst {update _dbi_serials set serial = serial+1 where stable = ? and sfield = ?}] $stable $field
+	set current [$db exec {select serial from _dbi_serials where stable = ? and sfield = ?} $stable $field]
 	$db commit
 	return $current
 }
 
 proc ::dbi::sqlite::open_test {db file} {
+	if {[string equal $file :memory:]} {return $file}
 	if {![file exists $file]} {
 		return -code error "file \"$file\" is not a valid database"
 	}
@@ -331,3 +289,4 @@ proc ::dbi::sqlite::open_test {db file} {
 	}
 	return $file
 }
+
