@@ -300,16 +300,21 @@ get information about them. Some options that should be avaiable are:
 <commanddef>
 <command><cmd>objectName</cmd> <method>supports</method> ?<m>keyword</m>?</command>
 <desc>Returns 1 if the object supports the feature indicated by <m>keyword</m>, and 0
-if it does not. If <m>keyword</m> is not provided, the keywords for all supported
-features are returned. Following keywords can be available:
+if it does not. If <m>keyword</m> is not provided, the keywords for all features are returned
+followed by 0 for unsupported features and 1 for supported. Following keywords can be available:
 <dle>
 <dl><dt>lines</dt><dd>support for "objectName fetch lines"</dd></dl>
 <dl><dt>backfetch</dt><dd>support for going back when fetching results</dd></dl>
-<dl><dt>columnperm</dt><dd>support for working with permissions per column</dd></dl>
+<dl><dt>serials</dt><dd>support for making a field into a serial</dd></dl>
+<dl><dt>sharedserials</dt><dd>support for sharing a serial field between two tables</dd></dl>
 <dl><dt>blobparams</dt><dd>support for blobs through parameters</dd></dl>
 <dl><dt>blobids</dt><dd>support for blobs using blobids, and the blob and newblob subcommands</dd></dl>
-<dl><dt>sharedtransactions</dt><dd>a clone shares the same transaction with its parent</dd></dl>
 <dl><dt>transactions</dt><dd>support for transactions</dd></dl>
+<dl><dt>sharedtransactions</dt><dd>a clone shares the same transaction with its parent</dd></dl>
+<dl><dt>foreignkeys</dt><dd>the dbms backend supports foreign keys</dd></dl>
+<dl><dt>checks</dt><dd>the dbms backend supports foreign keys</dd></dl>
+<dl><dt>views</dt><dd>the dbms backend supports views</dd></dl>
+<dl><dt>columnperm</dt><dd>support for working with permissions per column</dd></dl>
 <dl><dt>roles</dt><dd>support for roles</dd></dl>
 <dl><dt>domains</dt><dd>support for domains</dd></dl>
 </dle>

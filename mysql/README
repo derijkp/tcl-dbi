@@ -1,0 +1,78 @@
+dbi_mysql
+=============  dbi for mysql
+               by Peter De Rijk (Universiteit Antwerpen) 
+
+What is dbi_mysql
+---------------------
+
+dbi is a generic SQL database interface for Tcl.
+dbi_mysql is an implementation of the dbi interface for connecting to mysql.
+Invoking "package require dbi_mysql" will make the command dbi_mysql available.
+With this command, objects can be created that can connect to an mysql database and
+that support the dbi interface.
+
+
+Installation
+------------
+You should be able to obtain the latest version of dbi via www on url
+http://rrna.uia.ac.be/dbi/.
+
+Usually you can build the binaries and install the package using the following steps:
+cd to the dbi directory
+cd build
+./configure
+make install
+
+The configure command has several options that can be examined using
+/configure --help
+eg. the option --disable-stubs can be used to build the extension for a version of 
+Tcl that does not support stubs.
+
+How to contact me
+-----------------
+I will do my best to reply as fast as I can to any problems, etc.
+However, the development of dbi is not my only task,
+which is why my response might not be always as fast as you would
+like.
+
+Peter De Rijk
+University of Antwerp (UIA)
+Department of Biochemistry
+Universiteitsplein 1
+B-2610 Antwerp
+
+tel.: 32-03-820.23.16
+fax: 32-03-820.22.48
+E-mail: derijkp@uia.ua.ac.be
+web: http://rrna.uia.ac.be/~peter/personal/peter.html
+
+Legalities
+----------
+
+dbi_mysql is Copyright Peter De Rijk, University of Antwerp (UIA), 2000
+The following terms apply to all files associated with the software unless 
+explicitly disclaimed in individual files.
+
+The author hereby grant permission to use, copy, modify, distribute,
+and license this software and its documentation for any purpose, provided
+that existing copyright notices are retained in all copies and that this
+notice is included verbatim in any distributions. No written agreement,
+license, or royalty fee is required for any of the authorized uses.
+Modifications to this software may be copyrighted by their authors
+and need not follow the licensing terms described here, provided that
+the new terms are clearly indicated on the first page of each file where
+they apply.
+
+IN NO EVENT SHALL THE AUTHORS OR DISTRIBUTORS BE LIABLE TO ANY PARTY
+FOR DIRECT, INDIRECT, SPECIAL, INCIDENTAL, OR CONSEQUENTIAL DAMAGES
+ARISING OUT OF THE USE OF THIS SOFTWARE, ITS DOCUMENTATION, OR ANY
+DERIVATIVES THEREOF, EVEN IF THE AUTHORS HAVE BEEN ADVISED OF THE
+POSSIBILITY OF SUCH DAMAGE.
+
+THE AUTHORS AND DISTRIBUTORS SPECIFICALLY DISCLAIM ANY WARRANTIES,
+INCLUDING, BUT NOT LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY,
+FITNESS FOR A PARTICULAR PURPOSE, AND NON-INFRINGEMENT.  THIS SOFTWARE
+IS PROVIDED ON AN "AS IS" BASIS, AND THE AUTHORS AND DISTRIBUTORS HAVE
+NO OBLIGATION TO PROVIDE MAINTENANCE, SUPPORT, UPDATES, ENHANCEMENTS, OR
+MODIFICATIONS.
+

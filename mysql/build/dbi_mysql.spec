@@ -1,5 +1,5 @@
-Summary:	interbase access for Tcl
-Name:		dbi_interbase
+Summary:	mysql access for Tcl
+Name:		dbi_mysql
 Version:	0.8.8
 Release:	1
 Copyright:	BSD
@@ -11,26 +11,26 @@ Requires: tcl >= 8.3.2 interface >= 0.8 dbi >= 0.8
 Prefix: /usr
 %description
  dbi is a generic SQL database interface for Tcl.
- dbi_interbase is an implementation of the dbi interface.
- Invoking "package require dbi_interbase" will make the command dbi_interbase available.
- With this command, objects can be created that can connect to an interbase database and
+ dbi_mysql is an implementation of the dbi interface.
+ Invoking "package require dbi_mysql" will make the command dbi_mysql available.
+ With this command, objects can be created that can connect to an mysql database and
  that support the dbi interface.
 
 %prep
 %setup -n dbi
 
 %build
-cd interbase/build
+cd mysql/build
 ./configure --prefix=/usr
 make clean
 make
 
 %install
-cd interbase/build
+cd mysql/build
 make install
 
 %files
 %doc README
-%doc /usr/man/mann/dbi_interbase.n
-/usr/lib/dbi_interbase0.8
-/usr/lib/libdbi_interbase0.8.so
+%doc /usr/man/mann/dbi_mysql.n
+/usr/lib/dbi_mysql0.8
+/usr/lib/libdbi_mysql0.8.so

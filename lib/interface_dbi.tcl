@@ -2,10 +2,12 @@ package require interface
 
 # $Format: "proc ::interfaces::dbi-0.$ProjectMajorVersion$ {option args} {"$
 proc ::interfaces::dbi-0.8 {option args} {
+
 interface::implement dbi $::dbi::version [file join $::dbi::dir doc xml interface_dbi.n.xml] {
 	-testdb testdbi
 	-user2 guest
 	-object2 {}
+	-openargs {}
 } $option $args
 
 # test interface command
@@ -31,14 +33,16 @@ interface::test {interface list} {
 proc ::dbi::cleandb {} {
 	upvar object object
 	upvar opt opt
-	$object rollback
+	catch {$object rollback}
 	set fresult ""
 	catch {$object serial delete test id} result
 	append fresult $result\n
 	catch {$object serial delete address id} result
 	append fresult $result\n
-	catch {$object exec {drop view "v_test"}} result
-	append fresult $result\n
+	if {[$object supports views]} {
+		catch {$object exec {drop view "v_test"}} result
+		append fresult $result\n
+	}
 	catch {$object exec {drop table "duse"}} result
 	append fresult $result\n
 	catch {$object exec {drop table "use"}} result
@@ -55,7 +59,20 @@ proc ::dbi::cleandb {} {
 	append fresult $result\n
 	catch {$object exec {drop table bl}} result
 	append fresult $result\n
+	catch {$object exec {drop table "multi"}} result
+	append fresult $result\n
+	catch {$object exec {drop table "t"}} result
+	append fresult $result\n
 	return $fresult
+}
+
+proc ::dbi::ifsupp {feature string} {
+	upvar object object
+	if {[$object supports $feature]} {
+		return $string
+	} else {
+		return ""
+	}
 }
 
 proc ::dbi::createdb {} {
@@ -76,45 +93,24 @@ proc ::dbi::createdb {} {
 			"city" varchar(100)
 		);
 	}
-	if {[$object supports foreignkeys]} {
-		$object exec {
-			create table "location" (
-				"type" varchar(100) check ("type" in ('home','work','leisure')),
-				"inhabitant" char(6) references "person"("id"),
-				"address" integer references "address"("id")
-			);
-		}
-		$object exec {
-			create table "use" (
-				"id" integer not null primary key,
-				"person" integer not null unique references "person"("id"),
-				"place" varchar(100),
-				"usetime" timestamp,
-				"score" float check ("score" < 20.0),
-				"score2" float check ("score" < 20.0),
-				check ("score2" > "score")
-			);
-		}
-	} else {
-		$object exec {
-			create table "location" (
-				"type" varchar(100) check ("type" in ('home','work','leisure')),
-				"inhabitant" char(6),
-				"address" integer
-			);
-		}
-		$object exec {
-			create table "use" (
-				"id" integer not null primary key,
-				"person" integer not null unique,
-				"place" varchar(100),
-				"usetime" timestamp,
-				"score" float check ("score" < 20.0),
-				"score2" float check ("score" < 20.0),
-				check ("score2" > "score")
-			);
-		}
-	}
+	$object exec [subst {
+		create table "location" (
+			"type" varchar(100)[ifsupp check { check ("type" in ('home','work','leisure'))}],
+			"inhabitant" char(6)[ifsupp foreignkeys { references "person"("id")}],
+			"address" integer[ifsupp foreignkeys { references "address"("id")}]
+		);
+	}]
+	$object exec [subst {
+		create table "use" (
+			"id" integer not null primary key,
+			"person" integer not null unique[ifsupp foreignkeys { references "person"("id")}],
+			"place" varchar(100),
+			"usetime" timestamp,
+			"score" float[ifsupp check { check ("score" < 20.0)}],
+			"score2" float[ifsupp check { check ("score" < 20.0),
+			check ("score2" > "score")}]
+		);
+	}]
 	$object exec {select "id" from "use"}
 	catch {$object exec {
 		create index "use_score_idx" on "use"("score")
@@ -133,7 +129,24 @@ proc ::dbi::createdb {} {
 			"ts" timestamp
 		);
 	}
-	$object exec {create view "v_test" as select "id", "first_name", "name" from "person"}
+	$object exec {
+		create table "multi" (
+			"i" integer not null,
+			"si" smallint not null,
+			"vc" varchar(10) not null,
+			"c" char(10),
+			"f" float,
+			"d" double precision,
+			"da" date,
+			"t" time,
+			"ts" timestamp,
+			primary key("i","si"),
+			unique("i","si","vc")
+		);
+	}
+	if {[$object supports views]} {
+		$object exec {create view "v_test" as select "id", "first_name", "name" from "person"}
+	}
 	catch {$object serial add address id}
 }
 
@@ -177,14 +190,16 @@ proc ::dbi::initdb {} {
 proc ::dbi::opendb {} {
 	upvar object object
 	upvar opt opt
-	$object open $opt(-testdb)
+	if {![::info exists opt(-openargs)]} {set opt(-openargs) {}}
+	eval {$object open $opt(-testdb)} $opt(-openargs)
 }
 
 # -------------------------------------------------------
 # 							Tests
 # -------------------------------------------------------
 interface::test {open and close} {
-	$object open $opt(-testdb)
+	if {![::info exists opt(-openargs)]} {set opt(-openargs) {}}
+	eval {$object open $opt(-testdb)} $opt(-openargs)
 	$object close
 } {}
 
@@ -307,7 +322,7 @@ interface::test {fetch and two objects} {
 	if {[string equal $opt(-object2) ""]} {
 		error "no -object2 option given"
 	}
-	$opt(-object2) open $opt(-testdb)
+	eval {$opt(-object2) open $opt(-testdb)} $opt(-openargs)
 	$object exec -usefetch {select * from "person"}
 	$opt(-object2) info table person
 	$opt(-object2) close
@@ -427,6 +442,11 @@ interface::test {fetch fields limited select} {
 	$object fetch fields
 } {id score}
 
+interface::test {fetch fields when no result} {
+	$object exec -usefetch {select * from "person" where "id" = 'blabla'}
+	$object fetch fields
+} {id first_name name score}
+
 interface::test {fetch with no fetch result available} {
 	$object exec {select * from "person"}
 	$object fetch
@@ -456,6 +476,8 @@ interface::test {fetch and begin/rollback} {
 	}
 	$object fetch
 } {no result available: invoke exec method with -usefetch option first} error
+
+$object rollback
 
 interface::test {fetch after select error} {
 	catch {$object exec -usefetch {select * from "Idonotexist"}}
@@ -514,7 +536,7 @@ interface::test {serial basic} {
 	$object exec {insert into "types" ("d") values (20.0)}
 	$object exec {insert into "types" ("d") values (21.0)}
 	$object exec {select "i","d" from "types" order by "d"}
-} {{1 20.0} {2 21.0}}
+} {{1 20.0} {2 21.0}} {skipon {![$object supports serials]}}
 
 interface::test {serial set} {
 	$object exec {delete from "types"}
@@ -525,7 +547,7 @@ interface::test {serial set} {
 	set i [$object serial set types i]
 	$object exec {insert into "types" ("d") values (21.0)}
 	list $i [$object exec {select "i","d" from "types" order by "d"}]
-} {8 {{2 20.0} {9 21.0}}}
+} {8 {{2 20.0} {9 21.0}}} {skipon {![$object supports serials]}}
 
 interface::test {serial overrule} {
 	$object exec {delete from "types"}
@@ -534,7 +556,7 @@ interface::test {serial overrule} {
 	$object exec {insert into "types" ("d") values (20.0)}
 	$object exec {insert into "types" ("i","d") values (9,21.0)}
 	$object exec {select "i","d" from "types" order by "d"}
-} {{2 20.0} {9 21.0}}
+} {{2 20.0} {9 21.0}} {skipon {![$object supports serials]}}
 
 interface::test {serial next} {
 	$object exec {delete from "types"}
@@ -544,14 +566,21 @@ interface::test {serial next} {
 	set i [$object serial next types i]
 	$object exec {insert into "types" ("d") values (20.1)}
 	list $i [$object exec {select "i" from "types" order by "d"}]
-} {2 {1 3}}
+} {2 {1 3}} {skipon {![$object supports serials]}}
 
 interface::test {serial cache error test} {
 	$object exec {delete from "types"}
 	catch {$object serial delete types i}
 	$object serial add types i
-	catch {$object serial set types i}
-} {0}
+	$object exec {insert into "types"("vc") values('a')}
+	set pos1 [$object serial set types i]
+	$object exec {delete from "types"}
+	catch {$object serial delete types i}
+	$object serial add types i
+	$object exec {insert into "types"("vc") values('a')}
+	set pos2 [$object serial set types i]
+	expr {$pos1 == $pos2}
+} 1 {skipon {![$object supports serials]}}
 
 interface::test {serial share} {
 	$object exec {delete from "location";}
@@ -601,14 +630,14 @@ interface::test {tables 2} {
 		if {[info exists a($table)]} {lappend tables $table}
 	}
 	lsort $tables
-} {address location person types use v_test}
+} {address location person types use*} match
 
 interface::test {special table} {
 	catch {$object exec {create table "o$test" (i integer)}}
 	set result [lsort [$object tables]]
 	$object exec {drop table "o$test"}
 	set result
-} {address location {o$test} person types use v_test}
+} {address location multi {o$test} person types use*} match
 
 interface::test {db fields} {
 	$object fields person
@@ -634,7 +663,7 @@ interface::test {table info 2} {
 
 interface::test {info views} {
 	$object info views
-} {v_test}
+} {v_test} {skipon {![$object supports views]}}
 
 interface::test {info access select} {
 	$object exec "grant select on \"person\" to \"$opt(-user2)\""
@@ -649,13 +678,13 @@ interface::test {info access select table} {
 interface::test {info access insert} {
 	$object exec "grant insert on \"person\" to \"$opt(-user2)\""
 	list [$object info access insert $opt(-user2)] [$object info access insert [$object info user]]
-} {person {address location person types use v_test}} {skipon {![$object supports permissions]}}
+} {person {address location multi person types use v_test}} {skipon {![$object supports permissions]}}
 
 interface::test {info access update} {
 	$object exec "revoke update on \"person\" from $opt(-user2)"
 	$object exec "grant update on \"person\" to $opt(-user2)"
 	list [$object info access update $opt(-user2)] [$object info access update [$object info user]]
-} {person {address location person types use v_test}} {skipon {![$object supports permissions]}}
+} {person {address location multi person types use v_test}} {skipon {![$object supports permissions]}}
 
 interface::test {info access select table} {
 	list [$object info access select $opt(-user2) use] [$object info access select $opt(-user2) person] [$object info access select [$object info user] person]
@@ -676,7 +705,7 @@ interface::test {info views should not mess up a resultset} {
 	$object fetch
 	set views [$object info views]
 	list $views [$object fetch]
-} {v_test {jd John Do 17.5}}
+} {v_test {jd John Do 17.5}} {skipon {![$object supports views]}}
 
 interface::test {info fields should not mess up a resultset} {
 	$object exec -usefetch {select * from "person"}
@@ -687,7 +716,7 @@ interface::test {info fields should not mess up a resultset} {
 
 interface::test {error when info on closed object} {
 	$object close
-	set views [$object info views]
+	set fields [$object info fields person]
 } {dbi object has no open database, open a connection first} error
 catch {::dbi::opendb}
 
@@ -902,11 +931,18 @@ interface::test {clone and object must be able to mix fetches within a transacti
 } {{pdr Peter {De Rijk} 20.0} {work pdr 1} {jd John Do 17.5} {home pdr 2}}
 
 interface::test {info may be implemented using a clone, see if it is respawned ok} {
+	set fields [$object info fields person]
+	$object close
+	::dbi::opendb
+	$object info fields person
+} {id first_name name score}
+
+interface::test {info may be implemented using a clone, see if it is respawned ok, views} {
 	set views [$object info views]
 	$object close
 	::dbi::opendb
 	$object info views
-} v_test
+} v_test {skipon {![$object supports views]}}
 
 interface::test {clone transaction sharing} {
 	set clone [$object clone]
@@ -948,7 +984,7 @@ interface::test {clone transaction sharing test without clone} {
 	$object rollback
 	set orresult [$object exec {select * from "person" where "id" = 'new'}]
 	list $oresult $orresult
-} {{{new new test 20.0}} {}}
+} {{{new new test 20.0}} {}} {skipon {![$object supports transactions]}}
 
 # transactions
 # ------------
@@ -981,7 +1017,7 @@ interface::test {transactions} {
 	$object commit
 	set r4 [$object exec {select "first_name" from "person" order by "id";}]
 	list $r1 $r2 $r3 $r4
-} {{} {Peter John Jane} {} {Peter John Jane}}
+} {{} {Peter John Jane} {} {Peter John Jane}} {skipon {![$object supports transactions]}}
 
 interface::test {autocommit error} {
 	$object exec {delete from "location";}
@@ -993,7 +1029,7 @@ interface::test {autocommit error} {
 		insert into "person" ("id","first_name") values(3,'Jane');
 	}}
 	list $r1 [$object exec {select "first_name" from "person";}]
-} {{} {}}
+} {{} {}} {skipon {![$object supports transactions]}}
 
 interface::test {transactions: syntax error in exec within transaction} {
 	$object exec {delete from "location";}
@@ -1010,7 +1046,7 @@ interface::test {transactions: syntax error in exec within transaction} {
 	$object rollback
 	set r3 [$object exec {select "first_name" from "person";}]
 	list $r1 $r2 $r3 [string range $error 0 27]
-} {{} Peter {} {bad option "-error": must be}}
+} {{} Peter {} {bad option "-error": must be}} {skipon {![$object supports transactions]}}
 
 interface::test {transactions: sql error in exec within transaction} {
 	$object exec {delete from "location";}
@@ -1026,7 +1062,7 @@ interface::test {transactions: sql error in exec within transaction} {
 	$object rollback
 	set r3 [$object exec {select "first_name" from "person";}]
 	list $r1 $r2 $r3
-} {{} Peter {}}
+} {{} Peter {}} {skipon {![$object supports transactions]}}
 
 interface::test {transactions: sql error in exec within transaction, seperate calls} {
 	$object exec {delete from "location";}
@@ -1044,7 +1080,7 @@ interface::test {transactions: sql error in exec within transaction, seperate ca
 	$object rollback
 	set r3 [$object exec {select "first_name" from "person";}]
 	list $r1 $r2 $r3
-} {{} Peter {}}
+} {{} Peter {}} {skipon {![$object supports transactions]}}
 
 # roles
 # ------------

@@ -4,14 +4,16 @@ exec tclsh "$0" "$@"
 puts "source [info script]"
 
 namespace eval interface {}
-set type postgresql
-set testdb testdbi
 set type odbc
+set testdb testdbi
+set type interbase
+set testdb /home/ib/testdbi.gdb
+set type mysql
+set testdb test
+set type postgresql
 set testdb testdbi
 set type sqlite
 set testdb test.db
-set type interbase
-set testdb /home/ib/testdbi.gdb
 
 set interface dbi/try
 set version 0.1
@@ -21,7 +23,8 @@ package require dbi_$type
 
 puts "create dbi_$type"
 array set opt {
-	-testdb test.db
+	-testdb test
+	-openargs {}
 	-user2 PDR
 	-lines 1
 	-columnperm 1
@@ -35,14 +38,16 @@ set opt(-testdb) $testdb
 proc ::dbi::cleandb {} {
 	upvar object object
 	upvar opt opt
-	$object rollback
+	catch {$object rollback}
 	set fresult ""
 	catch {$object serial delete test id} result
 	append fresult $result\n
 	catch {$object serial delete address id} result
 	append fresult $result\n
-	catch {$object exec {drop view "v_test"}} result
-	append fresult $result\n
+	if {[$object supports views]} {
+		catch {$object exec {drop view "v_test"}} result
+		append fresult $result\n
+	}
 	catch {$object exec {drop table "duse"}} result
 	append fresult $result\n
 	catch {$object exec {drop table "use"}} result
@@ -57,7 +62,21 @@ proc ::dbi::cleandb {} {
 	append fresult $result\n
 	catch {$object exec {drop table "person"}} result
 	append fresult $result\n
+	catch {$object exec {drop table bl}} result
+	append fresult $result\n
+	catch {$object exec {drop table "multi"}} result
+	append fresult $result\n
+	catch {$object exec {drop table "t"}} result
+	append fresult $result\n
 	return $fresult
+}
+proc ::dbi::ifsupp {feature string} {
+	upvar object object
+	if {[$object supports $feature]} {
+		return $string
+	} else {
+		return ""
+	}
 }
 proc ::dbi::createdb {} {
 	upvar object object
@@ -77,45 +96,24 @@ proc ::dbi::createdb {} {
 			"city" varchar(100)
 		);
 	}
-	if {[$object supports foreignkeys]} {
-		$object exec {
-			create table "location" (
-				"type" varchar(100) check ("type" in ('home','work','leisure')),
-				"inhabitant" char(6) references "person"("id"),
-				"address" integer references "address"("id")
-			);
-		}
-		$object exec {
-			create table "use" (
-				"id" integer not null primary key,
-				"person" integer not null unique references "person"("id"),
-				"place" varchar(100),
-				"usetime" timestamp,
-				"score" float check ("score" < 20.0),
-				"score2" float check ("score" < 20.0),
-				check ("score2" > "score")
-			);
-		}
-	} else {
-		$object exec {
-			create table "location" (
-				"type" varchar(100) check ("type" in ('home','work','leisure')),
-				"inhabitant" char(6),
-				"address" integer
-			);
-		}
-		$object exec {
-			create table "use" (
-				"id" integer not null primary key,
-				"person" integer not null unique,
-				"place" varchar(100),
-				"usetime" timestamp,
-				"score" float check ("score" < 20.0),
-				"score2" float check ("score" < 20.0),
-				check ("score2" > "score")
-			);
-		}
-	}
+	$object exec [subst {
+		create table "location" (
+			"type" varchar(100)[ifsupp check { check ("type" in ('home','work','leisure'))}],
+			"inhabitant" char(6)[ifsupp foreignkeys { references "person"("id")}],
+			"address" integer[ifsupp foreignkeys { references "address"("id")}]
+		);
+	}]
+	$object exec [subst {
+		create table "use" (
+			"id" integer not null primary key,
+			"person" integer not null unique[ifsupp foreignkeys { references "person"("id")}],
+			"place" varchar(100),
+			"usetime" timestamp,
+			"score" float[ifsupp check { check ("score" < 20.0)}],
+			"score2" float[ifsupp check { check ("score" < 20.0),
+			check ("score2" > "score")}]
+		);
+	}]
 	$object exec {select "id" from "use"}
 	catch {$object exec {
 		create index "use_score_idx" on "use"("score")
@@ -134,7 +132,24 @@ proc ::dbi::createdb {} {
 			"ts" timestamp
 		);
 	}
-	$object exec {create view "v_test" as select "id", "first_name", "name" from "person"}
+	$object exec {
+		create table "multi" (
+			"i" integer not null,
+			"si" smallint not null,
+			"vc" varchar(10),
+			"c" char(10),
+			"f" float,
+			"d" double precision,
+			"da" date,
+			"t" time,
+			"ts" timestamp,
+			primary key("i","si"),
+			unique("i","si","vc")
+		);
+	}
+	if {[$object supports views]} {
+		$object exec {create view "v_test" as select "id", "first_name", "name" from "person"}
+	}
 	catch {$object serial add address id}
 }
 proc ::dbi::filldb {} {
@@ -175,19 +190,33 @@ proc ::dbi::initdb {} {
 proc ::dbi::opendb {} {
 	upvar object object
 	upvar opt opt
-	$object open $opt(-testdb)
+	eval {$object open $opt(-testdb)} $opt(-openargs)
 }
-
 ::dbi::opendb
 ::dbi::initdb
 
-interface::test {info dependencies} {
-	catch {drop domain "testdomain"}
-	$object exec {create domain "testdomain" varchar(10)}
-	$object info domain testdomain
-} {varchar(10) nullable}
+interface::test {parameters with comments and literals} {
+	$object exec {select "id",'?' /* selecting what ? */ from "person" where "name" = ? and "score" = ?} {De Rijk} 20
+} {{pdr ?}}
 
-set c [dbi::interbase::parse_systemtables $db {RDB\$418}]
+interface::test {fetch fields when no result} {
+	$object exec -usefetch {select * from "person" where "id" = 'blabla'}
+	$object fetch fields
+} {id first_name name score}
+
+interface::test {serial cache error test} {
+	$object exec {delete from "types"}
+	catch {$object serial delete types i}
+	$object serial add types i
+	$object exec {insert into "types"("vc") values('a')}
+	set pos1 [$object serial set types i]
+	$object exec {delete from "types"}
+	catch {$object serial delete types i}
+	$object serial add types i
+	$object exec {insert into "types"("vc") values('a')}
+	set pos2 [$object serial set types i]
+	expr {$pos1 == $pos2}
+} 1 {skipon {![$object supports serials]}}
 
 #puts "tests done"
 #$object close

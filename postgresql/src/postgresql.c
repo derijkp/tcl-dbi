@@ -219,6 +219,80 @@ int dbi_Postgresql_ParseStatement(
 	return TCL_OK;
 }
 
+int dbi_Postgresql_InsertParam(
+	Tcl_Interp *interp,
+	char *cmdstring,
+	int cmdlen,
+	int *parsedstatement,
+	char *nullstring,
+	int nulllen,
+	Tcl_Obj **objv,
+	int objc,
+	char **result,
+	int *resultlen
+)
+{
+	char *sqlstring,*cursqlstring,*argstring;
+	int i,size,prvsrcpos,arglen;
+	/* calculate size of buffer needed */
+	size = cmdlen;
+	for (i = 0 ; i < objc ; i++) {
+		Tcl_GetStringFromObj(objv[i],&arglen);
+		/* we need at least space for 4 characters: in case of a NULL */
+		if (arglen < 2) {arglen = 2;}
+		/* add 2 for quotes around the value, and 4 more as a reserve for quotes in the value */
+		size += arglen+6;
+	}
+	sqlstring = (char *)Tcl_Alloc(size*sizeof(char));
+	cursqlstring = sqlstring;
+	prvsrcpos = 0;
+	/* put sql with inserted parameters into buffer */
+	for (i = 0 ; i < objc ; i++) {
+		strncpy(cursqlstring,cmdstring+prvsrcpos,parsedstatement[i]-prvsrcpos);
+		cursqlstring += parsedstatement[i]-prvsrcpos;
+		prvsrcpos = parsedstatement[i]+1;
+		argstring = Tcl_GetStringFromObj(objv[i],&arglen);
+		if ((nullstring != NULL)&&(arglen == nulllen)&&(strncmp(argstring,nullstring,arglen) == 0)) {
+			strncpy(cursqlstring,"NULL",4);
+			cursqlstring += 4;
+		} else {
+			char *pos;
+			int partsize,count=0,curpos;
+			*cursqlstring++ = '\'';
+			while (1) {
+				pos = strchr(argstring,'\'');
+				if (pos == NULL) {
+					strncpy(cursqlstring,argstring,arglen);
+					cursqlstring += arglen;
+					break;
+				} else {
+					count++;
+					if (count > 4) {
+						size += 1;
+						curpos = cursqlstring - sqlstring;
+						sqlstring = (char *)Tcl_Realloc(sqlstring,size*sizeof(char));
+						cursqlstring = sqlstring+curpos;
+					}
+					partsize = pos-argstring;
+					strncpy(cursqlstring,argstring,partsize);
+					cursqlstring += pos-argstring;
+					*cursqlstring++ = '\'';
+					*cursqlstring++ = '\'';
+					arglen -= partsize+1;
+					argstring = pos+1;
+				}
+			}
+			*cursqlstring++ = '\'';
+		}
+	}
+	Tcl_ResetResult(interp);
+	strncpy(cursqlstring,cmdstring+prvsrcpos,cmdlen-prvsrcpos);
+	cursqlstring[cmdlen-prvsrcpos] = '\0';
+	*result = sqlstring;
+	if (resultlen != NULL) {*resultlen = cursqlstring-sqlstring+cmdlen-prvsrcpos;}
+	return TCL_OK;
+}
+
 int dbi_Postgresql_Exec(
 	Tcl_Interp *interp,
 	dbi_Postgresql_Data *dbdata,
@@ -232,15 +306,15 @@ int dbi_Postgresql_Exec(
 	ExecStatusType status;
 	char *cmdstring,*nullstring;
 	int *parsedstatement;
-	int error,numargs,len,nulllen,usefetch,flat;
+	int error,numargs,cmdlen,nulllen,usefetch,flat;
 	flat = flags & EXEC_FLAT;
 	usefetch = flags & EXEC_USEFETCH;
 	if (dbdata->conn == NULL) {
 		Tcl_AppendResult(interp,"dbi object has no open database, open a connection first", NULL);
 		goto error;
 	}
-	cmdstring = Tcl_GetStringFromObj(cmd,&len);
-	error = dbi_Postgresql_ParseStatement(interp,dbdata,cmdstring,len,&parsedstatement,&numargs);
+	cmdstring = Tcl_GetStringFromObj(cmd,&cmdlen);
+	error = dbi_Postgresql_ParseStatement(interp,dbdata,cmdstring,cmdlen,&parsedstatement,&numargs);
 	if (objc != numargs) {
 		Tcl_Free((char *)parsedstatement);
 		Tcl_AppendResult(interp,"wrong number of arguments given to exec", NULL);
@@ -253,42 +327,10 @@ int dbi_Postgresql_Exec(
 		nullstring = Tcl_GetStringFromObj(nullvalue,&nulllen);
 	}
 	if (numargs > 0) {
-		char *sqlstring,*cursqlstring,*argstring;
-		double tempd;
-		int i,size,prvsrcpos,arglen,tempi;
-		/* calculate size of buffer needed */
-		size = len;
-		for (i = 0 ; i < numargs ; i++) {
-			Tcl_GetStringFromObj(objv[i],&arglen);
-			/* we need at least space for 4 characters: in case of a NULL */
-			if (arglen < 2) {arglen = 2;}
-			size += arglen+2;
-		}
-		sqlstring = (char *)Tcl_Alloc(size*sizeof(char));
-		cursqlstring = sqlstring;
-		prvsrcpos = 0;
-		/* put sql with inserted parameters into buffer */
-		for (i = 0 ; i < numargs ; i++) {
-			strncpy(cursqlstring,cmdstring+prvsrcpos,parsedstatement[i]-prvsrcpos);
-			cursqlstring += parsedstatement[i]-prvsrcpos;
-			prvsrcpos = parsedstatement[i]+1;
-			argstring = Tcl_GetStringFromObj(objv[i],&arglen);
-			if ((nullstring != NULL)&&(arglen == nulllen)&&(strncmp(argstring,nullstring,arglen) == 0)) {
-				strncpy(cursqlstring,"NULL",4);
-				cursqlstring += 4;
-			} else if ((Tcl_GetIntFromObj(interp,objv[i],&tempi) == TCL_OK) || (Tcl_GetDoubleFromObj(interp,objv[i],&tempd) == TCL_OK)) {
-				strncpy(cursqlstring,argstring,arglen);
-				cursqlstring += arglen;
-			} else {
-				*cursqlstring++ = '\'';
-				strncpy(cursqlstring,argstring,arglen);
-				cursqlstring += arglen;
-				*cursqlstring++ = '\'';
-			}
-		}
-		Tcl_ResetResult(interp);
-		strncpy(cursqlstring,cmdstring+prvsrcpos,len-prvsrcpos);
-		cursqlstring[len-prvsrcpos] = '\0';
+		char *sqlstring;
+		error = dbi_Postgresql_InsertParam(interp,cmdstring,cmdlen,parsedstatement,
+			nullstring,nulllen,objv,objc,&sqlstring,NULL);
+		if (error) {return error;}
 		Tcl_Free((char *)parsedstatement);
 		res = PQexec(dbdata->conn, sqlstring);
 		Tcl_Free(sqlstring);
@@ -622,22 +664,34 @@ int dbi_Postgresql_Supports(
 	Tcl_Obj *keyword)
 {
 	static char *keywords[] = {
-		"lines","backfetch","transactions","sharedtransactions","foreignkeys","checks","permissions",
+		"lines","backfetch","serials","sharedserials","blobparams","blobids",
+		"transactions","sharedtransactions","foreignkeys","checks","views",
+		"columnperm","roles","domains","permissions",
 		(char *) NULL};
+	static int supports[] = {
+		1,1,1,0,0,0,
+		1,1,1,1,1,
+		0,0,0,0};
 	enum keywordsIdx {
-		Lines, Backfetch,Transactions,Sharedtransactions,Foreignkeys,Checks,Permissions
+		Lines,Backfetch,Serials,Sharedserials,Blobparams, Blobids,
+		Transactions,Sharedtransactions,Foreignkeys,Checks,Views,
+		Columnperm, Roles, Domains, Permissions
 	};
 	int error,index;
 	if (keyword == NULL) {
 		char **keyword = keywords;
+		int *value = supports;
 		int index = 0;
 		while (1) {
 			if (*keyword == NULL) break;
-			switch(index) {
-				default:
-					Tcl_AppendElement(interp,*keyword);
+			Tcl_AppendElement(interp,*keyword);
+			if (value) {
+				Tcl_AppendElement(interp,"1");
+			} else {
+				Tcl_AppendElement(interp,"0");
 			}
 			keyword++;
+			value++;
 			index++;
 		}
 	} else {
@@ -645,10 +699,11 @@ int dbi_Postgresql_Supports(
 		if (error == TCL_OK) {
 			switch(index) {
 				default:
-					Tcl_SetObjResult(interp,Tcl_NewIntObj(1));
+					Tcl_SetObjResult(interp,Tcl_NewIntObj(supports[index]));
 			}
 		} else {
-			Tcl_SetObjResult(interp,Tcl_NewIntObj(0));
+			Tcl_AppendResult(interp,"unknown supports option: \"",	Tcl_GetStringFromObj(keyword,NULL), "\"", NULL);
+			return TCL_ERROR;
 		}
 	}
 	return TCL_OK;

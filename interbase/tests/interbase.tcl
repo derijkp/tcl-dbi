@@ -49,8 +49,8 @@ interface::test {primary key} {
 } {^violation of PRIMARY or UNIQUE KEY constraint ".*" on field "id" in table "person".*} error regexp
 
 interface::test {interface match} {
-	lsort [$object supports]
-} {blobids blobparams checks columnperm domains foreignkeys permissions roles sharedserials sharedtransactions}
+	$object supports
+} {lines 1 backfetch 1 serials 1 sharedserials 1 blobparams 1 blobids 1 transactions 1 sharedtransactions 1 foreignkeys 1 checks 1 views 1 columnperm 1 roles 1 domains 1 permissions 1}
 
 interface::test {transactions via exec} {
 	$object exec {delete from "location";}

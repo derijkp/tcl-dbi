@@ -1,0 +1,36 @@
+<manpage package="dbi" title="dbi_mysql" id="dbi_mysql" cat="dbi">
+<namesection>
+<name>dbi_mysql</name>
+<desc>create dbi object for accessing mysql databases</desc>
+</namesection>
+
+<synopsis>
+<syntax><cmd>dbi_interface</cmd> ?<m>objectName</m>?</syntax>
+</synopsis>
+
+<section>
+<title>DESCRIPTION</title>
+<p>
+The <cmd>dbi_mysql</cmd> command creates an object <m>objectName</m> that can 
+be used to connect to mysql databases using its native API. If <m>objectName</m>
+is not provided, a name will be automatically generated and returned by the command
+The object created supports the <ref manpage="interface_dbi">dbi interface</ref> for 
+accessing and querying databases.
+</p>
+</section>
+
+<seealso>
+<ref>interface_dbi</ref>
+<ref>interface_dbi_admin</ref>
+</seealso>
+
+<keywords>
+<keyword>dbi</keyword>
+<keyword>mysql</keyword>
+<keyword>interface</keyword>
+<keyword>database</keyword>
+<keyword>sql</keyword>
+</keywords>
+
+</manpage>
+

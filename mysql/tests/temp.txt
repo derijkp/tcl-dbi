@@ -1,0 +1,8 @@
+create table test (                                     
+        "id" varchar(5),                                
+        "value" varchar(10)
+  );
+  insert into "test" values ('test','test it');
+  select * from "test" where "id" = 'test';
+  delete from "test" where "id" = 'test';
+  select * from "test" where "id" = 'test';

@@ -1147,6 +1147,7 @@ int dbi_Interbase_Fetch(
 				error = dbi_Interbase_Fetch_Row(interp,dbdata,dbdata->out_sqlda,nullvalue,&line);
 				if (error) {return error;}
 				Tcl_SetObjResult(interp, line);
+				line = NULL;
 			} else {
 				error = dbi_Interbase_Fetch_One(interp,dbdata,ifield,&element);
 				if (error) {goto error;}
@@ -1475,6 +1476,7 @@ int dbi_Interbase_ToResult_flat(
 		return TCL_ERROR;
 }
 
+#ifdef never
 int dbi_Interbase_Transaction_Commit(
 	Tcl_Interp *interp,
 	dbi_Interbase_Data *dbdata,
@@ -1485,6 +1487,31 @@ int dbi_Interbase_Transaction_Commit(
 /*fprintf(stdout,"commit stmt=%X trans=%X\n",(uint)dbdata->stmt,(uint)trans);fflush(stdout);*/
 	if (((dbdata->parent == NULL) && (dbdata->clonesnum == 0)) || noretain) {
 		/* we can only do a full commit safely if there are no clones,
+		   or when asked to do so (explicit transactions) */
+		error = isc_commit_transaction(dbdata->status, trans);
+/*fprintf(stdout,"-> committed\n");fflush(stdout);*/
+	} else {
+		error = isc_commit_retaining(dbdata->status, trans);
+/*fprintf(stdout,"-> commit retaining\n");fflush(stdout);*/
+	}
+	if (error) {
+		dbi_Interbase_Error(interp,dbdata,"committing transaction");
+		return TCL_ERROR;
+	}
+	return TCL_OK;
+}
+#endif
+
+int dbi_Interbase_Transaction_Commit(
+	Tcl_Interp *interp,
+	dbi_Interbase_Data *dbdata,
+	int noretain)
+{
+	isc_tr_handle *trans = dbi_Interbase_trans(dbdata);
+	int error,i;
+/*fprintf(stdout,"commit stmt=%X trans=%X\n",(uint)dbdata->stmt,(uint)trans);fflush(stdout);*/
+	if (((dbdata->parent == NULL) && (dbdata->clonesnum == 0)) || noretain) {
+		/* we can allways do a full commit safely if there are no clones,
 		   or when asked to do so (explicit transactions) */
 		error = isc_commit_transaction(dbdata->status, trans);
 /*fprintf(stdout,"-> committed\n");fflush(stdout);*/
@@ -1522,7 +1549,8 @@ int dbi_Interbase_Transaction_Start(
 	isc_tr_handle *trans = dbi_Interbase_trans(dbdata);
 	int error;
 	static char isc_tpb[] = {
-		isc_tpb_version3
+		isc_tpb_version3/*,
+		isc_tpb_read_committed*/
 	};
 	if (*trans != NULL) {return TCL_OK;}
 /* fprintf(stdout,"start  stmt=%X trans=%X\n",(uint)dbdata->stmt,(uint)trans);fflush(stdout); */
@@ -2034,22 +2062,34 @@ int dbi_Interbase_Supports(
 	Tcl_Obj *keyword)
 {
 	static char *keywords[] = {
-		"columnperm","roles","domains","blobparams","blobids","sharedtransactions","foreignkeys","checks","permissions","sharedserials",
+		"lines","backfetch","serials","sharedserials","blobparams","blobids",
+		"transactions","sharedtransactions","foreignkeys","checks","views",
+		"columnperm","roles","domains","permissions",
 		(char *) NULL};
+	static int supports[] = {
+		0,0,1,1,1,1,
+		1,1,1,1,1,
+		1,1,1,1};
 	enum keywordsIdx {
-		Columnperm, Roles, Domains, Blobparams, Blobids, Sharedtransactions, Foreignkeys,Checks,Permissions,Sharedserials
+		Lines,Backfetch,Serials,Sharedserials,Blobparams, Blobids,
+		Transactions,Sharedtransactions,Foreignkeys,Checks,Views,
+		Columnperm, Roles, Domains, Permissions
 	};
 	int error,index;
 	if (keyword == NULL) {
 		char **keyword = keywords;
+		int *value = supports;
 		int index = 0;
 		while (1) {
 			if (*keyword == NULL) break;
-			switch(index) {
-				default:
-					Tcl_AppendElement(interp,*keyword);
+			Tcl_AppendElement(interp,*keyword);
+			if (value) {
+				Tcl_AppendElement(interp,"1");
+			} else {
+				Tcl_AppendElement(interp,"0");
 			}
 			keyword++;
+			value++;
 			index++;
 		}
 	} else {
@@ -2057,10 +2097,11 @@ int dbi_Interbase_Supports(
 		if (error == TCL_OK) {
 			switch(index) {
 				default:
-					Tcl_SetObjResult(interp,Tcl_NewIntObj(1));
+					Tcl_SetObjResult(interp,Tcl_NewIntObj(supports[index]));
 			}
 		} else {
-			Tcl_SetObjResult(interp,Tcl_NewIntObj(0));
+			Tcl_AppendResult(interp,"unknown supports option: \"",	Tcl_GetStringFromObj(keyword,NULL), "\"", NULL);
+			return TCL_ERROR;
 		}
 	}
 	return TCL_OK;
