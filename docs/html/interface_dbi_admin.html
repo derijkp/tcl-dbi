@@ -1,0 +1,51 @@
+
+
+
+<h2>DESCRIPTION</h2>
+<p>
+The dbi_admin <a href="interface.html">interface</a> is designed for administrating SQL databases.
+It presents a generic api to create and drop databases.
+</p>
+
+
+
+<h2>THE DBI_ADMIN INTERFACE</h2>
+<dl>
+
+
+<dt><i>objectName</i> <i>open</i> <b>database</b> ?<b>arg</b> ...?</dt>
+<dd>open the given 'database'. Extra arguments can (must) be given, depending on the backend
+used. <b>database</b> is an identifier of the database. What this is exactly, can depend on 
+the implementation This is method the same as the one defined by dbi interface.
+</dd>
+
+
+
+<dt><i>objectName</i> <i>create</i> <b>database</b></dt>
+<dd>create a database identified by <b>database</b>
+</dd>
+
+
+
+<dt><i>objectName</i> <i>drop</i></dt>
+<dd>Drop the database currently open.</dd>
+
+</dl>
+
+
+<h2>SEE ALSO</h2><ul>
+<a href="interface.html">interface</a>
+<a href="interface_dbi.html">interface_dbi</a>
+</ul>
+
+<h2>KEYWORDS</h2><ul>
+<li>interface</li>
+<li>database</li>
+<li>sql</li>
+<li>dbi</li>
+</ul>
+
+
+
+
+

@@ -46,7 +46,7 @@ UNIX_SOURCES	=
 #========================================================================
 
 dbi_OBJECTS	= $(dbi_SOURCES:.c=.o)
-dbi_LIB_FILE	= libdbi0.8.9.so
+dbi_LIB_FILE	= libdbi1.0.0.so
 
 #========================================================================
 # RUNTIME_SOURCES identifies Tcl runtime files that are associated with
@@ -109,7 +109,7 @@ INSTALL_DATA	= ${INSTALL} -m 644
 INSTALL_SCRIPT	= ${INSTALL_PROGRAM}
 
 PACKAGE		= dbi
-VERSION		= 0.8.9
+VERSION		= 1.0.0
 CC		= gcc -pipe
 CFLAGS_DEBUG	= -g
 CFLAGS_DEFAULT	= $(CFLAGS_OPTIMIZE)
@@ -167,7 +167,7 @@ INCLUDES	= -I"/usr/include"
 
 EXTRA_CFLAGS	= $(MEM_DEBUG_FLAGS) 
 
-DEFS		= $(TCL_DEFS)  -DVERSION=\"0.8.9\" -D_LARGEFILE64_SOURCE=1 -DTCL_WIDE_INT_TYPE=long\ long -DHAVE_STRUCT_STAT64=1 -DHAVE_TYPE_OFF64_T=1 -DHAVE_UNISTD_H=1 -DHAVE_SYS_PARAM_H=1 -DUSE_TCL_STUBS=1  $(EXTRA_CFLAGS)
+DEFS		= $(TCL_DEFS)  -DVERSION=\"1.0.0\" -D_LARGEFILE64_SOURCE=1 -DTCL_WIDE_INT_TYPE=long\ long -DHAVE_STRUCT_STAT64=1 -DHAVE_TYPE_OFF64_T=1 -DHAVE_UNISTD_H=1 -DHAVE_SYS_PARAM_H=1 -DUSE_TCL_STUBS=1  $(EXTRA_CFLAGS)
 
 CONFIG_CLEAN_FILES = Makefile
 
@@ -207,10 +207,10 @@ doc:
 	
 
 uninstall:
-	$(TCLSH_PROG) $(srcdir)/build/uninstall.tcl srcdir $(srcdir) pkglibdir "$(DESTDIR)$(pkglibdir)" pkgtcllibdir "$(DESTDIR)$(pkgtcllibdir)" pkgdatadir "$(DESTDIR)$(pkgdatadir)" pkgincludedir "$(DESTDIR)$(pkgincludedir)" bindir "$(DESTDIR)$(bindir)" mandir "$(DESTDIR)$(mandir)" package dbi version 0.8.9
+	$(TCLSH_PROG) $(srcdir)/build/uninstall.tcl srcdir $(srcdir) pkglibdir "$(DESTDIR)$(pkglibdir)" pkgtcllibdir "$(DESTDIR)$(pkgtcllibdir)" pkgdatadir "$(DESTDIR)$(pkgdatadir)" pkgincludedir "$(DESTDIR)$(pkgincludedir)" bindir "$(DESTDIR)$(bindir)" mandir "$(DESTDIR)$(mandir)" package dbi version 1.0.0
 
 install: all
-	$(TCLSH_PROG) $(srcdir)/build/install.tcl srcdir $(srcdir) pkglibdir "$(DESTDIR)$(pkglibdir)" pkgtcllibdir "$(DESTDIR)$(pkgtcllibdir)" pkgdatadir "$(DESTDIR)$(pkgdatadir)" pkgincludedir "$(DESTDIR)$(pkgincludedir)" bindir "$(DESTDIR)$(bindir)" mandir "$(DESTDIR)$(mandir)" package dbi version 0.8.9
+	$(TCLSH_PROG) $(srcdir)/build/install.tcl srcdir $(srcdir) pkglibdir "$(DESTDIR)$(pkglibdir)" pkgtcllibdir "$(DESTDIR)$(pkgtcllibdir)" pkgdatadir "$(DESTDIR)$(pkgdatadir)" pkgincludedir "$(DESTDIR)$(pkgincludedir)" bindir "$(DESTDIR)$(bindir)" mandir "$(DESTDIR)$(mandir)" package dbi version 1.0.0
 
 install-binaries: binaries install-lib-binaries install-bin-binaries
 	if test "x$(SHARED_BUILD)" = "x1"; then \

@@ -7,8 +7,8 @@
 # script is sourced, the variable $dir must contain the
 # full path name of this file's directory.
 
-# $Format: "package ifneeded dbi 0.8$ProjectMajorVersion$ \\"$
-package ifneeded dbi 0.8 \
+# $Format: "package ifneeded dbi $ProjectMajorVersion$.$ProjectMinorVersion$ \\"$
+package ifneeded dbi 1.0 \
 [subst -nocommands {
 	namespace eval ::dbi {}
 	set ::dbi::dir [list $dir]

@@ -114,6 +114,7 @@ AC_DEFUN(SC_ODBC_LIB, [
 	    fi
 	])
     fi
+    AC_ARG_ENABLE(static, [  --enable-static         link odbc library statically [--disable-static]],[tcl_ok=$enableval], [tcl_ok=no])
 	case "`uname -s`" in
 		*win32* | *WIN32* | *CYGWIN_NT* |*CYGWIN_98*|*CYGWIN_95*)
 		    if test x"${ac_cv_c_odbc}" = x ; then
@@ -137,7 +138,11 @@ AC_DEFUN(SC_ODBC_LIB, [
 		
 		    LIB_DIR_NATIVE=`${CYGPATH} "${ac_cv_c_odbc}"`
 		
-		    ODBC_LIB="-L\"${LIB_DIR_NATIVE}\" -lodbc"
+		    if test "$tcl_ok" = "no"; then
+			    ODBC_LIB="-L\"${LIB_DIR_NATIVE}\" -lodbc"
+		    else
+			    ODBC_LIB=" ${LIB_DIR_NATIVE}/libodbc.a "
+		    fi
 		;;
 	esac
     AC_SUBST(ODBC_LIB)

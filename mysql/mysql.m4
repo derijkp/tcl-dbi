@@ -114,6 +114,7 @@ AC_DEFUN(SC_MYSQL_LIB, [
 	    fi
 	])
     fi
+    AC_ARG_ENABLE(static, [  --enable-static         link mysql library statically [--disable-static]],[tcl_ok=$enableval], [tcl_ok=no])
 	case "`uname -s`" in
 		*win32* | *WIN32* | *CYGWIN_NT* |*CYGWIN_98*|*CYGWIN_95*)
 		    if test x"${ac_cv_c_mysql}" = x ; then
@@ -137,7 +138,11 @@ AC_DEFUN(SC_MYSQL_LIB, [
 		
 		    LIB_DIR_NATIVE=`${CYGPATH} "${ac_cv_c_mysql}"`
 		
-		    MYSQL_LIB="-L\"${LIB_DIR_NATIVE}\" -lmysqlclient"
+		    if test "$tcl_ok" = "no"; then
+			    MYSQL_LIB="-L\"${LIB_DIR_NATIVE}\" -lmysqlclient"
+		    else
+			    MYSQL_LIB=" ${LIB_DIR_NATIVE}/libmysqlclient.a "
+		    fi
 		;;
 	esac
     AC_SUBST(MYSQL_LIB)

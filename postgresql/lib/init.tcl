@@ -7,10 +7,10 @@ package require dbi
 
 namespace eval dbi::postgresql {}
 
-# $Format: "set ::dbi::postgresql::version 0.$ProjectMajorVersion$"$
-set ::dbi::postgresql::version 0.8
-# $Format: "set ::dbi::postgresql::patchlevel $ProjectMinorVersion$"$
-set ::dbi::postgresql::patchlevel 9
+# $Format: "set ::dbi::postgresql::version $ProjectMajorVersion$.$ProjectMinorVersion$"$
+set ::dbi::postgresql::version 1.0
+# $Format: "set ::dbi::postgresql::patchlevel $ProjectPatchLevel$"$
+set ::dbi::postgresql::patchlevel 0
 package provide dbi_postgresql $::dbi::postgresql::version
 
 source $dbi::postgresql::dir/lib/package.tcl
@@ -40,6 +40,7 @@ proc ::dbi::postgresql::privatedb {db} {
 	variable privatedb
 	variable privatedbnum
 	set parent [$db parent]
+	if {$parent eq ""} {set parent $db}
 	if {[::info exists privatedb($parent)]} {
 		if {![string equal [::info commands $privatedb($parent)] ""]} {
 			return $privatedb($parent)
@@ -302,6 +303,16 @@ proc ::dbi::postgresql::table_info_new {db table} {
 	return $result
 }
 
+proc ::dbi::postgresql::tables {db} {
+	set result [$db exec {
+		select relname from pg_class 
+		where (relkind = 'r' or relkind = 'v')
+		and relname !~ '^pg_' and relname !~ '^pga_'
+		and relname not in ('table_constraints','table_privileges','tables','triggered_update_columns','triggers','usage_privileges','view_column_usage','view_table_usage','views','data_type_privileges','element_types','routine_privileges','routines','schemata','sql_features','sql_implementation_info','sql_languages','sql_packages','sql_sizing','sql_sizing_profiles','column_privileges','column_udt_usage','columns','constraint_column_usage','constraint_table_usage','domain_constraints','domain_udt_usage','domains','enabled_roles','key_column_usage','parameters','referential_constraints','role_column_grants','role_routine_grants','role_table_grants','role_usage_grants','information_schema_catalog_name','applicable_roles','check_constraints','column_domain_usage')
+	}]
+	return $result
+}
+
 proc ::dbi::postgresql::info {db args} {
 	set db [privatedb $db]
 	set len [llength $args]
@@ -319,13 +330,18 @@ proc ::dbi::postgresql::info {db args} {
 			}
 		}
 		tables {
-			return [$db tables]
+			return [::dbi::postgresql::tables]
 		}
 		systemtables {
 			set result [$db exec {select relname from pg_class where (relkind = 'r' or relkind = 'v') and relname like 'pg\\_%'}]
+			lappend result table_constraints table_privileges tables triggered_update_columns triggers usage_privileges view_column_usage view_table_usage views data_type_privileges element_types routine_privileges routines schemata sql_features sql_implementation_info sql_languages sql_packages sql_sizing sql_sizing_profiles column_privileges column_udt_usage columns constraint_column_usage constraint_table_usage domain_constraints domain_udt_usage domains enabled_roles key_column_usage parameters referential_constraints role_column_grants role_routine_grants role_table_grants role_usage_grants information_schema_catalog_name applicable_roles check_constraints column_domain_usage
 		}
 		views {
-			set result [$db exec {select viewname from pg_views where (viewname !~ '^pg_' and viewname !~ '^pga_')}]
+			set result [$db exec {
+				select viewname from pg_views 
+				where (viewname !~ '^pg_' and viewname !~ '^pga_')
+				and viewname not in ('table_constraints','table_privileges','tables','triggered_update_columns','triggers','usage_privileges','view_column_usage','view_table_usage','views','data_type_privileges','element_types','routine_privileges','routines','schemata','sql_features','sql_implementation_info','sql_languages','sql_packages','sql_sizing','sql_sizing_profiles','column_privileges','column_udt_usage','columns','constraint_column_usage','constraint_table_usage','domain_constraints','domain_udt_usage','domains','enabled_roles','key_column_usage','parameters','referential_constraints','role_column_grants','role_routine_grants','role_table_grants','role_usage_grants','information_schema_catalog_name','applicable_roles','check_constraints','column_domain_usage')
+			}]
 		}
 		access {
 			set option [lindex $args 1]

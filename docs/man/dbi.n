@@ -1,8 +1,8 @@
 '\"
-'\" Generated from docs/xml/dbi.n.xml
+'\" Generated from docs/xml/dbi.xml
 '\"
 .so man.macros
-.TH dbi n "" dbi ""
+.TH dbi n "" Tcl ""
 .BS
 .SH NAME
 dbi \- package with interface for SQL database access in Tcl

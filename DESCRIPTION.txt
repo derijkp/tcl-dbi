@@ -1,5 +1,5 @@
 Identifier: dbi
-Version: 0.8.9
+Version: 1.0.0
 Title: database access interface
 Creator: Peter De Rijk <Peter.DeRijk@ua.ac.be>
 Description: generic interface descrition for SQL database access

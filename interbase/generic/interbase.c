@@ -19,11 +19,6 @@ typedef struct vary {
 	char vary_string[1];
 } VARY;
 
-void Tcl_GetCommandFullName(
-    Tcl_Interp *interp,
-    Tcl_Command command,
-    Tcl_Obj *objPtr);
-
 int Dbi_interbase_Clone(
 	Tcl_Interp *interp,
 	dbi_Interbase_Data *dbdata,

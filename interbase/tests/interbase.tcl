@@ -4,8 +4,8 @@ exec tclsh "$0" "$@"
 puts "source [info script]"
 
 set interface dbi
-# $Format: "set version 0.$ProjectMajorVersion$"$
-set version 0.8
+# $Format: "set version $ProjectMajorVersion$.$ProjectMinorVersion$"$
+set version 1.0
 
 package require interface
 package require dbi
@@ -39,8 +39,8 @@ array set opt [subst {
 	-object2 $object2
 }]
 
-# $Format: "eval interface test dbi-0.$ProjectMajorVersion$ $object [array get opt]"$
-eval interface test dbi-0.8 $object [array get opt]
+# $Format: "eval interface test dbi-$ProjectMajorVersion$.$ProjectMinorVersion$ $object [array get opt]"$
+eval interface test dbi-1.0 $object [array get opt]
 
 ::dbi::opendb
 ::dbi::initdb

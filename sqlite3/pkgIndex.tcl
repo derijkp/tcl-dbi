@@ -7,8 +7,8 @@
 # script is sourced, the variable $dir must contain the
 # full path name of this file's directory.
 
-# $Format: "package ifneeded dbi_sqlite 0.8$ProjectMajorVersion$ \\"$
-package ifneeded dbi_sqlite3 3.0 \
+# $Format: "package ifneeded dbi_sqlite3 $ProjectMajorVersion$.$ProjectMinorVersion$ \\"$
+package ifneeded dbi_sqlite3 1.0 \
 [subst -nocommands {
 	namespace eval ::dbi {}
 	namespace eval ::dbi::sqlite3 {}

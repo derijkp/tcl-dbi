@@ -1,6 +1,6 @@
 package require dbi
-package require dbi_interbase
-dbi_interbase db
+package require dbi_firebird
+dbi_firebird db
 db open localhost:/home/ib/testdbi.gdb -user test -password blabla
 db tables
 catch {db exec {drop table "person"}}

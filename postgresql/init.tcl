@@ -8,4 +8,4 @@ namespace eval ::dbi {}
 namespace eval ::dbi::postgresql {}
 set ::dbi::postgresql::dir $dir
 source [file join $dir lib init.tcl]
-extension provide dbi_postgresql 0.8.9
+extension provide dbi_postgresql 1.0.0

@@ -1,5 +1,5 @@
-Identifier: dbi_interbase
-Version: 0.8.9
+Identifier: dbi_firebird
+Version: 1.0.0
 Title: firebird database access
 Creator: Peter De Rijk <Peter.DeRijk@ua.ac.be>
 Description: firebird > 1.5 database access using the dbi interface

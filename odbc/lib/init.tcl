@@ -7,10 +7,10 @@ package require dbi
 
 namespace eval dbi::odbc {}
 
-# $Format: "set ::dbi::odbc::version 0.$ProjectMajorVersion$"$
-set ::dbi::odbc::version 0.8
-# $Format: "set ::dbi::odbc::patchlevel $ProjectMinorVersion$"$
-set ::dbi::odbc::patchlevel 9
+# $Format: "set ::dbi::odbc::version $ProjectMajorVersion$.$ProjectMinorVersion$"$
+set ::dbi::odbc::version 1.0
+# $Format: "set ::dbi::odbc::patchlevel $ProjectPatchLevel$"$
+set ::dbi::odbc::patchlevel 0
 package provide dbi_odbc $::dbi::odbc::version
 
 source $dbi::odbc::dir/lib/package.tcl

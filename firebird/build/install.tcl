@@ -10,7 +10,7 @@ set shareddatafiles README
 set headers {}
 set libbinaries [glob *[info sharedlibextension]]
 set binaries {}
-set extname dbi_interbase
+set extname dbi_firebird
 
 # standard
 # --------

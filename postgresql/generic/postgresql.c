@@ -11,13 +11,6 @@
 #include <stdlib.h>
 #include "postgresql.h"
 
-/*
-void Tcl_GetCommandFullName(
-    Tcl_Interp *interp,
-    Tcl_Command command,
-    Tcl_Obj *objPtr);
-*/
-#define Tcl_GetCommandFullName(interp, token, objPtr) Tcl_NewStringObj(Tcl_GetCommandName(interp,token),-1)
 int Dbi_Postgresql_Clone(
 	Tcl_Interp *interp,
 	dbi_Postgresql_Data *dbdata,
@@ -563,17 +556,6 @@ int dbi_Postgresql_Fetch(
 		return TCL_ERROR;
 }
 
-int dbi_Postgresql_Tables(
-	Tcl_Interp *interp,
-	dbi_Postgresql_Data *dbdata)
-{
-	int error;
-	Tcl_Obj *cmd = Tcl_NewStringObj("select relname from pg_class where (relkind = 'r' or relkind = 'v') and relname !~ '^pg_' and relname !~ '^pga_'",-1);
-	error = dbi_Postgresql_Exec(interp,dbdata,cmd,EXEC_FLAT,NULL,0,(Tcl_Obj **)NULL);
-	Tcl_DecrRefCount(cmd);
-	return error;
-}
-
 int dbi_Postgresql_Transaction_Start(
 	Tcl_Interp *interp,
 	dbi_Postgresql_Data *dbdata)
@@ -711,9 +693,10 @@ int dbi_Postgresql_Supports(
 	return TCL_OK;
 }
 
-int dbi_Postgresql_Info(
+int dbi_Postgresql_Eval(
 	Tcl_Interp *interp,
 	dbi_Postgresql_Data *dbdata,
+	char *command,
 	int objc,
 	Tcl_Obj **objv)
 {
@@ -721,7 +704,7 @@ int dbi_Postgresql_Info(
 	int error,i;
 	dbcmd = Tcl_NewObj();
 	Tcl_GetCommandFullName(interp, dbdata->token, dbcmd);
-	cmd = Tcl_NewStringObj("::dbi::postgresql::info",-1);
+	cmd = Tcl_NewStringObj(command,-1);
 	Tcl_IncrRefCount(cmd);
 	error = Tcl_ListObjAppendElement(interp,cmd,dbcmd);
 	if (error) {Tcl_DecrRefCount(cmd);Tcl_DecrRefCount(dbcmd);return error;}
@@ -985,13 +968,13 @@ int Dbi_Postgresql_DbObjCmd(
 	case Fetch:
 		return dbi_Postgresql_Fetch(interp,dbdata, objc, objv);
 	case Info:
-		return dbi_Postgresql_Info(interp,dbdata,objc-2,objv+2);
+		return dbi_Postgresql_Eval(interp,dbdata,"::dbi::postgresql::info",objc-2,objv+2);
 	case Tables:
 		if (objc != 2) {
 			Tcl_WrongNumArgs(interp, 2, objv, "");
 			return TCL_ERROR;
 		}
-		return dbi_Postgresql_Tables(interp,dbdata);
+		return dbi_Postgresql_Eval(interp,dbdata,"::dbi::postgresql::tables",0,NULL);
 	case Fields:
 		if (objc != 3) {
 			Tcl_WrongNumArgs(interp, 2, objv, "fields tablename");

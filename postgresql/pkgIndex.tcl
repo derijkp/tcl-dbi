@@ -7,8 +7,8 @@
 # script is sourced, the variable $dir must contain the
 # full path name of this file's directory.
 
-# $Format: "package ifneeded dbi_postgresql 0.$ProjectMajorVersion$ \\"$
-package ifneeded dbi_postgresql 0.8 \
+# $Format: "package ifneeded dbi_postgresql $ProjectMajorVersion$.$ProjectMinorVersion$ \\"$
+package ifneeded dbi_postgresql 1.0 \
 [subst -nocommands {
 	namespace eval ::dbi {}
 	namespace eval ::dbi::postgresql {}

@@ -7,10 +7,10 @@ package require dbi
 
 namespace eval dbi::mysql {}
 
-# $Format: "set ::dbi::mysql::version 0.$ProjectMajorVersion$"$
-set ::dbi::mysql::version 0.8
-# $Format: "set ::dbi::mysql::patchlevel $ProjectMinorVersion$"$
-set ::dbi::mysql::patchlevel 9
+# $Format: "set ::dbi::mysql::version $ProjectMajorVersion$.$ProjectMinorVersion$"$
+set ::dbi::mysql::version 1.0
+# $Format: "set ::dbi::mysql::patchlevel $ProjectPatchLevel$"$
+set ::dbi::mysql::patchlevel 0
 package provide dbi_mysql $::dbi::mysql::version
 
 source $dbi::mysql::dir/lib/package.tcl

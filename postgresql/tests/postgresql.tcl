@@ -16,8 +16,8 @@ array set opt [subst {
 	-object2 $object2
 }]
 
-# $Format: "eval interface test dbi-0.$ProjectMajorVersion$ $object [array get opt]"$
-eval interface test dbi-0.8 $object [array get opt]
+# $Format: "eval interface test dbi-$ProjectMajorVersion$.$ProjectMinorVersion$ $object [array get opt]"$
+eval interface test dbi-1.0 $object [array get opt]
 
 $object destroy
 $object2 destroy

@@ -1,0 +1,90 @@
+
+
+<synopsis>
+<syntax><i>dbi_interface</i> ?<b>objectName</b>?</syntax>
+</synopsis>
+
+
+<h2>DESCRIPTION</h2>
+<p>
+The <i>dbi_odbc</i> command creates an object that can be used to connect
+to databases using ODBC. The object supports the 
+<ref manpage="interface_dbi">dbi interface</ref> for accessing and querying databases.
+</p>
+
+
+
+<h2>EXTRA COMMANDS</h2>
+Besides the commands needed to support the dbi interface, dbi_odbc objects have some
+extra low level commands:
+<dl>
+
+<dt><i>objectName</i> <i>sqlcolumns</i> <b>catalog</b> <b>schema</b> <b>table</b> <b>field</b></dt>
+<dd>Returns specified SQLColumns catalog data
+</dd>
+
+
+<dt><i>objectName</i> <i>sqlprimarykeys</i> <b>catalog</b> <b>schema</b> <b>table</b></dt>
+<dd>Returns specified SQLPrimaryKeys catalog data
+</dd>
+
+
+<dt><i>objectName</i> <i>sqlcolumnprivileges</i> <b>catalog</b> <b>schema</b> <b>table</b> <b>field</b></dt>
+<dd>Returns specified SQLColumnPrivileges catalog data
+</dd>
+
+
+<dt><i>objectName</i> <i>sqltableprivileges</i> <b>catalog</b> <b>schema</b> <b>table</b></dt>
+<dd>Returns specified SQLTablePrivileges catalog data
+</dd>
+
+
+<dt><i>objectName</i> <i>sqlforeignkeys</i> <b>pkcatalog</b> <b>pkschema</b> <b>pktable</b> <b>fkcatalog</b> <b>fkschema</b> <b>fktable</b></dt>
+<dd>Returns specified SQLForeignKeys catalog data
+</dd>
+
+
+<dt><i>objectName</i> <i>sqlspecialcolumns</i> <b>type</b> <b>catalog</b> <b>schema</b> <b>table</b> <b>scope</b> <b>nullable</b></dt>
+<dd>Returns specified SQLSpecialColumns catalog data
+</dd>
+
+
+<dt><i>objectName</i> <i>sqlstatistics</i> <b>catalog</b> <b>schema</b> <b>table</b> <b>unique</b> <b>quick</b></dt>
+<dd>Returns specified SQLStatistics catalog data
+</dd>
+
+
+<dt><i>objectName</i> <i>sqltables</i> <b>catalog</b> <b>schema</b> <b>table</b> <b>unique</b> <b>tabletype</b></dt>
+<dd>Returns specified SQLTables catalog data
+</dd>
+
+
+<dt><i>objectName</i> <i>sqlprocedures</i> <b>catalog</b> <b>schema</b> <b>procedure</b></dt>
+<dd>Returns specified SQLProcedures catalog data
+</dd>
+
+
+<dt><i>objectName</i> <i>sqlgetinfo</i> <b>infotype</b></dt>
+<dd>Returns information about the backend and the driver. If the <b>infotype</b> given is unknown, 
+an error message containing a list of all possible types of info is returned.
+</dd>
+
+</dl>
+
+
+<h2>SEE ALSO</h2><ul>
+<a href="interface_dbi.html">interface_dbi</a>
+<a href="interface_dbi_admin.html">interface_dbi_admin</a>
+</ul>
+
+<h2>KEYWORDS</h2><ul>
+<li>dbi</li>
+<li>odbc</li>
+<li>interface</li>
+<li>database</li>
+<li>sql</li>
+</ul>
+
+
+
+

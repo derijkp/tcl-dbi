@@ -204,6 +204,28 @@ proc version {{argv {}}} {
 		set version $majorversion.$minorversion
 		set patchlevel 0
 	}
+	if {![catch {set files [exec grep -rl {\$Format: } $srcdir]}]} {
+		foreach file [split $files \n] {
+			if {[string match "$srcdir/_darcs*" $file]} {
+				continue
+			}
+			puts "updating versions in $file"
+			set c [split [file_read $file] \n]
+			set pos 0
+			foreach line $c {
+				incr pos
+				if {[regexp {\$Format: "(.*)"\$} $line temp string]} {
+					regsub -all {\$ProjectMajorVersion[^$]*\$} $string $majorversion string
+					regsub -all {\$ProjectMinorVersion[^$]*\$} $string $minorversion string
+					regsub -all {\$ProjectPatchLevel[^$]*\$} $string $patchlevel string
+					set string [string map [list \\\" \" \\\\ \\] $string] 
+					regsub -all {\\"} $string \" string
+					set c [lreplace $c $pos $pos $string]
+				}
+			}
+			file_write $file [join $c \n]
+		}
+	}
 	if {[file exists $srcdir/DESCRIPTION.txt]} {
 		puts "Changing version in $srcdir/DESCRIPTION.txt"
 		set c [file_read $srcdir/DESCRIPTION.txt]
@@ -215,8 +237,8 @@ proc version {{argv {}}} {
 	if {[file exists $srcdir/lib/init.tcl]} {
 		puts "Changing version in $srcdir/lib/init.tcl"
 		set c [file_read $srcdir/lib/init.tcl]
-		regsub {::version [0-9.]+} $c "::version $majorversion.$minorversion" c
-		regsub {::patchlevel [0-9.]+} $c "::patchlevel $patchlevel" c
+		regsub -all {::version [0-9.]+} $c "::version $majorversion.$minorversion" c
+		regsub -all {::patchlevel [0-9.]+} $c "::patchlevel $patchlevel" c
 		file copy -force $srcdir/lib/init.tcl $srcdir/lib/init.tcl~
 		file_write $srcdir/lib/init.tcl $c
 		file delete $srcdir/lib/init.tcl~
@@ -240,5 +262,3 @@ proc version {{argv {}}} {
 		file delete $file~
 	}
 }	
-
-

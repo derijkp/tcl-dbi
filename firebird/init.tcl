@@ -5,7 +5,7 @@
 # full path name of the xtensions directory.
 
 namespace eval ::dbi {}
-namespace eval ::dbi::interbase {}
-set ::dbi::interbase::dir $dir
+namespace eval ::dbi::firebird {}
+set ::dbi::firebird::dir $dir
 source [file join $dir lib init.tcl]
-extension provide dbi_interbase 0.8.9
+extension provide dbi_firebird 1.0.0

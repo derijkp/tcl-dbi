@@ -1,11 +1,11 @@
 '\"
-'\" Generated from doc/xml/dbi_interbase.n.xml
+'\" Generated from doc/xml/dbi_firebird.n.xml
 '\"
 .so man.macros
-.TH dbi_interbase n "" Tcl ""
+.TH dbi_firebird n "" Tcl ""
 .BS
 .SH NAME
-dbi_interbase \- create dbi object for accessing interbase databases
+dbi_firebird \- create dbi object for accessing firebird databases
 .SH SYNOPSIS
 
 
@@ -15,8 +15,8 @@ dbi_interbase \- create dbi object for accessing interbase databases
 .BE
 .SH DESCRIPTION
 .PP
-The \fBdbi_interbase\fP command creates an object \fIobjectName\fR that can
-be used to connect to interbase databases using its native API. If \fIobjectName\fR
+The \fBdbi_firebird\fP command creates an object \fIobjectName\fR that can
+be used to connect to firebird databases using its native API. If \fIobjectName\fR
 is not provided, a name will be automatically generated and returned by the command
 The object created supports the dbi interface for
 accessing and querying databases.

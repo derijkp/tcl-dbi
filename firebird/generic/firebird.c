@@ -16,11 +16,6 @@
 #define QUAD_LOW gds_quad_low
 typedef struct vary VARY;
 
-void Tcl_GetCommandFullName(
-    Tcl_Interp *interp,
-    Tcl_Command command,
-    Tcl_Obj *objPtr);
-
 int Dbi_firebird_Clone(
 	Tcl_Interp *interp,
 	dbi_Firebird_Data *dbdata,

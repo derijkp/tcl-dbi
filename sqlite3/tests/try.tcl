@@ -4,8 +4,8 @@ exec tclsh "$0" "$@"
 puts "source [info script]"
 
 set interface dbi
-# $Format: "set version 0.$ProjectMajorVersion$"$
-set version 0.8
+# $Format: "set version $ProjectMajorVersion$.$ProjectMinorVersion$"$
+set version 1.0
 
 package require interface
 package require dbi

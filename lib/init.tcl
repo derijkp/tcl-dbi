@@ -7,10 +7,10 @@
 #
 # =============================================================
 namespace eval ::dbi {}
-# $Format: "set ::dbi::version 0.8$ProjectMajorVersion$"$
-set ::dbi::version 0.8
-# $Format: "set ::dbi::patchlevel $ProjectMinorVersion$"$
-set ::dbi::patchlevel 9
+# $Format: "set ::dbi::version $ProjectMajorVersion$.$ProjectMinorVersion$"$
+set ::dbi::version 1.0
+# $Format: "set ::dbi::patchlevel $ProjectPatchLevel$"$
+set ::dbi::patchlevel 0
 package provide dbi $::dbi::version
 
 # define interfaces

@@ -114,6 +114,7 @@ AC_DEFUN(SC_POSTGRESQL_LIB, [
 	    fi
 	])
     fi
+    AC_ARG_ENABLE(static, [  --enable-static         link postgresql library statically [--disable-static]],[tcl_ok=$enableval], [tcl_ok=no])
 	case "`uname -s`" in
 		*win32* | *WIN32* | *CYGWIN_NT* |*CYGWIN_98*|*CYGWIN_95*)
 		    if test x"${ac_cv_c_postgresql}" = x ; then
@@ -137,7 +138,11 @@ AC_DEFUN(SC_POSTGRESQL_LIB, [
 		
 		    LIB_DIR_NATIVE=`${CYGPATH} "${ac_cv_c_postgresql}"`
 		
-		    POSTGRESQL_LIB="-L\"${LIB_DIR_NATIVE}\" -lpq"
+		    if test "$tcl_ok" = "no"; then
+			    POSTGRESQL_LIB="-L\"${LIB_DIR_NATIVE}\" -lpq"
+		    else
+			    POSTGRESQL_LIB=" ${LIB_DIR_NATIVE}/libpq.a "
+		    fi
 		;;
 	esac
     AC_SUBST(POSTGRESQL_LIB)

@@ -1,0 +1,45 @@
+
+
+<synopsis>
+<syntax><i>dbi_interface</i> ?<b>objectName</b>?</syntax>
+</synopsis>
+
+
+<h2>DESCRIPTION</h2>
+<p>
+The <i>dbi_postgresql</i> command creates an object <b>objectName</b> that can 
+be used to connect to postgresql databases using its native API. If <b>objectName</b>
+is not provided, a name will be automatically generated and returned by the command
+The object created supports the <ref manpage="interface_dbi">dbi interface</ref> for 
+accessing and querying databases.
+</p>
+<p>
+The object supports transactions but not column permissions, roles and domains. The 
+object also supports getting the number of lines in a result and backfetch. A clone shares 
+transactions with its parent. Blobs cannot be updated by using parameters (blobparams).
+</p>
+
+
+
+<h2>BUGS</h2>
+An sql error while in a transaction will rollback the entire transaction. I haven't
+found a way to stop this yet.
+
+
+
+<h2>SEE ALSO</h2><ul>
+<a href="interface_dbi.html">interface_dbi</a>
+<a href="interface_dbi_admin.html">interface_dbi_admin</a>
+</ul>
+
+<h2>KEYWORDS</h2><ul>
+<li>dbi</li>
+<li>postgresql</li>
+<li>interface</li>
+<li>database</li>
+<li>sql</li>
+</ul>
+
+
+
+

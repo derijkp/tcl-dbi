@@ -1,9 +1,9 @@
 namespace eval interface {}
 
-# $Format: "proc ::interfaces::dbi-0.$ProjectMajorVersion$ {option args} {"$
-proc ::interfaces::dbi-0.8 {option args} {
+# $Format: "proc ::interfaces::dbi-$ProjectMajorVersion$.$ProjectMinorVersion$ {option args} {"$
+proc ::interfaces::dbi-1.0 {option args} {
 
-interface::implement dbi $::dbi::version [file join $::dbi::dir docs xml interface_dbi.n.xml] {
+interface::implement dbi $::dbi::version [file join $::dbi::dir docs xml interface_dbi.xml] {
 	-testdb testdbi
 	-user2 guest
 	-object2 {}
@@ -29,158 +29,7 @@ interface::test {interface list} {
 
 # procedures used to setup databases
 # ----------------------------------
-
-proc ::dbi::cleandb {} {
-	upvar object object
-	upvar opt opt
-	catch {$object rollback}
-	set fresult ""
-	catch {$object serial delete test id} result
-	append fresult $result\n
-	catch {$object serial delete address id} result
-	append fresult $result\n
-	if {[$object supports views]} {
-		catch {$object exec {drop view "v_test"}} result
-		append fresult $result\n
-	}
-	catch {$object exec {
-		alter table "use" drop constraint use_htest
-	}} result
-	foreach table {duse use test types location address person bl multi t} {
-		catch {$object exec [subst {delete from "$table"}]} result
-		catch {$object exec [subst {drop table "$table"}]} result
-		append fresult $result\n
-	}
-	return $fresult
-}
-
-proc ::dbi::ifsupp {feature string} {
-	upvar object object
-	if {[$object supports $feature]} {
-		return $string
-	} else {
-		return ""
-	}
-}
-
-proc ::dbi::createdb {} {
-	upvar object object
-	upvar opt opt
-	$object exec {
-		create table "person" (
-			"id" char(6) not null primary key,
-			"first_name" varchar(100),
-			"name" varchar(100),
-			"score" double precision
-		);
-		create table "address" (
-			"id" int not null primary key,
-			"street" varchar(100),
-			"number" varchar(20),
-			"code" varchar(10),
-			"city" varchar(100)
-		);
-	}
-	$object exec [subst {
-		create table "location" (
-			"type" varchar(100)[ifsupp check { check ("type" in ('home','work','leisure'))}],
-			"inhabitant" char(6)[ifsupp foreignkeys { references "person"("id")}],
-			"address" integer[ifsupp foreignkeys { references "address"("id")}]
-		);
-	}]
-	$object exec [subst {
-		create table "use" (
-			"id" integer not null primary key,
-			"person" integer not null unique[ifsupp foreignkeys { references "person"("id")}],
-			"place" varchar(100),
-			"usetime" timestamp,
-			"score" float[ifsupp check { check ("score" < 20.0)}],
-			"score2" float[ifsupp check { check ("score" < 20.0),
-			constraint use_htest check ("score2" > "score")}]
-		);
-	}]
-	$object exec {select "id" from "use"}
-	catch {$object exec {
-		create index "use_score_idx" on "use"("score")
-	}}
-	$object exec {select "id" from "use"}
-	$object exec {
-		create table "types" (
-			"i" integer,
-			"si" smallint,
-			"vc" varchar(10),
-			"c" char(10),
-			"f" float,
-			"d" double precision,
-			"da" date,
-			"t" time,
-			"ts" timestamp
-		);
-	}
-	$object exec {
-		create table "multi" (
-			"i" integer not null,
-			"si" smallint not null,
-			"vc" varchar(10) not null,
-			"c" char(10),
-			"f" float,
-			"d" double precision,
-			"da" date,
-			"t" time,
-			"ts" timestamp,
-			primary key("i","si"),
-			unique("i","si","vc")
-		);
-	}
-	if {[$object supports views]} {
-		$object exec {create view "v_test" as select "id", "first_name", "name" from "person"}
-	}
-	catch {$object serial add address id}
-}
-
-proc ::dbi::filldb {} {
-	upvar object object
-	upvar opt opt
-	$object exec {
-		insert into "person" ("id","first_name","name","score")
-			values ('pdr','Peter', 'De Rijk',19.5);
-		insert into "person" ("id","first_name","name","score")
-			values ('jd','John', 'Do',17.5);
-		insert into "person" ("id","first_name")
-			values ('o','Oog');
-		insert into "address" ("id","street", "number", "code", "city")
-			values (1,'Universiteitsplein', '1', '2610', 'Wilrijk');
-		insert into "address" ("id","street", "number", "code", "city")
-			values (2,'Melkweg', '10', '1', 'Heelal');
-		insert into "address" ("id","street", "number", "code")
-			values (3,'Road', '0', '???');
-		insert into "location" ("type", "inhabitant", "address")
-			select 'work', "person"."id", "address"."id" from "person", "address"
-			where "name" = 'De Rijk' and "street" = 'Universiteitsplein';
-		insert into "location" ("type", "inhabitant", "address")
-			select 'home', "person"."id", "address"."id" from "person", "address"
-			where "name" = 'De Rijk' and "street" = 'Melkweg';
-		insert into "location" ("type", "inhabitant", "address")
-			select 'home', "person"."id", "address"."id" from "person", "address"
-			where "name" = 'Do' and "street" = 'Road';
-	}
-	catch {$object serial set address id 4}
-}
-
-proc ::dbi::initdb {} {
-	upvar object object
-	upvar opt opt
-	::dbi::cleandb
-	::dbi::createdb
-	::dbi::filldb
-}
-
-proc ::dbi::opendb {} {
-	upvar object object
-	upvar opt opt
-	if {![::info exists opt(-openargs)]} {set opt(-openargs) {}}
-	eval {$object open $opt(-testdb)} $opt(-openargs)
-}
+dbi::setup
 
 # -------------------------------------------------------
 # 							Tests
@@ -463,9 +312,9 @@ interface::test {fetch and begin/rollback} {
 		insert into "person"("id","first_name","name") values(10,'Try','It');
 	}
 	$object fetch
-} {no result available: invoke exec method with -usefetch option first} error
+} {no result available: invoke exec method with -usefetch option first} {skipon {![$object supports transactions]}} error
 
-$object rollback
+catch {$object rollback}
 
 interface::test {fetch after select error} {
 	catch {$object exec -usefetch {select * from "Idonotexist"}}
@@ -493,7 +342,7 @@ interface::test {parameters} {
 
 interface::test {parameters error} {
 	$object exec {select * from "person" where "name" = ?}
-} {wrong number of arguments given to exec while executing command: "select * from "person" where "name" = ?"} error
+} {wrong number of arguments given to exec while executing command: *} error match
 
 interface::test {parameters with comments and literals} {
 	$object exec {select "id",'?' /* selecting what ? */ from "person" where "name" = ? and "score" = ?} {De Rijk} 19.5
@@ -612,20 +461,20 @@ dbi::initdb
 
 interface::test {tables 2} {
 	# there maybe other tables than these present
-	array set a {address 1 location 1 person 1 types 1 use 1 v_test 1}
+	array set a {address 1 location 1 person 1 types 1 useof 1 v_test 1}
 	set tables {}
 	foreach table [$object tables] {
 		if {[info exists a($table)]} {lappend tables $table}
 	}
 	lsort $tables
-} {address location person types use*} match
+} {address location person types useof*} match
 
 interface::test {special table} {
 	catch {$object exec {create table "o$test" (i integer)}}
 	set result [lsort [$object tables]]
 	$object exec {drop table "o$test"}
 	set result
-} {address location multi {o$test} person types use*} match
+} {address location multi {o$test} person types useof*} match
 
 interface::test {db fields} {
 	$object fields person
@@ -636,7 +485,7 @@ interface::test {info error db fields} {
 } {table "notexist" does not exist} error
 
 interface::test {table info} {
-	array set a [$object info table use]
+	array set a [$object info table useof]
 	list $a(fields) $a(type,id) $a(length,place) [array names a primary,*]
 } {{id person place usetime score score2} integer 100 primary,id}
 
@@ -669,16 +518,16 @@ interface::test {info access select table} {
 interface::test {info access insert} {
 	$object exec "grant insert on \"person\" to \"$opt(-user2)\""
 	list [$object info access insert $opt(-user2)] [$object info access insert [$object info user]]
-} {person {address location multi person types use v_test}} {skipon {![$object supports permissions]}}
+} {person {address location multi person types useof v_test}} {skipon {![$object supports permissions]}}
 
 interface::test {info access update} {
 	$object exec "revoke update on \"person\" from $opt(-user2)"
 	$object exec "grant update on \"person\" to $opt(-user2)"
 	list [$object info access update $opt(-user2)] [$object info access update [$object info user]]
-} {person {address location multi person types use v_test}} {skipon {![$object supports permissions]}}
+} {person {address location multi person types useof v_test}} {skipon {![$object supports permissions]}}
 
 interface::test {info access select table} {
-	list [$object info access select $opt(-user2) use] [$object info access select $opt(-user2) person] [$object info access select [$object info user] person]
+	list [$object info access select $opt(-user2) useof] [$object info access select $opt(-user2) person] [$object info access select [$object info user] person]
 } {{} {id first_name name score} {id first_name name score}} {skipon {![$object supports permissions]}}
 
 interface::test {info access update table} {
@@ -689,7 +538,7 @@ interface::test {info access update table} {
 
 interface::test {info referenced} {
 	$object info referenced person
-} {location {inhabitant id} use {person id}} {skipon {![$object supports columnperm]}} {skipon {![$object supports foreignkeys]}}
+} {location {inhabitant id} useof {person id}} {skipon {![$object supports columnperm]}} {skipon {![$object supports foreignkeys]}}
 
 interface::test {info views should not mess up a resultset} {
 	$object exec -usefetch {select * from "person"}
@@ -1122,3 +971,153 @@ $object close
 
 }
 
+namespace eval dbi {}
+proc dbi::setup {} {
+proc ::dbi::cleandb {} {
+	upvar object object
+	upvar opt opt
+	catch {$object rollback}
+	set fresult ""
+	catch {$object serial delete test id} result
+	append fresult $result\n
+	catch {$object serial delete address id} result
+	append fresult $result\n
+	if {[$object supports views]} {
+		catch {$object exec {drop view "v_test"}} result
+		append fresult $result\n
+	}
+	catch {$object exec {
+		alter table "useof" drop constraint use_htest
+	}} result
+	foreach table {duse useof test types location address person bl multi t} {
+		catch {$object exec [subst {delete from "$table"}]} result
+		catch {$object exec [subst {drop table "$table"}]} result
+		catch {$object exec [subst {drop table "$table" cascade}]} result
+		append fresult $result\n
+	}
+	return $fresult
+}
+proc ::dbi::ifsupp {feature string} {
+	upvar object object
+	if {[$object supports $feature]} {
+		return $string
+	} else {
+		return ""
+	}
+}
+proc ::dbi::createdb {} {
+	upvar object object
+	upvar opt opt
+	$object exec {
+		create table "person" (
+			"id" char(6) not null primary key,
+			"first_name" varchar(100),
+			"name" varchar(100),
+			"score" double precision
+		);
+		create table "address" (
+			"id" int not null primary key,
+			"street" varchar(100),
+			"number" varchar(20),
+			"code" varchar(10),
+			"city" varchar(100)
+		);
+	}
+	$object exec [subst {
+		create table "location" (
+			"type" varchar(100)[ifsupp check { check ("type" in ('home','work','leisure'))}],
+			"inhabitant" char(6)[ifsupp foreignkeys { references "person"("id")}],
+			"address" integer[ifsupp foreignkeys { references "address"("id")}]
+		)
+	}]
+	$object exec [subst {
+		create table "useof" (
+			"id" integer not null primary key,
+			"person" integer not null unique[ifsupp foreignkeys { references "person"("id")}],
+			"place" varchar(100),
+			"usetime" timestamp,
+			"score" float[ifsupp check { check ("score" < 20.0)}],
+			"score2" float[ifsupp check { check ("score" < 20.0),
+			constraint use_htest check ("score2" > "score")}]
+		);
+	}]
+	$object exec {select "id" from "useof"}
+	catch {$object exec {
+		create index "use_score_idx" on "useof"("score")
+	}}
+	$object exec {select "id" from "useof"}
+	$object exec {
+		create table "types" (
+			"i" integer,
+			"si" smallint,
+			"vc" varchar(10),
+			"c" char(10),
+			"f" float,
+			"d" double precision,
+			"da" date,
+			"t" time,
+			"ts" timestamp
+		);
+	}
+	$object exec {
+		create table "multi" (
+			"i" integer not null,
+			"si" smallint not null,
+			"vc" varchar(10) not null,
+			"c" char(10),
+			"f" float,
+			"d" double precision,
+			"da" date,
+			"t" time,
+			"ts" timestamp,
+			primary key("i","si"),
+			unique("i","si","vc")
+		);
+	}
+	if {[$object supports views]} {
+		$object exec {create view "v_test" as select "id", "first_name", "name" from "person"}
+	}
+	catch {$object serial add address id}
+}
+proc ::dbi::filldb {} {
+	upvar object object
+	upvar opt opt
+	$object exec {
+		insert into "person" ("id","first_name","name","score")
+			values ('pdr','Peter', 'De Rijk',19.5);
+		insert into "person" ("id","first_name","name","score")
+			values ('jd','John', 'Do',17.5);
+		insert into "person" ("id","first_name")
+			values ('o','Oog');
+		insert into "address" ("id","street", "number", "code", "city")
+			values (1,'Universiteitsplein', '1', '2610', 'Wilrijk');
+		insert into "address" ("id","street", "number", "code", "city")
+			values (2,'Melkweg', '10', '1', 'Heelal');
+		insert into "address" ("id","street", "number", "code")
+			values (3,'Road', '0', '???');
+		insert into "location" ("type", "inhabitant", "address")
+			select 'work', "person"."id", "address"."id" from "person", "address"
+			where "name" = 'De Rijk' and "street" = 'Universiteitsplein';
+		insert into "location" ("type", "inhabitant", "address")
+			select 'home', "person"."id", "address"."id" from "person", "address"
+			where "name" = 'De Rijk' and "street" = 'Melkweg';
+		insert into "location" ("type", "inhabitant", "address")
+			select 'home', "person"."id", "address"."id" from "person", "address"
+			where "name" = 'Do' and "street" = 'Road';
+	}
+	catch {$object serial set address id 4}
+}
+proc ::dbi::initdb {} {
+	upvar object object
+	upvar opt opt
+	::dbi::cleandb
+	::dbi::createdb
+	::dbi::filldb
+}
+proc ::dbi::opendb {} {
+	upvar object object
+	upvar opt opt
+	if {![::info exists opt(-openargs)]} {set opt(-openargs) {}}
+	eval {$object open $opt(-testdb)} $opt(-openargs)
+}
+}

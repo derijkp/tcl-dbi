@@ -1,18 +1,18 @@
-<manpage package="dbi" title="dbi_interbase" id="dbi_interbase" cat="dbi">
+<manpage package="dbi" title="dbi_firebird" id="dbi_firebird" cat="dbi">
 <namesection>
-<name>dbi_interbase</name>
-<desc>create dbi object for accessing interbase databases</desc>
+<name>dbi_firebird</name>
+<desc>create dbi object for accessing firebird databases</desc>
 </namesection>
 
 <synopsis>
-<syntax><cmd>dbi_interface</cmd> ?<m>objectName</m>?</syntax>
+<syntax><cmd>dbi_firebird</cmd> ?<m>objectName</m>?</syntax>
 </synopsis>
 
 <section>
 <title>DESCRIPTION</title>
 <p>
-The <cmd>dbi_interbase</cmd> command creates an object <m>objectName</m> that can 
-be used to connect to interbase databases using its native API. If <m>objectName</m>
+The <cmd>dbi_firebird</cmd> command creates an object <m>objectName</m> that can 
+be used to connect to firebird databases using its native API. If <m>objectName</m>
 is not provided, a name will be automatically generated and returned by the command
 The object created supports the <ref manpage="interface_dbi">dbi interface</ref> for 
 accessing and querying databases.

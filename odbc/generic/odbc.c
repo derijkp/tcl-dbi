@@ -22,11 +22,6 @@
 
 static SQLHENV dbi_odbc_env;
 
-void Tcl_GetCommandFullName(
-    Tcl_Interp *interp,
-    Tcl_Command command,
-    Tcl_Obj *objPtr);
-
 int Dbi_odbc_Clone(
 	Tcl_Interp *interp,
 	dbi_odbc_Data *dbdata,

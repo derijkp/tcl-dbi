@@ -40,7 +40,7 @@ s%@CFLAGS@% ${CFLAGS_DEFAULT} ${CFLAGS_WARNING} ${SHLIB_CFLAGS}%g
 s%@CPPFLAGS@%%g
 s%@CXXFLAGS@%%g
 s%@FFLAGS@%%g
-s%@DEFS@% -DVERSION=\"0.8.9\" -D_LARGEFILE64_SOURCE=1 -DTCL_WIDE_INT_TYPE=long\ long -DHAVE_STRUCT_STAT64=1 -DHAVE_TYPE_OFF64_T=1 -DHAVE_UNISTD_H=1 -DHAVE_SYS_PARAM_H=1 -DUSE_TCL_STUBS=1 %g
+s%@DEFS@% -DVERSION=\"1.0.0\" -D_LARGEFILE64_SOURCE=1 -DTCL_WIDE_INT_TYPE=long\ long -DHAVE_STRUCT_STAT64=1 -DHAVE_TYPE_OFF64_T=1 -DHAVE_UNISTD_H=1 -DHAVE_SYS_PARAM_H=1 -DUSE_TCL_STUBS=1 %g
 s%@LDFLAGS@%-rdynamic%g
 s%@LIBS@%%g
 s%@exec_prefix@%/usr%g
@@ -60,8 +60,8 @@ s%@infodir@%${prefix}/info%g
 s%@mandir@%${prefix}/man%g
 s%@CONFIGDIR@%../tclconfig%g
 s%@PACKAGE@%dbi%g
-s%@VERSION@%0.8.9%g
-s%@dbi_LIB_FILE@%libdbi0.8.9.so%g
+s%@VERSION@%1.0.0%g
+s%@dbi_LIB_FILE@%libdbi1.0.0.so%g
 s%@CYGPATH@%echo%g
 s%@EXEEXT@%%g
 s%@TCL_VERSION@%8.4%g

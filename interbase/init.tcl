@@ -8,4 +8,4 @@ namespace eval ::dbi {}
 namespace eval ::dbi::interbase {}
 set ::dbi::interbase::dir $dir
 source [file join $dir lib init.tcl]
-extension provide dbi_interbase 0.8.9
+extension provide dbi_interbase 1.0.0

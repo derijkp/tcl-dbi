@@ -13,11 +13,6 @@
 #include <time.h>
 #include "dbi_mysql.h"
 
-void Tcl_GetCommandFullName(
-    Tcl_Interp *interp,
-    Tcl_Command command,
-    Tcl_Obj *objPtr);
-
 int Dbi_mysql_Clone(
 	Tcl_Interp *interp,
 	dbi_Mysql_Data *dbdata,
@@ -740,6 +735,59 @@ int dbi_Mysql_SplitSQL(
 	return TCL_OK;
 }
 
+int dbi_Mysql_removequotes(
+	Tcl_Interp *interp,
+	char *cmdstring,
+	int *cmdlen)
+{
+	int i,to,len = *cmdlen;
+	to = 0;
+	for (i=0 ; i < len ; i++) {
+		if (cmdstring[i] == '/') {
+			i++;
+			if (i == len) break;
+			/* C style comment */
+			if (cmdstring[i] == '*') {
+				while (i<len) {
+					i++;
+					if ((cmdstring[i] == '*')&&(cmdstring[i+1] == '/')) break;
+				}
+			}
+			/* C++ style comment */
+			if (cmdstring[i] == '/') {
+				while (i<len) {
+					i++;
+					if ((cmdstring[i] == '\n')||(cmdstring[i] == '/')) break;
+				}
+			}
+		} else if (cmdstring[i] == '\'') {
+			char delim = cmdstring[i];
+			/* literal */
+			if (cmdstring[i] == delim) {
+				if (to != i) {cmdstring[to++] = cmdstring[i];}
+				while (i<len) {
+					i++;
+					if (cmdstring[i] == '\\') {
+						i++;
+					} else if (cmdstring[i] == delim) {
+						break;
+					}
+					if (to != i) {cmdstring[to++] = cmdstring[i];}
+				}
+			}
+		} else if (cmdstring[i] == '\"') {
+			continue;
+		}
+		if (to != i) {
+			cmdstring[to] = cmdstring[i];
+		}
+		to++;
+	}
+	cmdstring[to++] = '\0';
+	*cmdlen = to ;
+	return TCL_OK;
+}
+
 int dbi_Mysql_InsertParam(
 	Tcl_Interp *interp,
 	char *cmdstring,
@@ -824,7 +872,7 @@ int dbi_Mysql_Exec(
 	int objc,
 	Tcl_Obj **objv)
 {
-	char *cmdstring = NULL, **lines = NULL;
+	char *cmdstring = NULL, *tempstring, **lines = NULL;
 	char *sqlstring = NULL;
 	int *parsedstatement = NULL;
 	int error,cmdlen,num,numargs;
@@ -836,8 +884,12 @@ int dbi_Mysql_Exec(
 		Tcl_AppendResult(interp,"dbi object has no open database, open a connection first", NULL);
 		return TCL_ERROR;
 	}
-	cmdstring = Tcl_GetStringFromObj(cmd,&cmdlen);
+	tempstring = Tcl_GetStringFromObj(cmd,&cmdlen);
 	if (cmdlen == 0) {return TCL_OK;}
+	cmdstring = (char *)Tcl_Alloc(cmdlen*sizeof(char));
+	strncpy(cmdstring,tempstring,cmdlen);
+	error = dbi_Mysql_removequotes(interp,cmdstring,&cmdlen);
+	if (error) {goto error;}
 	dbi_Mysql_Clearresult(dbdata);
 	error = dbi_Mysql_SplitSQL(interp,cmdstring,cmdlen,&lines,&sizes);
 	if (error) {goto error;}
@@ -845,6 +897,7 @@ int dbi_Mysql_Exec(
 		error = dbi_Mysql_ParseStatement(interp,dbdata,cmdstring,cmdlen,&parsedstatement,&numargs);
 		if (objc != numargs) {
 			Tcl_Free((char *)parsedstatement);parsedstatement=NULL;
+			Tcl_Free((char *)cmdstring);cmdstring=NULL;
 			Tcl_AppendResult(interp,"wrong number of arguments given to exec", NULL);
 			Tcl_AppendResult(interp," while executing command: \"",	cmdstring, "\"", NULL);
 			return TCL_ERROR;
@@ -917,6 +970,7 @@ int dbi_Mysql_Exec(
 		Tcl_DecrRefCount(temp);
 		if (lines != NULL) {Tcl_Free((char *)lines);}
 		if (sizes != NULL) {Tcl_Free((char *)sizes);}
+		if (cmdstring != NULL) Tcl_Free((char *)cmdstring);cmdstring=NULL;
 		if (parsedstatement != NULL) {Tcl_Free((char *)parsedstatement);}
 		return TCL_ERROR;
 		}

@@ -1,8 +1,8 @@
 package require interface
 
-# $Format: "proc ::interfaces::dbi_admin-0.$ProjectMajorVersion$ {option args} {"$
-proc ::interfaces::dbi_admin-0.8 {option args} {
-	interface::implement dbi_admin $::dbi::version [file join $::dbi::dir doc xml interface_dbi.n.xml] {
+# $Format: "proc ::interfaces::dbi_admin-$ProjectMajorVersion$.$ProjectMinorVersion$ {option args} {"$
+proc ::interfaces::dbi_admin-1.0 {option args} {
+	interface::implement dbi_admin $::dbi::version [file join $::dbi::dir doc xml interface_dbi.xml] {
 		-testdb testdbi
 		-openargs {}
 	} $option $args

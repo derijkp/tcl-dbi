@@ -11,8 +11,8 @@ make distclean
 
 
 cd /home/peter/dev
-tar cvzf /usr/src/RPM/SOURCES/dbi-0.8.4.src.tar.gz dbi
-tar cvzf /usr/src/RPM/SOURCES/interface-0.8.4.src.tar.gz interface
+tar cvzf /usr/src/RPM/SOURCES/dbi-1.0.0.src.tar.gz dbi
+tar cvzf /usr/src/RPM/SOURCES/interface-1.0.0.src.tar.gz interface
 cp -f /home/peter/dev/dbi/build/dbi.spec /usr/src/RPM/SPECS
 cp -f /home/peter/dev/dbi/*/build/*.spec /usr/src/RPM/SPECS
 cp -f /home/peter/dev/interface/build/*.spec /usr/src/RPM/SPECS

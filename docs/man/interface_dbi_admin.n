@@ -1,8 +1,8 @@
 '\"
-'\" Generated from docs/xml/interface_dbi_admin.n.xml
+'\" Generated from docs/xml/interface_dbi_admin.xml
 '\"
 .so man.macros
-.TH interface_dbi_admin n "" dbi ""
+.TH interface_dbi_admin n "" Tcl ""
 .BS
 .SH NAME
 interface_dbi_admin \- interface for SQL database administration

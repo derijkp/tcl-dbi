@@ -1,0 +1,138 @@
+This file contains any messages produced by compilers while
+running configure, to aid debugging if configure makes a mistake.
+
+configure:615: checking for correct TEA configuration
+configure:696: checking for Tcl configuration
+configure:770: checking for existence of /usr/lib/tclConfig.sh
+configure:869: checking for Cygwin environment
+configure:885: cc -c   conftest.c 1>&5
+configure: In function `main':
+configure:881: error: `__CYGWIN32__' undeclared (first use in this function)
+configure:881: error: (Each undeclared identifier is reported only once
+configure:881: error: for each function it appears in.)
+configure: failed program was:
+#line 874 "configure"
+#include "confdefs.h"
+
+int main() {
+
+#ifndef __CYGWIN__
+#define __CYGWIN__ __CYGWIN32__
+#endif
+return __CYGWIN__;
+; return 0; }
+configure:902: checking for mingw32 environment
+configure:914: cc -c   conftest.c 1>&5
+configure: In function `main':
+configure:910: error: `__MINGW32__' undeclared (first use in this function)
+configure:910: error: (Each undeclared identifier is reported only once
+configure:910: error: for each function it appears in.)
+configure: failed program was:
+#line 907 "configure"
+#include "confdefs.h"
+
+int main() {
+return __MINGW32__;
+; return 0; }
+configure:931: checking how to run the C preprocessor
+configure:952: cc -E  conftest.c >/dev/null 2>conftest.out
+configure:1020: checking for gcc
+configure:1133: checking whether the C compiler (gcc  ) works
+configure:1149: gcc -o conftest    conftest.c  1>&5
+configure:1175: checking whether the C compiler (gcc  ) is a cross-compiler
+configure:1180: checking whether we are using GNU C
+configure:1189: gcc -E conftest.c
+configure:1208: checking whether gcc accepts -g
+configure:1247: checking if the compiler understands -pipe
+configure:1258: gcc -pipe -c   conftest.c 1>&5
+configure:1283: checking for a BSD compatible install
+configure:1341: checking whether make sets ${MAKE}
+configure:1375: checking for ranlib
+configure:1408: checking for object suffix
+configure:1414: gcc -pipe -c   conftest.c 1>&5
+configure:1434: checking for executable suffix
+configure:1444: gcc -pipe -o conftest    conftest.c  1>&5
+configure:1471: checking for required early compiler flags
+configure:1485: gcc -pipe -c   conftest.c 1>&5
+configure:1535: gcc -pipe -c   conftest.c 1>&5
+configure: In function `main':
+configure:1531: error: storage size of 'buf' isn't known
+configure: failed program was:
+#line 1528 "configure"
+#include "confdefs.h"
+#include <sys/stat.h>
+int main() {
+struct stat64 buf; int i = stat64("/", &buf);
+; return 0; }
+configure:1551: gcc -pipe -c   conftest.c 1>&5
+configure:1581: checking for 64-bit integer type
+configure:1594: gcc -pipe -c   conftest.c 1>&5
+configure: In function `main':
+configure:1590: error: `__int64' undeclared (first use in this function)
+configure:1590: error: (Each undeclared identifier is reported only once
+configure:1590: error: for each function it appears in.)
+configure:1590: error: syntax error before "value"
+configure: failed program was:
+#line 1587 "configure"
+#include "confdefs.h"
+
+int main() {
+__int64 value = (__int64) 0;
+; return 0; }
+configure:1612: gcc -pipe -o conftest    conftest.c  1>&5
+configure:1637: checking for struct dirent64
+configure:1651: gcc -pipe -c   conftest.c 1>&5
+configure:1645:24: sys/dirent.h: No such file or directory
+configure: In function `main':
+configure:1647: error: storage size of 'p' isn't known
+configure: failed program was:
+#line 1643 "configure"
+#include "confdefs.h"
+#include <sys/types.h>
+#include <sys/dirent.h>
+int main() {
+struct dirent64 p;
+; return 0; }
+configure:1672: checking for struct stat64
+configure:1686: gcc -pipe -c   conftest.c 1>&5
+configure:1707: checking for off64_t
+configure:1721: gcc -pipe -c   conftest.c 1>&5
+configure:1746: checking dirent.h
+configure:1774: gcc -pipe -o conftest    conftest.c  1>&5
+configure:1795: checking for errno.h
+configure:1805: cc -E  conftest.c >/dev/null 2>conftest.out
+configure:1832: checking for float.h
+configure:1842: cc -E  conftest.c >/dev/null 2>conftest.out
+configure:1869: checking for values.h
+configure:1879: cc -E  conftest.c >/dev/null 2>conftest.out
+configure:1906: checking for limits.h
+configure:1916: cc -E  conftest.c >/dev/null 2>conftest.out
+configure:1943: checking for stdlib.h
+configure:1953: cc -E  conftest.c >/dev/null 2>conftest.out
+configure:2025: checking for string.h
+configure:2035: cc -E  conftest.c >/dev/null 2>conftest.out
+configure:2098: checking for sys/wait.h
+configure:2108: cc -E  conftest.c >/dev/null 2>conftest.out
+configure:2135: checking for dlfcn.h
+configure:2145: cc -E  conftest.c >/dev/null 2>conftest.out
+configure:2177: checking for unistd.h
+configure:2187: cc -E  conftest.c >/dev/null 2>conftest.out
+configure:2177: checking for sys/param.h
+configure:2187: cc -E  conftest.c >/dev/null 2>conftest.out
+configure:2217: checking for strtod
+configure:2245: gcc -pipe -o conftest    conftest.c  1>&5
+configure:2267: checking for Solaris2.4/Tru64 strtod bugs
+configure:2292: gcc -pipe -o conftest    conftest.c  1>&5
+configure:2330: checking for Tcl public headers
+configure:2814: checking for building with threads
+configure:2852: checking how to build libraries
+configure:2898: checking if 64bit support is enabled
+configure:2912: checking if 64bit Sparc VIS support is requested
+configure:2949: checking system version (for dynamic loading)
+configure:2978: checking for dlopen in -ldl
+configure:2997: gcc -pipe -o conftest    conftest.c -ldl   1>&5
+configure:3041: checking for ar
+configure:4442: checking for build with symbols
+configure:4576: checking for firebird header files
+configure:4624: checking for firebird library files
+configure:4740: checking for tclsh

@@ -1,5 +1,5 @@
 Identifier: dbi_postgresql
-Version: 0.8.9
+Version: 1.0.0
 Title: postgresql database access
 Creator: Peter De Rijk <Peter.DeRijk@ua.ac.be>
 Description: postgresql database access using the dbi interface

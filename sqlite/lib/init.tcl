@@ -7,10 +7,10 @@ package require dbi
 
 namespace eval dbi::sqlite {}
 
-# $Format: "set ::dbi::sqlite::version 0.8$ProjectMajorVersion$"$
-set ::dbi::sqlite::version 0.8
-# $Format: "set ::dbi::sqlite::patchlevel $ProjectMinorVersion$"$
-set ::dbi::sqlite::patchlevel 9
+# $Format: "set ::dbi::sqlite::version $ProjectMajorVersion$.$ProjectMinorVersion$"$
+set ::dbi::sqlite::version 1.0
+# $Format: "set ::dbi::sqlite::patchlevel $ProjectPatchLevel$"$
+set ::dbi::sqlite::patchlevel 0
 package provide dbi_sqlite $::dbi::sqlite::version
 
 source $dbi::sqlite::dir/lib/package.tcl

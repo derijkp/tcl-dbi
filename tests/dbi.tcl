@@ -6,9 +6,9 @@ puts "source [info script]"
 package require interface
 package require dbi
 
-# Test if interfaces::dbi-0.8 is a proper interface
+# Test if interfaces::dbi-1.0 is a proper interface
 # We won't be testing the test method: we are not sure which
 # object to use (don't know which database system is available)
-interface test interface-0.8 interfaces::dbi-0.8 \
-	-interface interface -version 0.8 \
+interface test interface-1.0 interfaces::dbi-1.0 \
+	-interface interface -version 1.0 \
 	-testtest 0

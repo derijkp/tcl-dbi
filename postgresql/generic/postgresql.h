@@ -1,5 +1,5 @@
-/* $Format: "#define DBI_VERSION \"0.$ProjectMajorVersion: 8 $\""$ */
-#define DBI_VERSION "0.8"
+/* $Format: "#define DBI_VERSION \"$ProjectMajorVersion$.$ProjectMinorVersion$\""$ */
+#define DBI_VERSION "1.0"
 
 #include <libpq-fe.h>
 #include "tcl.h"

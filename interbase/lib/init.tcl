@@ -7,10 +7,10 @@ package require dbi
 
 namespace eval dbi::interbase {}
 
-# $Format: "set ::dbi::interbase::version 0.$ProjectMajorVersion$"$
-set ::dbi::interbase::version 0.8
-# $Format: "set ::dbi::interbase::patchlevel $ProjectMinorVersion$"$
-set ::dbi::interbase::patchlevel 9
+# $Format: "set ::dbi::interbase::version $ProjectMajorVersion$.$ProjectMinorVersion$"$
+set ::dbi::interbase::version 1.0
+# $Format: "set ::dbi::interbase::patchlevel $ProjectPatchLevel$"$
+set ::dbi::interbase::patchlevel 0
 package provide dbi_interbase $::dbi::interbase::version
 
 source $dbi::interbase::dir/lib/package.tcl

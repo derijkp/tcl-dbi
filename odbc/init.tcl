@@ -8,4 +8,4 @@ namespace eval ::dbi {}
 namespace eval ::dbi::odbc {}
 set ::dbi::odbc::dir $dir
 source [file join $dir lib init.tcl]
-extension provide dbi_odbc 0.8.9
+extension provide dbi_odbc 1.0.0
