@@ -6,8 +6,6 @@
 # element name is the name of a command and the value is
 # a script that loads the command.
 
-set auto_index(dbedit) [list source [file join $dir dbedit.tcl]]
-set auto_index(sortby) [list source [file join $dir tools.tcl]]
-
-# Addition of ClassyTcl classes defined in the directory
-set auto_index(::Gendb::Dbedit) [list source [file join $dir dbedit.tcl]]
+set auto_index(_package_loadlib) [list source [file join $dir init.tcl]]
+set auto_index(::dbi::info) [list source [file join $dir init.tcl]]
+set auto_index(::dbi::load) [list source [file join $dir init.tcl]]

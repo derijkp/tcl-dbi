@@ -97,6 +97,7 @@ int dbi_odbc_clearresult(
 	Tcl_Free((char*)resultbuffer);
 	dbdata->resultbuffer = NULL;
 	dbdata->nfields = -1;
+	return TCL_OK;
 }
 
 #ifdef NEVER

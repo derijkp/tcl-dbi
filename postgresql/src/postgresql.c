@@ -9,8 +9,6 @@
 
 #include <string.h>
 #include <stdlib.h>
-#include "tcl.h"
-#include "dbi.h"
 #include "postgresql.h"
 
 /******************************************************************/
@@ -135,7 +133,7 @@ int dbi_Postgresql_Exec(
 	}
 	res = PQexec(dbdata->conn, Tcl_GetStringFromObj(cmd,NULL));
 	if (res == NULL) {
-			Tcl_AppendResult(interp,"error executing command \"",
+			Tcl_AppendResult(interp,"database error executing command \"",
 				Tcl_GetStringFromObj(cmd,NULL), "\":\n",
 				PQerrorMessage(dbdata->conn), NULL);
 			goto error;
@@ -154,11 +152,12 @@ int dbi_Postgresql_Exec(
 			}
 			break;
 		default:
-			Tcl_AppendResult(interp,"error executing command \"",
+			Tcl_AppendResult(interp,"database error executing command \"",
 				Tcl_GetStringFromObj(cmd,NULL), "\":\n",
 				PQresultErrorMessage(res), NULL);
 			goto error;
 	}
+	dbdata->respos = 0;
 	if (usefetch) {
 		if (dbdata->res != NULL) {
 			PQclear(dbdata->res);
@@ -192,6 +191,11 @@ int dbi_Postgresql_Fetch(
 		Tcl_AppendResult(interp, "no result available: invoke exec method with -usefetch option first", NULL);
 		return TCL_ERROR;
 	}
+	if (t == -1) {
+		t = dbdata->respos;
+	} else {
+		dbdata->respos = t;
+	}
 	if (t >= ntuples) {
 		Tcl_Obj *buffer;
 		buffer = Tcl_NewIntObj(t);
@@ -201,7 +205,7 @@ int dbi_Postgresql_Fetch(
 	}
 	if (f >= nfields) {
 		Tcl_Obj *buffer;
-		buffer = Tcl_NewIntObj(t);
+		buffer = Tcl_NewIntObj(f);
 		Tcl_AppendResult(interp, "field ",Tcl_GetStringFromObj(buffer,NULL) ," out of range", NULL);
 		Tcl_DecrRefCount(buffer);
 		return TCL_ERROR;
@@ -227,6 +231,7 @@ int dbi_Postgresql_Fetch(
 				}
 				Tcl_SetObjResult(interp, line);
 				line = NULL;
+				dbdata->respos++;
 			} else {
 				if (PQgetisnull(res,t,f)) {
 					element = nullvalue;
@@ -261,6 +266,9 @@ int dbi_Postgresql_Fetch(
 		case DBI_FETCH_ISNULL:
 			Tcl_SetObjResult(interp,Tcl_NewIntObj(PQgetisnull(res,t,f)));
 			break;
+		case DBI_FETCH_CURRENTLINE:
+			Tcl_SetObjResult(interp,Tcl_NewIntObj(dbdata->respos));
+			break;
 	}
 	return TCL_OK;
 	error:
@@ -268,6 +276,32 @@ int dbi_Postgresql_Fetch(
 		if (line != NULL) Tcl_DecrRefCount(line);
 		if (element != NULL) Tcl_DecrRefCount(element);
 		return TCL_ERROR;
+}
+
+int dbi_Postgresql_Tables(
+	Tcl_Interp *interp,
+	Dbi *db)
+{
+	dbi_Postgresql_Data *dbdata = (dbi_Postgresql_Data *)db->dbdata;
+	int error;
+	Tcl_Obj *cmd = Tcl_NewStringObj("select relname from pg_class where relkind = 'r' and relname !~ '^pg_'",70);
+	error = dbi_Postgresql_Exec(interp,db,cmd,0,NULL);
+	Tcl_DecrRefCount(cmd);
+	return error;
+}
+
+int dbi_Postgresql_Tableinfo(
+	Tcl_Interp *interp,
+	Dbi *db,
+	Tcl_Obj *table,
+	Tcl_Obj *varName)
+{
+	dbi_Postgresql_Data *dbdata = (dbi_Postgresql_Data *)db->dbdata;
+	char *name;
+	int error;
+	name = Tcl_GetCommandName(interp,db->token);
+	error = Tcl_VarEval(interp,"::dbi::postgresql_tableinfo ",name," ",Tcl_GetStringFromObj(table,NULL)," ",Tcl_GetStringFromObj(varName,NULL),NULL);
+	return error;
 }
 
 int dbi_Postgresql_Close(
@@ -302,15 +336,23 @@ int dbi_Postgresql_Create(
 /*	db->admin = dbi_Postgresql_Admin;*/
 /*	db->configure = dbi_Postgresql_Configure;*/
 	db->exec = dbi_Postgresql_Exec;
+	db->tables = dbi_Postgresql_Tables;
+	db->tableinfo = dbi_Postgresql_Tableinfo;
 	db->fetch = dbi_Postgresql_Fetch;
 	db->close = dbi_Postgresql_Close;
 	db->destroy = dbi_Postgresql_Destroy;
 	return TCL_OK;
 }
 
-int Dbi_Postgresql_Init(interp)
+int Dbi_postgresql_Init(interp)
 	Tcl_Interp *interp;		/* Interpreter to add extra commands */
 {
+#ifdef USE_TCL_STUBS
+	if (Tcl_InitStubs(interp, "8.1", 0) == NULL) {
+		return TCL_ERROR;
+	}
+#endif
 	dbi_CreateType(interp,"postgresql",dbi_Postgresql_Create);
+	Tcl_Eval(interp,"");
 	return TCL_OK;
 }

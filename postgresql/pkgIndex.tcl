@@ -7,9 +7,7 @@
 # script is sourced, the variable $dir must contain the
 # full path name of this file's directory.
 
-# $Format: "package ifneeded dbi 0.$ProjectMajorVersion$ \\"$
-package ifneeded dbi 0.0 \
-	"[list array set _package_dbi [list execdir $dir dir {@TCLLIBDIR@} bindir {@BINDIR@} datadir {@DATADIR@} libdir {@LIBDIR@} library {@LIB_LIBRARY@}]] ; \
-	if \[file exists [file join $dir lib init.tcl]\] \
-		\{[list source [file join $dir lib init.tcl]]\} \
-		else \{[list source [file join @TCLLIBDIR@ lib init.tcl]]\}"
+# $Format: "package ifneeded dbi_postgresql 0.$ProjectMajorVersion$ \\"$
+package ifneeded dbi_postgresql 0.0 \
+	"[list array set _package_dbi_postgresql [list execdir $dir dir {@TCLLIBDIR@} bindir {@BINDIR@} datadir {@DATADIR@} libdir {@LIBDIR@} library {@LIB_LIBRARY@}]] ; \
+	source [file join $dir lib init.tcl]"

@@ -49,24 +49,22 @@ int dbi_DbObjCmd(
 			return TCL_ERROR;
 		}
 		i = 2;
-		db->respos = -1;
 		while (i < objc) {
 			string = Tcl_GetStringFromObj(objv[i],&stringlen);
 			if (string[0] != '-') break;
 			if ((stringlen==9)&&(strncmp(string,"-usefetch",9)==0)) {
 				if (db->fetch == NULL) {
-					Tcl_AppendResult(interp,db->type, " backend does not support fetch",NULL);
+					Tcl_AppendResult(interp,db->type, " type: fetch not supported",NULL);
 					return TCL_ERROR;
 				}
 				usefetch = 1;
-				db->respos = 0;
 			} else if ((stringlen==8)&&(strncmp(string,"-command",8)==0)) {
 				i++;
 				if (i == objc) {
 					Tcl_AppendResult(interp,"no value given for option \"-command\"",NULL);
 					return TCL_ERROR;
 				}
-				Tcl_AppendResult(interp,db->type, "-command not supported yet",NULL);
+				Tcl_AppendResult(interp,db->type, " type: -command not supported",NULL);
 				return TCL_ERROR;
 				command = objv[i];
 			} else if ((stringlen==10)&&(strncmp(string,"-nullvalue",10)==0)) {
@@ -97,7 +95,7 @@ int dbi_DbObjCmd(
 		char *string;
 		int i,stringlen,fetch_option = DBI_FETCH_DATA,t,f;
 		if (db->fetch == NULL) {
-			Tcl_AppendResult(interp,db->type, " backend does not support fetch",NULL);
+			Tcl_AppendResult(interp,db->type, " type: fetch not supported",NULL);
 			return TCL_ERROR;
 		}
 		if (objc < 2) {
@@ -118,8 +116,7 @@ int dbi_DbObjCmd(
 			} else if ((stringlen==6)&&(strncmp(string,"-lines",6)==0)) {
 				fetch_option = DBI_FETCH_LINES;
 			} else if ((stringlen==8)&&(strncmp(string,"-current",8)==0)) {
-				Tcl_SetObjResult(interp, Tcl_NewIntObj(db->respos));
-				return TCL_OK;
+				fetch_option = DBI_FETCH_CURRENTLINE;
 			} else if ((stringlen==7)&&(strncmp(string,"-fields",7)==0)) {
 				fetch_option = DBI_FETCH_FIELDS;
 			} else if ((stringlen==6)&&(strncmp(string,"-clear",6)==0)) {
@@ -152,11 +149,9 @@ int dbi_DbObjCmd(
 				return TCL_ERROR;
 			}
 			if (error) {return TCL_ERROR;}
-			db->respos = t;
 		} else {
-			t = db->respos;
+			t = -1;
 		}
-		db->respos++;
 		if (field != NULL) {
 			error = Tcl_GetIntFromObj(interp,field,&f);
 			if (error) {return TCL_ERROR;}
@@ -168,7 +163,7 @@ int dbi_DbObjCmd(
 		return TCL_OK;
 	} else if ((cmdlen == 5)&&(strncmp(cmd,"admin",5) == 0)) {
 		if (db->admin == NULL) {
-			Tcl_AppendResult(interp,db->type, " backend does not support admin functions",NULL);
+			Tcl_AppendResult(interp,db->type, "type: admin functions not supported",NULL);
 			return TCL_ERROR;
 		}
 		error = db->admin(interp,db,objc,objv);
@@ -176,7 +171,7 @@ int dbi_DbObjCmd(
 		return TCL_OK;
 	} else if ((cmdlen == 9)&&(strncmp(cmd,"configure",9) == 0)) {
 		if (db->admin == NULL) {
-			Tcl_AppendResult(interp,db->type, " backend does not support configuration options",NULL);
+			Tcl_AppendResult(interp,db->type, "type: configuration options not supported",NULL);
 			return TCL_ERROR;
 		}
 		if (objc == 2) {
@@ -198,6 +193,30 @@ int dbi_DbObjCmd(
 		}
 		if (error) {return TCL_ERROR;}
 		return TCL_OK;
+	} else if ((cmdlen == 6)&&(strncmp(cmd,"tables",6) == 0)) {
+		if (db->tables == NULL) {
+			Tcl_AppendResult(interp,db->type, " type: tables not supported",NULL);
+			return TCL_ERROR;
+		}
+		if (objc != 2) {
+			Tcl_WrongNumArgs(interp, 2, objv, "");
+			return TCL_ERROR;
+		}
+		error = db->tables(interp,db);
+		if (error) {return TCL_ERROR;}
+		return TCL_OK;
+	} else if ((cmdlen == 9)&&(strncmp(cmd,"tableinfo",9) == 0)) {
+		if (db->tableinfo == NULL) {
+			Tcl_AppendResult(interp,db->type, " type: tableinfo not supported",NULL);
+			return TCL_ERROR;
+		}
+		if (objc <4) {
+			Tcl_WrongNumArgs(interp, 2, objv, "tablename varName");
+			return TCL_ERROR;
+		}
+		error = db->tableinfo(interp,db,objv[2],objv[3]);
+		if (error) {return TCL_ERROR;}
+		return TCL_OK;
 	} else if ((cmdlen == 5)&&(strncmp(cmd,"close",5) == 0)) {
 		if (objc != 2) {
 			Tcl_WrongNumArgs(interp, 2, objv, "");
@@ -215,7 +234,7 @@ int dbi_DbObjCmd(
 		return TCL_OK;
 	}
 	Tcl_ResetResult(interp);
-	Tcl_AppendResult(interp,"bad option \"", cmd, "\": must be one of open, configure, exec, fetch, close", (char *)NULL);
+	Tcl_AppendResult(interp,"bad option \"", cmd, "\": must be one of open, configure, exec, fetch, tables, tableinfo, close", (char *)NULL);
 	return TCL_ERROR;
 }
 
@@ -245,7 +264,7 @@ void dbi_DbDestroy(ClientData clientdata) {
 	Dbi *db;
 	db = (Dbi *)clientdata;
 	(db->destroy)(db);
-	Tcl_DeleteExitHandler((Tcl_ExitProc *)dbi_DbDestroy, db);
+	Tcl_DeleteExitHandler((Tcl_ExitProc *)dbi_DbDestroy, clientdata);
 	Tcl_Free((char *)db);
 }
 
@@ -263,26 +282,41 @@ int dbi_NewDbObjCmd(
 	Tcl_Obj *dbi_nameObj = NULL;
 	char buffer[20];
 	char *dbi_name;
-	char *type;
-	int typelen, error,start;
+	char *type,*string;
+	int typelen,stringlen,error,start;
 	dbi_TypeCreate (*createf);
 	if (objc < 2) {
-		Tcl_WrongNumArgs(interp,1,objv,"type/types ?dbName?");
+		Tcl_AppendResult(interp,"wrong # args: should be \"",
+			Tcl_GetStringFromObj(objv[0],NULL), " type ?dbName?\" or \"",
+			Tcl_GetStringFromObj(objv[0],NULL), " info ...\"",NULL);
 		return TCL_ERROR;
 	}
 	type = Tcl_GetStringFromObj(objv[1],&typelen);
-	if ((typelen == 5)&&(strncmp(type,"types",3)==0)) {
-		Tcl_ResetResult(interp);
-		entry = Tcl_FirstHashEntry(dstypesTable, &search);
-		while(1) {
-			if (entry == NULL) break;
-			type = Tcl_GetHashKey(dstypesTable, entry);
-			Tcl_AppendElement(interp,type);
-			entry = Tcl_NextHashEntry(&search);
+	if ((typelen == 4)&&(strncmp(type,"info",4)==0)) {
+		if (objc != 3) {
+			Tcl_WrongNumArgs(interp,1,objv,"info item");
+			return TCL_ERROR;
+		}
+		string = Tcl_GetStringFromObj(objv[2],&stringlen);
+		if ((stringlen == 11)&&(strncmp(string,"typesloaded",11)==0)) {
+			Tcl_ResetResult(interp);
+		if (dstypesTable == NULL) {return TCL_OK;}
+			entry = Tcl_FirstHashEntry(dstypesTable, &search);
+			while(1) {
+				if (entry == NULL) break;
+				type = Tcl_GetHashKey(dstypesTable, entry);
+				Tcl_AppendElement(interp,type);
+				entry = Tcl_NextHashEntry(&search);
+			}
+		} else {
+			error = Tcl_VarEval(interp, "::dbi::info ",string,NULL);
+			if (error) {return error;}
 		}
 		return TCL_OK;
 	} else {
 		type = Tcl_GetStringFromObj(objv[1],&typelen);
+		error = Tcl_VarEval(interp, "::dbi::load ",type,NULL);
+		if (error) {return error;}
 		entry = Tcl_FindHashEntry(dstypesTable,type);
 		if (entry == NULL) {
 			Tcl_ResetResult(interp);
@@ -299,6 +333,8 @@ int dbi_NewDbObjCmd(
 		db->fetch = NULL;
 		db->close = NULL;
 		db->admin = NULL;
+		db->tables = NULL;
+		db->tableinfo = NULL;
 		error = createf(interp,db);
 		if (error) {return error;}
 		if (objc == 3) {

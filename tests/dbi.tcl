@@ -1,22 +1,16 @@
 #!/bin/sh
 # the next line restarts using wish \
 exec tclsh8.0 "$0" "$@"
-#exec ../src/dbtcl "$0" "$@"
 puts "source [info script]"
+
+if ![info exists type] {
+	set type [lindex $argv 0]
+	set argv [lrange $argv 1 end]
+}
 
 source tools.tcl
 
-test $what {types} {
-	dbi types
-} {postgresql}
-
-foreach init {
-	{
-		set ::type postgresql
-		set what dbi-$type
-	}
-} {
-eval $init
+set what dbi-$type
 
 test $what {create and destroy dbi object} {
 	set db [dbi $::type]
@@ -40,6 +34,12 @@ test $what {open and close} {
 	db open $::testdatabase
 	db close
 } {}
+
+test $what {open error} {
+	set db [dbi $::type db]
+	catch {db open xxxxx}
+	db exec {select * from test}
+} {dbi object has no open database, open a connection first} 1
 
 # Open test database for further tests
 db open $::testdatabase
@@ -74,9 +74,10 @@ test $what {select with -nullvalue} {
 
 test $what {error} {
 	initdb
-	db exec {select try from person}
-} {database error while executing command "select try from person":
-ERROR:  attribute 'try' not found
+	if ![catch {db exec {select try from person}} result] {
+		error "test should cause an error"
+	}
+	regexp {^database error executing command "select try from person":.*attribute 'try' not found} $result
 } 1
 
 test $what {select fetch} {
@@ -114,6 +115,22 @@ test $what {4 fetch, end} {
 	db fetch
 } {line 3 out of range} 1
 
+test $what {5 fetch, end} {
+	initdb
+	db exec -usefetch {select * from person}
+	db fetch
+	db fetch
+	db fetch
+	catch {db fetch}
+	db fetch
+} {line 3 out of range} 1
+
+initdb
+db exec -usefetch {select * from person}
+set fetchnum [supported {db fetch 1}]
+
+if $fetchnum {
+
 test $what {fetch 1} {
 	initdb
 	db exec -usefetch {select * from person}
@@ -143,19 +160,6 @@ test $what {fetch -lines} {
 	db exec -usefetch {select * from person}
 	db fetch -lines
 } {3}
-
-test $what {fetch -fields} {
-	initdb
-	db exec -usefetch {select * from person}
-	db fetch -fields
-} {id first_name name}
-
-test $what {fetch with no fetch result available} {
-	initdb
-	catch {db fetch -clear}
-	db exec {select * from person}
-	db fetch
-} {no result available: invoke exec method with -usefetch option first} 1
 
 test $what {fetch -isnull 1} {
 	initdb
@@ -194,8 +198,43 @@ test $what {fetch -current} {
 	db fetch -current
 } 1
 
-db close
+} else {
+# no fetch positioning
+test $what {fetch 1} {
+	initdb
+	db exec -usefetch {select * from person}
+	set cmd {db fetch 1}
+	if ![catch $cmd result] {
+		error "test should cause error"
+	}
+	regexp {positioning for fetch not supported$} $result
+} 1
+
+test $what {fetch -lines} {
+	initdb
+	db exec -usefetch {select * from person}
+	set cmd {db fetch -lines}
+	if ![catch $cmd result] {
+		error "test should cause error"
+	}
+	regexp {fetch -lines not supported$} $result
+} 1
 
 }
+
+test $what {fetch -fields} {
+	initdb
+	db exec -usefetch {select * from person}
+	db fetch -fields
+} {id first_name name}
+
+test $what {fetch with no fetch result available} {
+	initdb
+	catch {db fetch -clear}
+	db exec {select * from person}
+	db fetch
+} {no result available: invoke exec method with -usefetch option first} 1
+
+db close
 
 testsummarize
