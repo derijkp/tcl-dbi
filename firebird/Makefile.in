@@ -1,4 +1,3 @@
-# Generated automatically from Makefile.in by configure.
 # Makefile.in --
 #
 #	This file is a Makefile for Sample TEA Extension.  If it has the name
@@ -28,7 +27,7 @@
 # unix subdirectory.
 #========================================================================
 
-dbi_interbase_SOURCES	= interbase.c $(UNIX_SOURCES)
+dbi_firebird_SOURCES	= firebird.c @EXTRA_SOURCES@
 
 WIN_SOURCES	= 
 UNIX_SOURCES	= 
@@ -41,12 +40,12 @@ UNIX_SOURCES	=
 # Normally we would use $(OBJEXT), but certain make executables won't do
 # the extra macro in a macro conversion properly.
 #
-# "dbi_interbase_LIB_FILE" refers to the library (dynamic or static as per
+# "dbi_firebird_LIB_FILE" refers to the library (dynamic or static as per
 # configuration options) composed of the named objects.
 #========================================================================
 
-dbi_interbase_OBJECTS	= $(dbi_interbase_SOURCES:.c=.o)
-dbi_interbase_LIB_FILE	= libdbi_interbase0.8.so
+dbi_firebird_OBJECTS	= $(dbi_firebird_SOURCES:.c=.@OBJEXT@)
+dbi_firebird_LIB_FILE	= @dbi_firebird_LIB_FILE@
 
 #========================================================================
 # RUNTIME_SOURCES identifies Tcl runtime files that are associated with
@@ -66,7 +65,7 @@ GENERIC_HDRS	=
 # have been added to the configure script.
 #========================================================================
 
-IBASE_LIB = -L"/usr/lib" -lfbclient
+FIREBIRD_LIB = @FIREBIRD_LIB@
 
 
 #========================================================================
@@ -83,17 +82,17 @@ IBASE_LIB = -L"/usr/lib" -lfbclient
 lib_BINARIES	= $($(PACKAGE)_LIB_FILE)
 BINARIES	= $(lib_BINARIES)
 
-SHELL		= /bin/sh
+SHELL		= @SHELL@
 
-srcdir		= ..
-prefix		= /usr/local/
-exec_prefix	= /usr/local/
+srcdir		= @srcdir@
+prefix		= @prefix@
+exec_prefix	= @exec_prefix@
 
-bindir		= ${exec_prefix}/bin
-libdir		= ${exec_prefix}/lib
-datadir		= ${prefix}/share
-mandir		= ${prefix}/man
-includedir	= ${prefix}/include
+bindir		= @bindir@
+libdir		= @libdir@
+datadir		= @datadir@
+mandir		= @mandir@
+includedir	= @includedir@
 
 DESTDIR		=
 
@@ -104,39 +103,39 @@ pkgincludedir	= $(includedir)/$(PKG_DIR)
 
 top_builddir	= .
 
-INSTALL		= /usr//bin/install -c
-INSTALL_PROGRAM	= ${INSTALL}
-INSTALL_DATA	= ${INSTALL} -m 644
-INSTALL_SCRIPT	= ${INSTALL_PROGRAM}
+INSTALL		= @INSTALL@
+INSTALL_PROGRAM	= @INSTALL_PROGRAM@
+INSTALL_DATA	= @INSTALL_DATA@
+INSTALL_SCRIPT	= @INSTALL_SCRIPT@
 
-PACKAGE		= dbi_interbase
-VERSION		= 0.8
-CC		= gcc -pipe
-CFLAGS_DEBUG	= -g
-CFLAGS_DEFAULT	= $(CFLAGS_OPTIMIZE)
-CFLAGS_OPTIMIZE	= -O -D__NO_STRING_INLINES -D__NO_MATH_INLINES
-CLEANFILES	= pkgIndex.tcl
-EXEEXT		= 
-LDFLAGS_DEBUG	= 
-LDFLAGS_DEFAULT	= $(LDFLAGS_OPTIMIZE)
-LDFLAGS_OPTIMIZE = 
-MAKE_LIB	= ${SHLIB_LD} -o $@ $($(PACKAGE)_OBJECTS) ${SHLIB_LDFLAGS} ${SHLIB_LD_LIBS} 
-MAKE_SHARED_LIB	= ${SHLIB_LD} -o $@ $($(PACKAGE)_OBJECTS) ${SHLIB_LDFLAGS} ${SHLIB_LD_LIBS}
-MAKE_STATIC_LIB	= ${STLIB_LD} $@ $($(PACKAGE)_OBJECTS)
-OBJEXT		= o
-RANLIB		= :
-SHLIB_CFLAGS	= -fPIC
-SHLIB_LD	= gcc -pipe -shared
-SHLIB_LDFLAGS	= $(LDFLAGS_DEFAULT)
-SHLIB_LD_LIBS	= ${LIBS} -L/home/peter/tcl/tcl8.4.3/unix -ltclstub8.4  -L"/usr/lib" -lfbclient -lcrypt
-STLIB_LD	= ${AR} cr
-TCL_DEFS	=  -DHAVE_UNISTD_H=1 -DHAVE_LIMITS_H=1 -D_LARGEFILE64_SOURCE=1 -DTCL_WIDE_INT_TYPE=long\ long -DHAVE_STRUCT_STAT64=1 -DHAVE_TYPE_OFF64_T=1 -DHAVE_GETCWD=1 -DHAVE_OPENDIR=1 -DHAVE_STRSTR=1 -DHAVE_STRTOL=1 -DHAVE_STRTOLL=1 -DHAVE_STRTOULL=1 -DHAVE_TMPNAM=1 -DHAVE_WAITPID=1 -DHAVE_UNISTD_H=1 -DHAVE_SYS_PARAM_H=1 -DUSE_TERMIOS=1 -DHAVE_SYS_TIME_H=1 -DTIME_WITH_SYS_TIME=1 -DHAVE_TM_ZONE=1 -DHAVE_GMTIME_R=1 -DHAVE_LOCALTIME_R=1 -DHAVE_TM_GMTOFF=1 -DHAVE_TIMEZONE_VAR=1 -DHAVE_ST_BLKSIZE=1 -DSTDC_HEADERS=1 -DHAVE_SIGNED_CHAR=1 -DHAVE_LANGINFO=1 -DPEEK_XCLOSEIM=1 -DHAVE_SYS_IOCTL_H=1 
-TCL_BIN_DIR	= /home/peter/dev/tcl8.4.3/unix
-TCL_SRC_DIR	= /home/peter/tcl/tcl8.4.3
+PACKAGE		= @PACKAGE@
+VERSION		= @VERSION@
+CC		= @CC@
+CFLAGS_DEBUG	= @CFLAGS_DEBUG@
+CFLAGS_DEFAULT	= @CFLAGS_DEFAULT@
+CFLAGS_OPTIMIZE	= @CFLAGS_OPTIMIZE@
+CLEANFILES	= @CLEANFILES@
+EXEEXT		= @EXEEXT@
+LDFLAGS_DEBUG	= @LDFLAGS_DEBUG@
+LDFLAGS_DEFAULT	= @LDFLAGS_DEFAULT@
+LDFLAGS_OPTIMIZE = @LDFLAGS_OPTIMIZE@
+MAKE_LIB	= @MAKE_LIB@
+MAKE_SHARED_LIB	= @MAKE_SHARED_LIB@
+MAKE_STATIC_LIB	= @MAKE_STATIC_LIB@
+OBJEXT		= @OBJEXT@
+RANLIB		= @RANLIB@
+SHLIB_CFLAGS	= @SHLIB_CFLAGS@
+SHLIB_LD	= @SHLIB_LD@
+SHLIB_LDFLAGS	= @SHLIB_LDFLAGS@
+SHLIB_LD_LIBS	= @SHLIB_LD_LIBS@
+STLIB_LD	= @STLIB_LD@
+TCL_DEFS	= @TCL_DEFS@
+TCL_BIN_DIR	= @TCL_BIN_DIR@
+TCL_SRC_DIR	= @TCL_SRC_DIR@
 # This is necessary for packages that use private Tcl headers
 #TCL_TOP_DIR_NATIVE	= @TCL_TOP_DIR_NATIVE@
 # Not used, but retained for reference of what libs Tcl required
-TCL_LIBS	= -ldl  -lieee -lm
+TCL_LIBS	= @TCL_LIBS@
 
 TK_SRC_DIR	= @TK_SRC_DIR@
 TK_BIN_DIR	= @TK_BIN_DIR@
@@ -150,32 +149,32 @@ TK_LIBS		= @TK_LIBS@
 #========================================================================
 
 EXTRA_PATH	= $(top_builddir):$(TCL_BIN_DIR):$(TK_BIN_DIR)
-TCLSH_ENV	= TCL_LIBRARY=`echo $(TCL_SRC_DIR)/library` \
-		  TK_LIBRARY=`echo $(TK_SRC_DIR)/library` \
+TCLSH_ENV	= TCL_LIBRARY=`@CYGPATH@ $(TCL_SRC_DIR)/library` \
+		  TK_LIBRARY=`@CYGPATH@ $(TK_SRC_DIR)/library` \
 		  LD_LIBRARY_PATH="$(EXTRA_PATH):$(LD_LIBRARY_PATH)" \
 		  LIBPATH="$(EXTRA_PATH):${LIBPATH}" \
 		  SHLIB_PATH="$(EXTRA_PATH):${SHLIB_PATH}" \
 		  PATH="$(EXTRA_PATH):$(PATH)" \
 		  TCLLIBPATH="$(top_builddir)"
-TCLSH_PROG	= /home/peter/dev/tcl8.4.3/unix/tclsh
+TCLSH_PROG	= @TCLSH_PROG@
 WISH_PROG	= @WISH_PROG@
 TCLSH		= $(TCLSH_ENV) $(TCLSH_PROG)
-SHARED_BUILD	= 1
+SHARED_BUILD	= @SHARED_BUILD@
 
-INCLUDES	= -I"/usr/local//include" -I"/usr/include"
+INCLUDES	= @TCL_INCLUDES@ @FIREBIRD_INCLUDE@
 # when using tk
-#INCLUDES	= -I"/usr/local//include" -I"/usr/include" @TK_INCLUDES@ @TK_XINCLUDES@
+#INCLUDES	= @TCL_INCLUDES@ @FIREBIRD_INCLUDE@ @TK_INCLUDES@ @TK_XINCLUDES@
 
-EXTRA_CFLAGS	= $(MEM_DEBUG_FLAGS) 
+EXTRA_CFLAGS	= $(MEM_DEBUG_FLAGS) @EXTRA_CFLAGS@
 
-DEFS		= $(TCL_DEFS)  -DVERSION=\"0.8\" -D_LARGEFILE64_SOURCE=1 -DTCL_WIDE_INT_TYPE=long\ long -DHAVE_STRUCT_STAT64=1 -DHAVE_TYPE_OFF64_T=1 -DHAVE_UNISTD_H=1 -DHAVE_SYS_PARAM_H=1 -DUSE_TCL_STUBS=1  $(EXTRA_CFLAGS)
+DEFS		= $(TCL_DEFS) @DEFS@ $(EXTRA_CFLAGS)
 
 CONFIG_CLEAN_FILES = Makefile
 
-CPPFLAGS	= 
-LIBS		=   -L"/usr/lib" -lfbclient -lcrypt
+CPPFLAGS	= @CPPFLAGS@
+LIBS		= @LIBS@
 AR		= ar
-CFLAGS		=  ${CFLAGS_DEFAULT} ${CFLAGS_WARNING} ${SHLIB_CFLAGS}
+CFLAGS		= @CFLAGS@
 COMPILE		= $(CC) $(DEFS) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(AM_CFLAGS) $(CFLAGS)
 
 #========================================================================
@@ -204,14 +203,14 @@ binaries: $(BINARIES) pkgIndex.tcl
 libraries:
 
 doc:
-		$(TCLSH_PROG) $(srcdir)/build/makedoc.tcl srcdir \$(srcdir)
+	$(TCLSH_PROG) $(srcdir)/build/makedoc.tcl srcdir \$(srcdir)
 	
 
 uninstall:
-	$(TCLSH_PROG) $(srcdir)/build/uninstall.tcl srcdir $(srcdir) pkglibdir "$(DESTDIR)$(pkglibdir)" pkgtcllibdir "$(DESTDIR)$(pkgtcllibdir)" pkgdatadir "$(DESTDIR)$(pkgdatadir)" pkgincludedir "$(DESTDIR)$(pkgincludedir)" bindir "$(DESTDIR)$(bindir)" mandir "$(DESTDIR)$(mandir)" package dbi_interbase version 0.8
+	$(TCLSH_PROG) $(srcdir)/build/uninstall.tcl srcdir $(srcdir) pkglibdir "$(DESTDIR)$(pkglibdir)" pkgtcllibdir "$(DESTDIR)$(pkgtcllibdir)" pkgdatadir "$(DESTDIR)$(pkgdatadir)" pkgincludedir "$(DESTDIR)$(pkgincludedir)" bindir "$(DESTDIR)$(bindir)" mandir "$(DESTDIR)$(mandir)" package @PACKAGE@ version @VERSION@
 
 install: all
-	$(TCLSH_PROG) $(srcdir)/build/install.tcl srcdir $(srcdir) pkglibdir "$(DESTDIR)$(pkglibdir)" pkgtcllibdir "$(DESTDIR)$(pkgtcllibdir)" pkgdatadir "$(DESTDIR)$(pkgdatadir)" pkgincludedir "$(DESTDIR)$(pkgincludedir)" bindir "$(DESTDIR)$(bindir)" mandir "$(DESTDIR)$(mandir)" package dbi_interbase version 0.8
+	$(TCLSH_PROG) $(srcdir)/build/install.tcl srcdir $(srcdir) pkglibdir "$(DESTDIR)$(pkglibdir)" pkgtcllibdir "$(DESTDIR)$(pkgtcllibdir)" pkgdatadir "$(DESTDIR)$(pkgdatadir)" pkgincludedir "$(DESTDIR)$(pkgincludedir)" bindir "$(DESTDIR)$(bindir)" mandir "$(DESTDIR)$(mandir)" package @PACKAGE@ version @VERSION@
 
 install-binaries: binaries install-lib-binaries install-bin-binaries
 	if test "x$(SHARED_BUILD)" = "x1"; then \
@@ -245,7 +244,7 @@ install-doc: doc
 	done
 
 test: binaries libraries
-	$(TCLSH) `echo $(srcdir)/tests/all.tcl` $(TESTFLAGS)
+	$(TCLSH) `@CYGPATH@ $(srcdir)/tests/all.tcl` $(TESTFLAGS)
 
 shell: binaries libraries
 	@$(TCLSH) $(SCRIPT)
@@ -278,7 +277,7 @@ $($(PACKAGE)_LIB_FILE): $($(PACKAGE)_OBJECTS)
 # you will have to modify the paths to reflect this:
 #
 # sample.$(OBJEXT): $(srcdir)/generic/sample.c
-# 	$(COMPILE) -c `echo $(srcdir)/generic/sample.c` -o $@
+# 	$(COMPILE) -c `@CYGPATH@ $(srcdir)/generic/sample.c` -o $@
 #
 # Setting the VPATH variable to a list of paths will cause the makefile
 # to look into these paths when resolving .c to .obj dependencies.
@@ -288,7 +287,7 @@ $($(PACKAGE)_LIB_FILE): $($(PACKAGE)_OBJECTS)
 VPATH = $(srcdir)/generic:$(srcdir)/unix:$(srcdir)/win
 
 .c.$(OBJEXT):
-	$(COMPILE) -c `echo $<` -o $@
+	$(COMPILE) -c `@CYGPATH@ $<` -o $@
 
 #========================================================================
 # Create the pkgIndex.tcl file.

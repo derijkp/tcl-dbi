@@ -39,7 +39,7 @@ AC_DEFUN(SC_FIREBIRD_INCLUDE, [
 	    else
 		# Check in the includedir, if --prefix was specified
 		eval "temp_includedir=${includedir}"
-		for i in  `ls -d ${temp_includedir} 2>/dev/null`  /usr/local/include /usr/include "/Program Files/Firebird/include" "/Program Files/borland/interBase/Include" "/Program Files/Borland/InterBase/SDK/include"; do
+		for i in  `ls -d ${temp_includedir} 2>/dev/null`  /usr/local/include /usr/include "/Program Files/Firebird/include"; do
 		    if test -f "$i/ibase.h" ; then
 				ac_cv_c_firebirdinclude=$i
 				break
@@ -82,11 +82,11 @@ AC_DEFUN(SC_FIREBIRD_LIB, [
     AC_MSG_CHECKING(for firebird library files)
     AC_ARG_WITH(firebird, [ --with-firebird      directory containing the firebird library files.], with_firebird=${withval})
     if test x"${with_firebird}" != x ; then
-	if test -f "${with_firebird}/libgds.so" ; then
+	if test -f "${with_firebird}/libfbclient.so" ; then
 	    ac_cv_c_firebird=${with_firebird}
-	elif test -f "${with_firebird}/libgds.a" ; then
+	elif test -f "${with_firebird}/libfbclient.a" ; then
 	    ac_cv_c_firebird=${with_firebird}
-	elif test -f "${with_firebird}/gds32_ms.lib" ; then
+	elif test -f "${with_firebird}/fbclient_ms.lib" ; then
 	    ac_cv_c_firebird=${with_firebird}
 	else
 	    AC_MSG_ERROR([${with_firebird} directory does not contain firebird public library file $libzfile])
@@ -99,14 +99,14 @@ AC_DEFUN(SC_FIREBIRD_LIB, [
 	    else
 		# Check in the libdir, if --prefix was specified
 		eval "temp_libdir=${libdir}"
-		for i in  `ls -d ${temp_libdir} 2>/dev/null`  /usr/local/lib /usr/lib "/Program Files/Firebird/lib" "/Program Files/borland/interBase/Lib" "/Program Files/Borland/InterBase/SDK/lib_ms" ; do
-		    if test -f "$i/libgds.so" ; then
+		for i in  `ls -d ${temp_libdir} 2>/dev/null`  /usr/local/lib /usr/lib "/Program Files/Firebird/lib" ; do
+		    if test -f "$i/libfbclient.so" ; then
 				ac_cv_c_firebird=$i
 				break
-		    elif test -f "$i/libgds.a" ; then
+		    elif test -f "$i/libfbclient.a" ; then
 				ac_cv_c_firebird=$i
 				break
-		    elif test -f "$i/gds32_ms.lib" ; then
+		    elif test -f "$i/fbclient_ms.lib" ; then
 				ac_cv_c_firebird=$i
 				break
 		    fi
@@ -114,6 +114,7 @@ AC_DEFUN(SC_FIREBIRD_LIB, [
 	    fi
 	])
     fi
+    AC_ARG_ENABLE(static, [  --enable-static         link firebird library statically [--disable-static]],[tcl_ok=$enableval], [tcl_ok=no])
 	case "`uname -s`" in
 		*win32* | *WIN32* | *CYGWIN_NT* |*CYGWIN_98*|*CYGWIN_95*)
 		    if test x"${ac_cv_c_firebird}" = x ; then
@@ -124,11 +125,11 @@ AC_DEFUN(SC_FIREBIRD_LIB, [
 		
 		    # Convert to a native path and substitute into the output files.
 		
-		    FIREBIRD_LIB=\"`${CYGPATH} "${ac_cv_c_firebird}/gds32_ms.lib"`\"
+		    FIREBIRD_LIB=\"`${CYGPATH} "${ac_cv_c_firebird}/fbclient_ms.lib"`\"
 		;;
 		*)
 		    if test x"${ac_cv_c_firebird}" = x ; then
-			AC_MSG_ERROR(libgds.so or libgds.a not found.  Please specify its location with --with-firebird)
+			AC_MSG_ERROR(libfbclient.so or libfbclient.a not found.  Please specify its location with --with-firebird)
 		    else
 			AC_MSG_RESULT(${ac_cv_c_firebird})
 		    fi
@@ -137,7 +138,11 @@ AC_DEFUN(SC_FIREBIRD_LIB, [
 		
 		    LIB_DIR_NATIVE=`${CYGPATH} "${ac_cv_c_firebird}"`
 		
-		    FIREBIRD_LIB="-L\"${LIB_DIR_NATIVE}\" -lgds"
+		    if test "$tcl_ok" = "no"; then
+			    FIREBIRD_LIB="-L\"${LIB_DIR_NATIVE}\" -lfbclient"
+		    else
+			    FIREBIRD_LIB=" ${LIB_DIR_NATIVE}/libfbclient.a "
+		    fi
 		;;
 	esac
     AC_SUBST(FIREBIRD_LIB)

@@ -1,5 +1,5 @@
 # The name of your package. This should be made of only alphanumeric characters.
-config package dbi_interbase
+config package dbi_firebird
 
 # The major version number of your package. The convention, particularly
 # with stubs-enabled extensions, is that upward compatability of
@@ -18,13 +18,13 @@ config patchlevel 9
 # The name of a file in your distribution that configure should find to
 # discover whether it is where it thinks it ought to be. This should
 # be a file that is unique to your extension.
-config locator generic/interbase.c
+config locator generic/firebird.c
 
 # The list of source files that are to be built on all platforms. These
 # are conventionally held in either the top-level directory or
 # in the 'generic' subdirectory.
 config genericSources {
-	interbase.c
+	firebird.c
 }
 
 # The list of additional source files that are to be built on UNIX platforms.
@@ -65,14 +65,15 @@ config accessPrivate 0
 # - paths to look in for libs besides in given dir or typical dirs (based on prefix)
 # - base library name to find (without lib in front ie. the one you put in -l<name>)
 #     for -base you may give a list of two names: in this case the first is for unix, the second for windows
-# Interbase and Firebird 1.0
+# Firebird 1.5
 config extralibs {
 	firebird {
-		"/Program Files/Firebird/include" "/Program Files/borland/interBase/Include" "/Program Files/Borland/InterBase/SDK/include"
+		"/Program Files/Firebird/include"
 	} ibase.h {
-		"/Program Files/Firebird/lib" "/Program Files/borland/interBase/Lib" "/Program Files/Borland/InterBase/SDK/lib_ms"
-	} {gds gds32_ms}
+		"/Program Files/Firebird/lib"
+	} {fbclient fbclient_ms}
 }
+
 
 # An autoconf fragment used to check for additional system features that
 # the standard TEA configuration does not detect. Any extra

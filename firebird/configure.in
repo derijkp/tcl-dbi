@@ -19,7 +19,7 @@ dnl	to configure the system for the local environment.
 # AC_INIT(generic/tcl.h)
 #-----------------------------------------------------------------------
 
-AC_INIT(generic/interbase.c)
+AC_INIT(generic/firebird.c)
 
 AC_CONFIG_AUX_DIR(tclconfig)
 CONFIGDIR=${srcdir}/tclconfig
@@ -33,21 +33,21 @@ AC_SUBST(CONFIGDIR)
 # other systems.
 #----------------------------------------------------------------------
 
-PACKAGE=dbi_interbase
+PACKAGE=dbi_firebird
 
 MAJOR_VERSION=0
 MINOR_VERSION=8
-PATCHLEVEL=
+PATCHLEVEL=9
 
-VERSION=${MAJOR_VERSION}.${MINOR_VERSION}${PATCHLEVEL}
-NODOT_VERSION=${MAJOR_VERSION}${MINOR_VERSION}
+VERSION=${MAJOR_VERSION}.${MINOR_VERSION}.${PATCHLEVEL}
+NODOT_VERSION=${MAJOR_VERSION}_${MINOR_VERSION}
 
 AC_SUBST(PACKAGE)
 AC_SUBST(VERSION)
 # This package name must be replaced statically for AC_SUBST to work
-AC_SUBST(dbi_interbase_LIB_FILE)
+AC_SUBST(dbi_firebird_LIB_FILE)
 # Substitute stub_LIB_FILE if your package creates a stub library too.
-#AC_SUBST(dbi_interbasestub_LIB_FILE)
+#AC_SUBST(dbi_firebirdstub_LIB_FILE)
 
 #--------------------------------------------------------------------
 # We put this here so that you can compile with -DVERSION="1.2" to
@@ -112,7 +112,7 @@ TEA_PUBLIC_TCL_HEADERS
 # __CHANGE__
 # A few miscellaneous platform-specific items:
 #
-# Define a special symbol for Windows (BUILD_dbi_interbase in this case) so
+# Define a special symbol for Windows (BUILD_dbi_firebird in this case) so
 # that we create the export library with the dll.  See sha1.h on how
 # to use this.
 #
@@ -126,7 +126,7 @@ TEA_PUBLIC_TCL_HEADERS
 #--------------------------------------------------------------------
 
 if test "${TEA_PLATFORM}" = "windows" ; then
-    AC_DEFINE(BUILD_dbi_interbase)
+    AC_DEFINE(BUILD_dbi_firebird)
     CLEANFILES="pkgIndex.tcl *.lib *.dll *.exp *.ilk *.pdb vc*.pch"
     EXTRA_SOURCES='$(WIN_SOURCES)'
 else
@@ -182,7 +182,7 @@ AC_DEFINE(USE_TCL_STUBS)
 TEA_MAKE_LIB
 
 # extra code
-SC_IBASE
+SC_FIREBIRD
 
 
 
@@ -194,11 +194,11 @@ SC_IBASE
 
 
 if test "${TEA_PLATFORM}" = "windows" ; then
-    LIBS="${LIBS}  ${IBASE_LIB} "
-    SHLIB_LD_LIBS="${SHLIB_LD_LIBS}  ${IBASE_LIB} "
+    LIBS="${LIBS}  ${FIREBIRD_LIB} "
+    SHLIB_LD_LIBS="${SHLIB_LD_LIBS}  ${FIREBIRD_LIB} "
 else
-    LIBS="${LIBS}  ${IBASE_LIB} -lcrypt"
-	SHLIB_LD_LIBS="${SHLIB_LD_LIBS}  ${IBASE_LIB} -lcrypt"
+    LIBS="${LIBS}  ${FIREBIRD_LIB} -lcrypt"
+	SHLIB_LD_LIBS="${SHLIB_LD_LIBS}  ${FIREBIRD_LIB} -lcrypt"
 fi
 			
 

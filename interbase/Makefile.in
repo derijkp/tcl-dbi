@@ -65,7 +65,7 @@ GENERIC_HDRS	=
 # have been added to the configure script.
 #========================================================================
 
-IBASE_LIB = @IBASE_LIB@
+FIREBIRD_LIB = @FIREBIRD_LIB@
 
 
 #========================================================================
@@ -161,9 +161,9 @@ WISH_PROG	= @WISH_PROG@
 TCLSH		= $(TCLSH_ENV) $(TCLSH_PROG)
 SHARED_BUILD	= @SHARED_BUILD@
 
-INCLUDES	= @TCL_INCLUDES@ @IBASE_INCLUDE@
+INCLUDES	= @TCL_INCLUDES@ @FIREBIRD_INCLUDE@
 # when using tk
-#INCLUDES	= @TCL_INCLUDES@ @IBASE_INCLUDE@ @TK_INCLUDES@ @TK_XINCLUDES@
+#INCLUDES	= @TCL_INCLUDES@ @FIREBIRD_INCLUDE@ @TK_INCLUDES@ @TK_XINCLUDES@
 
 EXTRA_CFLAGS	= $(MEM_DEBUG_FLAGS) @EXTRA_CFLAGS@
 

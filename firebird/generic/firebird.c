@@ -1,6 +1,6 @@
 /*
- *       File:    mem.c
- *       Purpose: dbi extension to Tcl: interbase backend
+ *       File:    firebird.c
+ *       Purpose: dbi extension to Tcl: firebird backend
  *       Author:  Copyright (c) 1998 Peter De Rijk
  *
  *       See the file "README" for information on usage and redistribution
@@ -10,33 +10,30 @@
 #include <string.h>
 #include <stdlib.h>
 #include <time.h>
-#include "interbase.h"
+#include "firebird.h"
 
-#define QUAD_HIGH isc_quad_high
-#define QUAD_LOW isc_quad_low
-typedef struct vary {
-	short vary_length;
-	char vary_string[1];
-} VARY;
+#define QUAD_HIGH gds_quad_high
+#define QUAD_LOW gds_quad_low
+typedef struct vary VARY;
 
 void Tcl_GetCommandFullName(
     Tcl_Interp *interp,
     Tcl_Command command,
     Tcl_Obj *objPtr);
 
-int Dbi_interbase_Clone(
+int Dbi_firebird_Clone(
 	Tcl_Interp *interp,
-	dbi_Interbase_Data *dbdata,
+	dbi_Firebird_Data *dbdata,
 	Tcl_Obj *name);
 
-int dbi_Interbase_Free_Stmt(
-	dbi_Interbase_Data *dbdata,
+int dbi_Firebird_Free_Stmt(
+	dbi_Firebird_Data *dbdata,
 	int action);
 
 /******************************************************************/
 
-int dbi_Interbase_autocommit_state(
-	dbi_Interbase_Data *dbdata)
+int dbi_Firebird_autocommit_state(
+	dbi_Firebird_Data *dbdata)
 {
 	if (dbdata->parent != NULL) {
 		return dbdata->parent->autocommit;
@@ -45,8 +42,8 @@ int dbi_Interbase_autocommit_state(
 	}
 }
 
-int dbi_Interbase_autocommit_set(
-	dbi_Interbase_Data *dbdata,
+int dbi_Firebird_autocommit_set(
+	dbi_Firebird_Data *dbdata,
 	int state)
 {
 	if (dbdata->parent != NULL) {
@@ -57,8 +54,8 @@ int dbi_Interbase_autocommit_set(
 	return state;
 }
 
-isc_tr_handle *dbi_Interbase_trans(
-	dbi_Interbase_Data *dbdata)
+isc_tr_handle *dbi_Firebird_trans(
+	dbi_Firebird_Data *dbdata)
 {
 	if (dbdata->parent != NULL) {
 		return &(dbdata->parent->trans);
@@ -67,8 +64,8 @@ isc_tr_handle *dbi_Interbase_trans(
 	}
 }
 
-int dbi_Interbase_trans_state(
-	dbi_Interbase_Data *dbdata)
+int dbi_Firebird_trans_state(
+	dbi_Firebird_Data *dbdata)
 {
 	if (dbdata->parent != NULL) {
 		if (dbdata->parent->trans == NULL) {return 0;} else {return 1;}
@@ -77,7 +74,7 @@ int dbi_Interbase_trans_state(
 	}
 }
 
-int dbi_Interbase_String_Tolower(
+int dbi_Firebird_String_Tolower(
 	Tcl_Interp *interp,
 	Tcl_Obj **stringObj)
 {
@@ -98,14 +95,14 @@ int dbi_Interbase_String_Tolower(
 	return TCL_OK;
 }
 
-int dbi_Interbase_Reconnect(
+int dbi_Firebird_Reconnect(
 	Tcl_Interp *interp,
-	dbi_Interbase_Data *dbdata)
+	dbi_Firebird_Data *dbdata)
 {
 	char *string=NULL;
 	int len,error;
 	if (dbdata->db == NULL) {return TCL_ERROR;}
-	dbi_Interbase_Free_Stmt(dbdata,DSQL_close);
+	dbi_Firebird_Free_Stmt(dbdata,DSQL_close);
 	error = isc_detach_database(dbdata->status, &(dbdata->db));
 	dbdata->db = NULL;
 	dbdata->stmt = NULL;
@@ -131,11 +128,11 @@ int dbi_Interbase_Reconnect(
 	}
 	error = isc_dsql_allocate_statement(dbdata->status, &(dbdata->db), &(dbdata->stmt));
 	if (error) {
-		Tcl_AppendResult(interp,"Interbase error on statement allocation:\n", NULL);
+		Tcl_AppendResult(interp,"Firebird error on statement allocation:\n", NULL);
 		goto error;
 	}
 	if (dbdata->clonesnum) {
-		dbi_Interbase_Data *clone_dbdata;
+		dbi_Firebird_Data *clone_dbdata;
 		int i;
 		for (i = 0 ; i < dbdata->clonesnum; i++) {
 			clone_dbdata = dbdata->clones[i];
@@ -147,7 +144,7 @@ int dbi_Interbase_Reconnect(
 			clone_dbdata->db = dbdata->db;
 			error = isc_dsql_allocate_statement(clone_dbdata->status, &(clone_dbdata->db), &(clone_dbdata->stmt));
 			if (error) {
-				Tcl_AppendResult(interp,"Interbase error on statement allocation:\n", NULL);
+				Tcl_AppendResult(interp,"Firebird error on statement allocation:\n", NULL);
 				goto error;
 			}
 		}
@@ -157,9 +154,9 @@ int dbi_Interbase_Reconnect(
 		return TCL_ERROR;
 }
 
-int dbi_Interbase_TclEval(
+int dbi_Firebird_TclEval(
 	Tcl_Interp *interp,
-	dbi_Interbase_Data *dbdata,
+	dbi_Firebird_Data *dbdata,
 	char *cmdstring,
 	int objc,
 	Tcl_Obj **objv)
@@ -181,9 +178,9 @@ int dbi_Interbase_TclEval(
 	return error;
 }
 
-int dbi_Interbase_Error(
+int dbi_Firebird_Error(
 	Tcl_Interp *interp,
-	dbi_Interbase_Data *dbdata,
+	dbi_Firebird_Data *dbdata,
 	char *premsg)
 {
 	ISC_STATUS *status_vector = dbdata->status;
@@ -202,10 +199,10 @@ int dbi_Interbase_Error(
 			Tcl_AppendStringsToObj(errormsg,msg+1," - ", NULL);
 		}
 	}
-	dbi_Interbase_TclEval(interp,dbdata,"::dbi::interbase::errorclean",1,&errormsg);	
-	if (dbdata->cursor_open != 0) {dbi_Interbase_Free_Stmt(dbdata,DSQL_close);}
+	dbi_Firebird_TclEval(interp,dbdata,"::dbi::firebird::errorclean",1,&errormsg);	
+	if (dbdata->cursor_open != 0) {dbi_Firebird_Free_Stmt(dbdata,DSQL_close);}
 	if (SQLCODE == -902) {
-		error = dbi_Interbase_Reconnect(interp,dbdata);
+		error = dbi_Firebird_Reconnect(interp,dbdata);
 		if (error) {
 			Tcl_AppendResult(interp,"error while reconnecting\n", NULL);
 			return TCL_ERROR;
@@ -214,21 +211,21 @@ int dbi_Interbase_Error(
 			return TCL_OK;
 		}
 	}
-	if ((dbi_Interbase_autocommit_state(dbdata))&&(dbi_Interbase_trans_state(dbdata))) {
-/*fprintf(stdout,"error rollback transaction %X for stmt=%X\n",(uint)dbi_Interbase_trans(dbdata),(uint)dbdata->stmt);fflush(stdout);*/
-		error = isc_rollback_transaction(status_vector, dbi_Interbase_trans(dbdata));
+	if ((dbi_Firebird_autocommit_state(dbdata))&&(dbi_Firebird_trans_state(dbdata))) {
+/*fprintf(stdout,"error rollback transaction %X for stmt=%X\n",(uint)dbi_Firebird_trans(dbdata),(uint)dbdata->stmt);fflush(stdout);*/
+		error = isc_rollback_transaction(status_vector, dbi_Firebird_trans(dbdata));
 		if (error) {
 			Tcl_AppendResult(interp,"error rolling back transaction:\n", NULL);
-			dbi_Interbase_Error(interp,dbdata,"rollback in errorhandling");
+			dbi_Firebird_Error(interp,dbdata,"rollback in errorhandling");
 			return TCL_ERROR;
 		}
 	}
 	return SQLCODE;
 }
 
-int dbi_Interbase_Blob_Create(
+int dbi_Firebird_Blob_Create(
 	Tcl_Interp *interp,
-	dbi_Interbase_Data *dbdata,
+	dbi_Firebird_Data *dbdata,
 	Tcl_Obj *data,
 	ISC_QUAD *blob_id)
 {
@@ -239,7 +236,7 @@ int dbi_Interbase_Blob_Create(
 	string = Tcl_GetStringFromObj(data,&stringlen);
 	seglen = stringlen;
 	if (seglen > 8192) {seglen = 8192;}
-	error = isc_create_blob2(status_vector, &(dbdata->db), dbi_Interbase_trans(dbdata), &blob_handle, blob_id, 0, NULL);
+	error = isc_create_blob2(status_vector, &(dbdata->db), dbi_Firebird_trans(dbdata), &blob_handle, blob_id, 0, NULL);
 	if (error) {goto error;}
 	pos = 0;
 	while (pos < stringlen) {
@@ -252,13 +249,13 @@ int dbi_Interbase_Blob_Create(
 	if (error) {goto error;}
 	return TCL_OK;
 	error:
-		dbi_Interbase_Error(interp,dbdata,"creating blob");
+		dbi_Firebird_Error(interp,dbdata,"creating blob");
 		return TCL_ERROR;
 }
 
-int dbi_Interbase_Blob_Get(
+int dbi_Firebird_Blob_Get(
 	Tcl_Interp *interp,
-	dbi_Interbase_Data *dbdata,
+	dbi_Firebird_Data *dbdata,
 	ISC_QUAD *blob_id,
 	Tcl_Obj **resultPtr)
 {
@@ -269,8 +266,8 @@ int dbi_Interbase_Blob_Get(
 	char blob_segment[8192];
 	int error;
 	unsigned short actual_seg_len;
-	error = isc_open_blob2(status_vector, &(dbdata->db),  dbi_Interbase_trans(dbdata), &blob_handle, blob_id, 0, NULL);
-	if (error) {dbi_Interbase_Error(interp,dbdata,"opening blob");goto error;}
+	error = isc_open_blob2(status_vector, &(dbdata->db),  dbi_Firebird_trans(dbdata), &blob_handle, blob_id, 0, NULL);
+	if (error) {dbi_Firebird_Error(interp,dbdata,"opening blob");goto error;}
 	result = Tcl_NewStringObj("",0);
 	actual_seg_len = 8192;
 	while (actual_seg_len) {
@@ -278,10 +275,10 @@ int dbi_Interbase_Blob_Get(
 			&actual_seg_len,8192,blob_segment);
 		Tcl_AppendToObj(result,blob_segment,actual_seg_len);
 		if (blob_stat == isc_segstr_eof) break;
-		if (blob_stat) {dbi_Interbase_Error(interp,dbdata,"getting blob segment");goto error;}
+		if (blob_stat) {dbi_Firebird_Error(interp,dbdata,"getting blob segment");goto error;}
 	}
 	if (isc_close_blob(status_vector, &blob_handle)) {
-		dbi_Interbase_Error(interp,dbdata,"closing blob");
+		dbi_Firebird_Error(interp,dbdata,"closing blob");
 		goto error;
 	}
 	*resultPtr = result;
@@ -291,7 +288,7 @@ int dbi_Interbase_Blob_Get(
 		return TCL_ERROR;
 }
 
-int dbi_Interbase_Free_out_sqlda(
+int dbi_Firebird_Free_out_sqlda(
 	XSQLDA *sqlda,
 	int ipos)
 {
@@ -304,8 +301,8 @@ int dbi_Interbase_Free_out_sqlda(
 	return TCL_OK;
 }
 
-int dbi_Interbase_Free_Stmt(
-	dbi_Interbase_Data *dbdata,
+int dbi_Firebird_Free_Stmt(
+	dbi_Firebird_Data *dbdata,
 	int action)
 {
 	ISC_STATUS *status_vector = dbdata->status;
@@ -314,12 +311,12 @@ int dbi_Interbase_Free_Stmt(
 	error = isc_dsql_free_statement(status_vector, stmt, action);
 	dbdata->cursor_open = 0;
 	if (dbdata->out_sqlda_cache == NULL) {
-		dbi_Interbase_Free_out_sqlda(dbdata->out_sqlda,dbdata->out_sqlda->sqld);
+		dbi_Firebird_Free_out_sqlda(dbdata->out_sqlda,dbdata->out_sqlda->sqld);
 	}
 	return TCL_OK;
 }
 
-int dbi_Interbase_Prepare_out_sqlda(
+int dbi_Firebird_Prepare_out_sqlda(
 	Tcl_Interp *interp,
 	XSQLDA *out_sqlda)
 {
@@ -381,11 +378,11 @@ int dbi_Interbase_Prepare_out_sqlda(
 	}
 	return TCL_OK;
 	error:
-		dbi_Interbase_Free_out_sqlda(out_sqlda,i);
+		dbi_Firebird_Free_out_sqlda(out_sqlda,i);
 		return TCL_ERROR;
 }
 
-int dbi_Interbase_Free_in_sqlda(
+int dbi_Firebird_Free_in_sqlda(
 	XSQLDA *in_sqlda,
 	int ipos)
 {
@@ -405,7 +402,7 @@ int dbi_Interbase_Free_in_sqlda(
 	return TCL_OK;
 }
 
-int dbi_Interbase_Prepare_in_sqlda(
+int dbi_Firebird_Prepare_in_sqlda(
 	Tcl_Interp *interp,
 	XSQLDA *in_sqlda)
 {
@@ -468,13 +465,13 @@ int dbi_Interbase_Prepare_in_sqlda(
 	}
 	return TCL_OK;
 	error:
-		dbi_Interbase_Free_in_sqlda(in_sqlda,ipos);
+		dbi_Firebird_Free_in_sqlda(in_sqlda,ipos);
 		return TCL_ERROR;
 }
 
-int dbi_Interbase_Fill_in_sqlda(
+int dbi_Firebird_Fill_in_sqlda(
 	Tcl_Interp *interp,
-	dbi_Interbase_Data *dbdata,
+	dbi_Firebird_Data *dbdata,
 	XSQLDA *in_sqlda,
 	int objc,
 	Tcl_Obj **objv,
@@ -611,8 +608,8 @@ int dbi_Interbase_Fill_in_sqlda(
 						goto error;
 					}
 				} else {
-					error = dbi_Interbase_Blob_Create(interp,dbdata,objv[ipos],blob_id);
-					if (error) {dbi_Interbase_Error(interp,dbdata,"creating blob");goto error;}
+					error = dbi_Firebird_Blob_Create(interp,dbdata,objv[ipos],blob_id);
+					if (error) {dbi_Firebird_Error(interp,dbdata,"creating blob");goto error;}
 					/*fprintf(stdout, "%08lx:%08lx\n", blob_id->QUAD_HIGH, blob_id->QUAD_LOW);fflush(stdout);*/
 				}
 				}
@@ -666,9 +663,9 @@ int dbi_Interbase_Fill_in_sqlda(
 		return TCL_ERROR;
 }
 
-int dbi_Interbase_Open(
+int dbi_Firebird_Open(
 	Tcl_Interp *interp,
-	dbi_Interbase_Data *dbdata,
+	dbi_Firebird_Data *dbdata,
 	int objc,
 	Tcl_Obj *objv[])
 {
@@ -744,13 +741,13 @@ int dbi_Interbase_Open(
 		Tcl_AppendResult(interp,"connection to database \"",
 			Tcl_GetStringFromObj(dbdata->database,NULL) , "\" failed:\n", NULL);
 		Tcl_DecrRefCount(dbdata->database);dbdata->database=NULL;
-		dbi_Interbase_Error(interp,dbdata,"opening to database");
+		dbi_Firebird_Error(interp,dbdata,"opening to database");
 		goto error;
 	}
 	error = isc_dsql_allocate_statement(dbdata->status, &(dbdata->db), &(dbdata->stmt));
 	if (error) {
-		Tcl_AppendResult(interp,"Interbase error on statement allocation:\n", NULL);
-		dbi_Interbase_Error(interp,dbdata,"allocating statement");
+		Tcl_AppendResult(interp,"Firebird error on statement allocation:\n", NULL);
+		dbi_Firebird_Error(interp,dbdata,"allocating statement");
 		goto error;
 	}
 	Tcl_InitHashTable(&(dbdata->preparedhash),TCL_STRING_KEYS);
@@ -760,9 +757,9 @@ int dbi_Interbase_Open(
 		return TCL_ERROR;
 }
 
-int dbi_Interbase_Fetch_One(
+int dbi_Firebird_Fetch_One(
 	Tcl_Interp *interp,
-	dbi_Interbase_Data *dbdata,
+	dbi_Firebird_Data *dbdata,
 	int pos,
 	Tcl_Obj **result)
 {
@@ -854,7 +851,7 @@ int dbi_Interbase_Fetch_One(
 					element = Tcl_NewStringObj(buffer,-1);
 				} else {
 					/*fprintf(stdout, "%08lx:%08lx\n", bid.QUAD_HIGH, bid.QUAD_LOW);fflush(stdout);*/
-					error = dbi_Interbase_Blob_Get(interp,dbdata,&bid,&element);
+					error = dbi_Firebird_Blob_Get(interp,dbdata,&bid,&element);
 					if (error) {goto error;}
 				}
 				}
@@ -906,9 +903,9 @@ int dbi_Interbase_Fetch_One(
 		return TCL_ERROR;
 }
 
-int dbi_Interbase_Fetch_Row(
+int dbi_Firebird_Fetch_Row(
 	Tcl_Interp *interp,
-	dbi_Interbase_Data *dbdata,
+	dbi_Firebird_Data *dbdata,
 	XSQLDA *out_sqlda,
 	Tcl_Obj *nullvalue,
 	Tcl_Obj **result)
@@ -917,7 +914,7 @@ int dbi_Interbase_Fetch_Row(
 	int i,error;
 	line = Tcl_NewListObj(0,NULL);
 	for (i = 0; i < out_sqlda->sqld; i++) {
-		error = dbi_Interbase_Fetch_One(interp,dbdata,i,&element);
+		error = dbi_Firebird_Fetch_One(interp,dbdata,i,&element);
 		if (error) {goto error;}
 		if (element == NULL) {element = nullvalue;}
 		error = Tcl_ListObjAppendElement(interp,line, element);
@@ -932,9 +929,9 @@ int dbi_Interbase_Fetch_Row(
 		return TCL_ERROR;
 }
 
-int dbi_Interbase_Fetch_Array(
+int dbi_Firebird_Fetch_Array(
 	Tcl_Interp *interp,
-	dbi_Interbase_Data *dbdata,
+	dbi_Firebird_Data *dbdata,
 	XSQLDA *out_sqlda,
 	Tcl_Obj *nullvalue,
 	Tcl_Obj **result)
@@ -949,7 +946,7 @@ int dbi_Interbase_Fetch_Array(
 		error = Tcl_ListObjAppendElement(interp,line, element);
 		if (error) goto error;
 		element = NULL;
-		error = dbi_Interbase_Fetch_One(interp,dbdata,i,&element);
+		error = dbi_Firebird_Fetch_One(interp,dbdata,i,&element);
 		if (error) {goto error;}
 		if (element == NULL) {element = nullvalue;}
 		error = Tcl_ListObjAppendElement(interp,line, element);
@@ -964,9 +961,9 @@ int dbi_Interbase_Fetch_Array(
 		return TCL_ERROR;
 }
 
-int dbi_Interbase_Fetch_Fields(
+int dbi_Firebird_Fetch_Fields(
 	Tcl_Interp *interp,
-	dbi_Interbase_Data *dbdata,
+	dbi_Firebird_Data *dbdata,
 	XSQLDA *out_sqlda,
 	Tcl_Obj **result)
 {
@@ -989,9 +986,9 @@ int dbi_Interbase_Fetch_Fields(
 		return TCL_ERROR;
 }
 
-int dbi_Interbase_Fetch(
+int dbi_Firebird_Fetch(
 	Tcl_Interp *interp,
-	dbi_Interbase_Data *dbdata,
+	dbi_Firebird_Data *dbdata,
 	int objc,
 	Tcl_Obj *objv[])
 {
@@ -1103,10 +1100,10 @@ int dbi_Interbase_Fetch(
 	 */
 	switch (fetch_option) {
 		case Lines:
-			Tcl_AppendResult(interp,"dbi_interbase: fetch lines not supported", NULL);
+			Tcl_AppendResult(interp,"dbi_firebird: fetch lines not supported", NULL);
 			return TCL_ERROR;
 		case Fields:
-			error = dbi_Interbase_Fetch_Fields(interp,dbdata,dbdata->out_sqlda,&line);
+			error = dbi_Firebird_Fetch_Fields(interp,dbdata,dbdata->out_sqlda,&line);
 			if (error) {goto error;}
 			Tcl_SetObjResult(interp, line);
 			return TCL_OK;
@@ -1143,7 +1140,7 @@ int dbi_Interbase_Fetch(
 	/* move to the requested line */
 	if (ituple != dbdata->tuple) {
 		if (ituple < dbdata->tuple) {
-			Tcl_AppendResult(interp,"interbase error: backwards positioning for fetch not supported",NULL);
+			Tcl_AppendResult(interp,"firebird error: backwards positioning for fetch not supported",NULL);
 			return TCL_ERROR;
 		}
 		while (dbdata->tuple < ituple) {
@@ -1158,12 +1155,12 @@ int dbi_Interbase_Fetch(
 	switch (fetch_option) {
 		case Data:
 			if (ifield == -1) {
-				error = dbi_Interbase_Fetch_Row(interp,dbdata,dbdata->out_sqlda,nullvalue,&line);
+				error = dbi_Firebird_Fetch_Row(interp,dbdata,dbdata->out_sqlda,nullvalue,&line);
 				if (error) {return error;}
 				Tcl_SetObjResult(interp, line);
 				line = NULL;
 			} else {
-				error = dbi_Interbase_Fetch_One(interp,dbdata,ifield,&element);
+				error = dbi_Firebird_Fetch_One(interp,dbdata,ifield,&element);
 				if (error) {goto error;}
 				if (element == NULL) {
 					Tcl_SetObjResult(interp, nullvalue);
@@ -1173,7 +1170,7 @@ int dbi_Interbase_Fetch(
 			}
 			break;
 		case Isnull:
-			error = dbi_Interbase_Fetch_One(interp,dbdata,ifield,&element);
+			error = dbi_Firebird_Fetch_One(interp,dbdata,ifield,&element);
 			if (error) {goto error;}
 			if (element == NULL) {
 				Tcl_SetObjResult(interp,Tcl_NewIntObj(1));
@@ -1182,7 +1179,7 @@ int dbi_Interbase_Fetch(
 			}
 			return TCL_OK;
 		case Array:
-			error = dbi_Interbase_Fetch_Array(interp,dbdata,dbdata->out_sqlda,nullvalue,&line);
+			error = dbi_Firebird_Fetch_Array(interp,dbdata,dbdata->out_sqlda,nullvalue,&line);
 			if (error) {return error;}
 			Tcl_SetObjResult(interp, line);
 			break;
@@ -1201,12 +1198,12 @@ int dbi_Interbase_Fetch(
 }
 
 #ifdef never
-	int dbi_Interbase_Transaction_Commit(
+	int dbi_Firebird_Transaction_Commit(
 		Tcl_Interp *interp,
-		dbi_Interbase_Data *dbdata,
+		dbi_Firebird_Data *dbdata,
 		int noretain)
 	{
-		isc_tr_handle *trans = dbi_Interbase_trans(dbdata);
+		isc_tr_handle *trans = dbi_Firebird_trans(dbdata);
 		int error,i;
 	/*fprintf(stdout,"commit stmt=%X trans=%X\n",(uint)dbdata->stmt,(uint)trans);fflush(stdout);*/
 		if (((dbdata->parent == NULL) && (dbdata->clonesnum == 0)) || noretain) {
@@ -1219,21 +1216,21 @@ int dbi_Interbase_Fetch(
 	/*fprintf(stdout,"-> commit retaining\n");fflush(stdout);*/
 		}
 		if (error) {
-			dbi_Interbase_Error(interp,dbdata,"committing transaction");
+			dbi_Firebird_Error(interp,dbdata,"committing transaction");
 			return TCL_ERROR;
 		}
 		return TCL_OK;
 	}
 #endif
 
-int dbi_Interbase_Transaction_Commit(
+int dbi_Firebird_Transaction_Commit(
 	Tcl_Interp *interp,
-	dbi_Interbase_Data *dbdata,
+	dbi_Firebird_Data *dbdata,
 	int noretain)
 {
-	isc_tr_handle *trans = dbi_Interbase_trans(dbdata);
+	isc_tr_handle *trans = dbi_Firebird_trans(dbdata);
 	int error,i,clonesnum;
-	dbi_Interbase_Data *parentdbdata;
+	dbi_Firebird_Data *parentdbdata;
 /*fprintf(stdout,"commit stmt=%X trans=%X\n",(uint)dbdata->stmt,(uint)trans);fflush(stdout);*/
 	/* since a full commit throws away open result sets, we have to be carefull with it */
 	if (!noretain) {
@@ -1272,33 +1269,33 @@ int dbi_Interbase_Transaction_Commit(
 /*fprintf(stdout,"-> commit retaining\n");fflush(stdout);*/
 	}
 	if (error) {
-		dbi_Interbase_Error(interp,dbdata,"committing transaction");
+		dbi_Firebird_Error(interp,dbdata,"committing transaction");
 		return TCL_ERROR;
 	}
 	return TCL_OK;
 }
 
-int dbi_Interbase_Transaction_Rollback(
+int dbi_Firebird_Transaction_Rollback(
 	Tcl_Interp *interp,
-	dbi_Interbase_Data *dbdata)
+	dbi_Firebird_Data *dbdata)
 {
-	isc_tr_handle *trans = dbi_Interbase_trans(dbdata);
+	isc_tr_handle *trans = dbi_Firebird_trans(dbdata);
 	int error;
 	if (*trans == NULL) {return TCL_OK;}
 /*fprintf(stdout,"rollbc stmt=%X trans=%X\n",(uint)dbdata->stmt,(uint)trans);fflush(stdout);*/
 	error = isc_rollback_transaction(dbdata->status, trans);
 	if (error) {
-		dbi_Interbase_Error(interp,dbdata,"rolling back transaction");
+		dbi_Firebird_Error(interp,dbdata,"rolling back transaction");
 		return TCL_ERROR;
 	}
 	return TCL_OK;
 }
 
-int dbi_Interbase_Transaction_Start(
+int dbi_Firebird_Transaction_Start(
 	Tcl_Interp *interp,
-	dbi_Interbase_Data *dbdata)
+	dbi_Firebird_Data *dbdata)
 {
-	isc_tr_handle *trans = dbi_Interbase_trans(dbdata);
+	isc_tr_handle *trans = dbi_Firebird_trans(dbdata);
 	int error;
 	static char isc_tpb[] = {
 		isc_tpb_version3/*,
@@ -1311,39 +1308,39 @@ int dbi_Interbase_Transaction_Start(
 		long SQLCODE;
 		SQLCODE = isc_sqlcode(dbdata->status);
 		if (SQLCODE == -902) {
-			error = dbi_Interbase_Reconnect(interp,dbdata);
+			error = dbi_Firebird_Reconnect(interp,dbdata);
 			if (error) {return TCL_ERROR;}
 			error = isc_start_transaction(dbdata->status, trans,1,&(dbdata->db), (unsigned short) sizeof(isc_tpb),isc_tpb);
 			if (!error) {return TCL_OK;}
 		}
-		dbi_Interbase_Error(interp,dbdata,"starting transaction");
+		dbi_Firebird_Error(interp,dbdata,"starting transaction");
 		return TCL_ERROR;
 	}
 	return TCL_OK;
 }
 
-int dbi_Interbase_autocommit(
+int dbi_Firebird_autocommit(
 	Tcl_Interp *interp,
-	dbi_Interbase_Data *dbdata)
+	dbi_Firebird_Data *dbdata)
 {
-	int auto_commit = dbi_Interbase_autocommit_state(dbdata);
+	int auto_commit = dbi_Firebird_autocommit_state(dbdata);
 	if (auto_commit) {
-		if (dbdata->cursor_open) {dbi_Interbase_Free_Stmt(dbdata,DSQL_close);}
-		if (dbi_Interbase_trans_state(dbdata)) {
-			if (dbi_Interbase_Transaction_Commit(interp,dbdata,0) != TCL_OK) {return TCL_ERROR;}
+		if (dbdata->cursor_open) {dbi_Firebird_Free_Stmt(dbdata,DSQL_close);}
+		if (dbi_Firebird_trans_state(dbdata)) {
+			if (dbi_Firebird_Transaction_Commit(interp,dbdata,0) != TCL_OK) {return TCL_ERROR;}
 		}
-		if (dbi_Interbase_Transaction_Start(interp,dbdata) != TCL_OK) {return TCL_ERROR;}
+		if (dbi_Firebird_Transaction_Start(interp,dbdata) != TCL_OK) {return TCL_ERROR;}
 	} else {
 		if (dbdata->cursor_open) {
-			dbi_Interbase_Free_Stmt(dbdata,DSQL_close);
+			dbi_Firebird_Free_Stmt(dbdata,DSQL_close);
 		}
 	}
 	return TCL_OK;
 }
 
-int dbi_Interbase_Blob(
+int dbi_Firebird_Blob(
 	Tcl_Interp *interp,
-	dbi_Interbase_Data *dbdata,
+	dbi_Firebird_Data *dbdata,
 	int objc,
 	Tcl_Obj *objv[])
 {
@@ -1386,16 +1383,16 @@ int dbi_Interbase_Blob(
 		}
 		if (*blob_handle != NULL) {
 			if (isc_close_blob(status_vector, blob_handle)) {
-				Tcl_AppendResult(interp, "error closing blob ",Tcl_GetStringFromObj(objv[2],NULL),": ",NULL);dbi_Interbase_Error(interp,dbdata,"");
+				Tcl_AppendResult(interp, "error closing blob ",Tcl_GetStringFromObj(objv[2],NULL),": ",NULL);dbi_Firebird_Error(interp,dbdata,"");
 				return TCL_ERROR;
 			}
 			*blob_handle = NULL;
 		}
-		error = dbi_Interbase_autocommit(interp,dbdata);
+		error = dbi_Firebird_autocommit(interp,dbdata);
 		if (error) {goto error;}
-		error = isc_open_blob2(status_vector, &(dbdata->db),  dbi_Interbase_trans(dbdata), blob_handle, &blob_id, 0, NULL);
+		error = isc_open_blob2(status_vector, &(dbdata->db),  dbi_Firebird_trans(dbdata), blob_handle, &blob_id, 0, NULL);
 		if (error) {
-			Tcl_AppendResult(interp, "error opening blob ",Tcl_GetStringFromObj(objv[2],NULL),": ",NULL);dbi_Interbase_Error(interp,dbdata,"");return TCL_ERROR;
+			Tcl_AppendResult(interp, "error opening blob ",Tcl_GetStringFromObj(objv[2],NULL),": ",NULL);dbi_Firebird_Error(interp,dbdata,"");return TCL_ERROR;
 		}
 		return TCL_OK;
 	case Skip:
@@ -1418,7 +1415,7 @@ int dbi_Interbase_Blob(
 			size -= actual_seg_len;
 			if (size == 0) break;
 			if (blob_stat == isc_segstr_eof) break;
-			if (blob_stat) {dbi_Interbase_Error(interp,dbdata,"skipping blob");goto error;}
+			if (blob_stat) {dbi_Firebird_Error(interp,dbdata,"skipping blob");goto error;}
 		}
 		return TCL_OK;
 	case Get:
@@ -1447,7 +1444,7 @@ int dbi_Interbase_Blob(
 			size -= actual_seg_len;
 			if (size == 0) break;
 			if (blob_stat == isc_segstr_eof) break;
-			if (blob_stat) {dbi_Interbase_Error(interp,dbdata,"getting blob");goto error;}
+			if (blob_stat) {dbi_Firebird_Error(interp,dbdata,"getting blob");goto error;}
 		}
 		Tcl_SetObjResult(interp,result);
 		return TCL_OK;
@@ -1460,7 +1457,7 @@ int dbi_Interbase_Blob(
 			return TCL_OK;
 		} else {
 			if (isc_close_blob(status_vector, blob_handle)) {
-				Tcl_AppendResult(interp, "error closing blob ",Tcl_GetStringFromObj(objv[2],NULL),": ",NULL);dbi_Interbase_Error(interp,dbdata,"");
+				Tcl_AppendResult(interp, "error closing blob ",Tcl_GetStringFromObj(objv[2],NULL),": ",NULL);dbi_Firebird_Error(interp,dbdata,"");
 				return TCL_ERROR;
 			}
 			*blob_handle = NULL;
@@ -1473,9 +1470,9 @@ int dbi_Interbase_Blob(
 		return TCL_ERROR;
 }
 
-int dbi_Interbase_NewBlob(
+int dbi_Firebird_NewBlob(
 	Tcl_Interp *interp,
-	dbi_Interbase_Data *dbdata,
+	dbi_Firebird_Data *dbdata,
 	int objc,
 	Tcl_Obj *objv[])
 {
@@ -1503,7 +1500,7 @@ int dbi_Interbase_NewBlob(
 	}
 	error = Tcl_GetIndexFromObj(interp, objv[2], subCmds, "option", 0, (int *) &option);
 	if (error) {return error;}
-	if (dbi_Interbase_autocommit_state(dbdata)) {
+	if (dbi_Firebird_autocommit_state(dbdata)) {
 		Tcl_AppendResult(interp,"newblob is only useable within an explicit transaction", NULL);
 		return TCL_ERROR;
 	}
@@ -1517,9 +1514,9 @@ int dbi_Interbase_NewBlob(
 			Tcl_AppendResult(interp,"blob still open", NULL);
 			goto error;
 		}
-		error = dbi_Interbase_autocommit(interp,dbdata);
+		error = dbi_Firebird_autocommit(interp,dbdata);
 		if (error) {goto error;}
-		error = isc_create_blob2(status_vector, &(dbdata->db), dbi_Interbase_trans(dbdata), blob_handle, blob_id, 0, NULL);
+		error = isc_create_blob2(status_vector, &(dbdata->db), dbi_Firebird_trans(dbdata), blob_handle, blob_id, 0, NULL);
 		if (error) {goto error;}
 		dbdata->newblob_buffer_free = SEGM_SIZE;
 		return TCL_OK;
@@ -1576,9 +1573,9 @@ int dbi_Interbase_NewBlob(
 		return TCL_ERROR;
 }
 
-int dbi_Interbase_ToResult(
+int dbi_Firebird_ToResult(
 	Tcl_Interp *interp,
-	dbi_Interbase_Data *dbdata,
+	dbi_Firebird_Data *dbdata,
 	XSQLDA *out_sqlda,
 	Tcl_Obj *nullvalue)
 {
@@ -1592,7 +1589,7 @@ int dbi_Interbase_ToResult(
 	while (1) {
 		fetch_stat = isc_dsql_fetch(status_vector, stmt, SQL_DIALECT_V6, out_sqlda);
 		if (fetch_stat) break;
-		error = dbi_Interbase_Fetch_Row(interp,dbdata,out_sqlda,nullvalue,&line);
+		error = dbi_Firebird_Fetch_Row(interp,dbdata,out_sqlda,nullvalue,&line);
 		if (error) {goto error;}
 		error = Tcl_ListObjAppendElement(interp,result, line);
 		if (error) goto error;
@@ -1606,9 +1603,9 @@ int dbi_Interbase_ToResult(
 		return TCL_ERROR;
 }
 
-int dbi_Interbase_ToResult_flat(
+int dbi_Firebird_ToResult_flat(
 	Tcl_Interp *interp,
-	dbi_Interbase_Data *dbdata,
+	dbi_Firebird_Data *dbdata,
 	XSQLDA *out_sqlda,
 	Tcl_Obj *nullvalue)
 {
@@ -1623,7 +1620,7 @@ int dbi_Interbase_ToResult_flat(
 		fetch_stat = isc_dsql_fetch(status_vector, stmt, SQL_DIALECT_V6, out_sqlda);
 		if (fetch_stat) break;
 		for (i = 0; i < out_sqlda->sqld; i++) {
-			error = dbi_Interbase_Fetch_One(interp,dbdata,i,&element);
+			error = dbi_Firebird_Fetch_One(interp,dbdata,i,&element);
 			if (error) {goto error;}
 			if (element == NULL) {element = nullvalue;}
 			error = Tcl_ListObjAppendElement(interp,result,element);
@@ -1639,7 +1636,7 @@ int dbi_Interbase_ToResult_flat(
 		return TCL_ERROR;
 }
 
-int dbi_Interbase_Line_empty(
+int dbi_Firebird_Line_empty(
 	char *find,char *end)
 {
 	find += 3;
@@ -1656,7 +1653,7 @@ int dbi_Interbase_Line_empty(
 	}
 }
 
-int dbi_Interbase_Find_Prev(
+int dbi_Firebird_Find_Prev(
 	char *string,int pos,char *find)
 {
 	int len;
@@ -1676,16 +1673,16 @@ int dbi_Interbase_Find_Prev(
 	return 1;
 }
 
-int dbi_Interbase_Cache_stmt(
-	dbi_Interbase_Data *dbdata)
+int dbi_Firebird_Cache_stmt(
+	dbi_Firebird_Data *dbdata)
 {
 	dbdata->out_sqlda_cache = dbdata->out_sqlda;
 	dbdata->in_sqlda_cache = dbdata->in_sqlda;
 	return TCL_OK;
 }
 
-int dbi_Interbase_Restore_stmt(
-	dbi_Interbase_Data *dbdata)
+int dbi_Firebird_Restore_stmt(
+	dbi_Firebird_Data *dbdata)
 {
 	dbdata->out_sqlda = dbdata->out_sqlda_cache;
 	dbdata->in_sqlda = dbdata->in_sqlda_cache;
@@ -1694,20 +1691,20 @@ int dbi_Interbase_Restore_stmt(
 	return TCL_OK;
 }
 
-int dbi_Interbase_Prepare_Cache(
+int dbi_Firebird_Prepare_Cache(
 	Tcl_Interp *interp,
-	dbi_Interbase_Data *dbdata,
+	dbi_Firebird_Data *dbdata,
 	int cmdlen,
 	char *cmdstring,
 	int *newPtr
 )
 {
 	Tcl_HashEntry *entry;
-	dbi_Interbase_Prepared *prepared;
+	dbi_Firebird_Prepared *prepared;
 	int new = 0;
 	/* save current stmt if needed */
 	if (dbdata->out_sqlda_cache == NULL) {
-		dbi_Interbase_Cache_stmt(dbdata);
+		dbi_Firebird_Cache_stmt(dbdata);
 	}
 	/* find cached entry, or create new */
 	entry = Tcl_CreateHashEntry(&(dbdata->preparedhash), cmdstring, &new);
@@ -1723,13 +1720,13 @@ int dbi_Interbase_Prepare_Cache(
 		dbdata->in_sqlda->sqld = 0;
 		dbdata->in_sqlda->version = SQLDA_VERSION1;
 		/* cache information for current query */
-		prepared = (dbi_Interbase_Prepared *)Tcl_Alloc(sizeof(dbi_Interbase_Prepared));
+		prepared = (dbi_Firebird_Prepared *)Tcl_Alloc(sizeof(dbi_Firebird_Prepared));
 		prepared->out_sqlda = dbdata->out_sqlda;
 		prepared->in_sqlda = dbdata->in_sqlda;
 		Tcl_SetHashValue(entry,(ClientData)prepared);
 	} else {
 		/* cache found: use prepared statement, cache current if needed */
-		prepared = (dbi_Interbase_Prepared *)Tcl_GetHashValue(entry);
+		prepared = (dbi_Firebird_Prepared *)Tcl_GetHashValue(entry);
 		dbdata->out_sqlda = prepared->out_sqlda;
 		dbdata->in_sqlda = prepared->in_sqlda;
 	}
@@ -1737,17 +1734,17 @@ int dbi_Interbase_Prepare_Cache(
 	return TCL_OK;
 }
 
-int dbi_Interbase_Prepare_statement(
+int dbi_Firebird_Prepare_statement(
 	Tcl_Interp *interp,
-	dbi_Interbase_Data *dbdata,
+	dbi_Firebird_Data *dbdata,
 	int cmdlen,
 	char *cmdstring)
 {
 	ISC_STATUS *status_vector = dbdata->status;
 	int error,n = 0;
-	error = isc_dsql_prepare(status_vector, dbi_Interbase_trans(dbdata), &(dbdata->stmt), cmdlen, cmdstring, SQL_DIALECT_V6, dbdata->out_sqlda);
+	error = isc_dsql_prepare(status_vector, dbi_Firebird_trans(dbdata), &(dbdata->stmt), cmdlen, cmdstring, SQL_DIALECT_V6, dbdata->out_sqlda);
 	if (error) {
-		dbi_Interbase_Error(interp,dbdata,"preparing statement");
+		dbi_Firebird_Error(interp,dbdata,"preparing statement");
 		goto error;
 	}
 	/* ----- Get information about input of cmd ----- */
@@ -1762,7 +1759,7 @@ int dbi_Interbase_Prepare_statement(
 		dbdata->in_sqlda->version = SQLDA_VERSION1;
 		isc_dsql_describe_bind(status_vector, &(dbdata->stmt), SQL_DIALECT_V6, dbdata->in_sqlda);
 	}
-	error = dbi_Interbase_Prepare_in_sqlda(interp,dbdata->in_sqlda);
+	error = dbi_Firebird_Prepare_in_sqlda(interp,dbdata->in_sqlda);
 	if (error) {goto error;}
 	/* ----- expand out_sqlda as necessary ----- */
 	if (dbdata->out_sqlda->sqld > dbdata->out_sqlda->sqln) {
@@ -1782,15 +1779,15 @@ int dbi_Interbase_Prepare_statement(
 			goto error;
 		}
 	}
-	error = dbi_Interbase_Prepare_out_sqlda(interp,dbdata->out_sqlda);
+	error = dbi_Firebird_Prepare_out_sqlda(interp,dbdata->out_sqlda);
 	if (error) {
 		Tcl_AppendResult(interp,"database error in prepare\n", NULL);
 		goto error;
 	}
 	return TCL_OK;
 	error:
-		dbi_Interbase_Free_out_sqlda(dbdata->out_sqlda,dbdata->out_sqlda->sqld);
-		dbi_Interbase_Free_in_sqlda(dbdata->in_sqlda,dbdata->in_sqlda->sqld);
+		dbi_Firebird_Free_out_sqlda(dbdata->out_sqlda,dbdata->out_sqlda->sqld);
+		dbi_Firebird_Free_in_sqlda(dbdata->in_sqlda,dbdata->in_sqlda->sqld);
 		{
 		Tcl_Obj *temp;
 		temp = Tcl_NewStringObj(cmdstring,cmdlen);
@@ -1800,9 +1797,9 @@ int dbi_Interbase_Prepare_statement(
 		return TCL_ERROR;		
 }
 
-int dbi_Interbase_Process_statement(
+int dbi_Firebird_Process_statement(
 	Tcl_Interp *interp,
-	dbi_Interbase_Data *dbdata,
+	dbi_Firebird_Data *dbdata,
 	int cmdlen,
 	char *cmdstring)
 {
@@ -1830,38 +1827,38 @@ int dbi_Interbase_Process_statement(
 		}
 		switch (statement_type) {
 			case isc_info_sql_stmt_start_trans:
-				if (dbi_Interbase_trans_state(dbdata)) {
-					if (dbdata->cursor_open != 0) {dbi_Interbase_Free_Stmt(dbdata,DSQL_close);}
-					error = dbi_Interbase_Transaction_Commit(interp,dbdata,1);
+				if (dbi_Firebird_trans_state(dbdata)) {
+					if (dbdata->cursor_open != 0) {dbi_Firebird_Free_Stmt(dbdata,DSQL_close);}
+					error = dbi_Firebird_Transaction_Commit(interp,dbdata,1);
 				}
 				if (error) {goto error;}
 				error = isc_dsql_execute_immediate(status_vector, &(dbdata->db), 
-					dbi_Interbase_trans(dbdata), 0, cmdstring, SQL_DIALECT_V6, dbdata->in_sqlda);
-				if (error) {dbi_Interbase_Error(interp,dbdata,"executing start statement");goto error;}
-				dbi_Interbase_autocommit_set(dbdata,0);
+					dbi_Firebird_trans(dbdata), 0, cmdstring, SQL_DIALECT_V6, dbdata->in_sqlda);
+				if (error) {dbi_Firebird_Error(interp,dbdata,"executing start statement");goto error;}
+				dbi_Firebird_autocommit_set(dbdata,0);
 				goto clean;
 				break;
 			case isc_info_sql_stmt_commit:
 				error = isc_dsql_execute_immediate(status_vector, &(dbdata->db), 
-					dbi_Interbase_trans(dbdata), 0, cmdstring, SQL_DIALECT_V6, dbdata->in_sqlda);
-				dbi_Interbase_autocommit_set(dbdata,1);
-				if (error) {dbi_Interbase_Error(interp,dbdata,"executing commit statement");goto error;}
+					dbi_Firebird_trans(dbdata), 0, cmdstring, SQL_DIALECT_V6, dbdata->in_sqlda);
+				dbi_Firebird_autocommit_set(dbdata,1);
+				if (error) {dbi_Firebird_Error(interp,dbdata,"executing commit statement");goto error;}
 				goto clean;
 				break;
 			case isc_info_sql_stmt_rollback:
 				error = isc_dsql_execute_immediate(status_vector, &(dbdata->db), 
-					dbi_Interbase_trans(dbdata), 0, cmdstring, SQL_DIALECT_V6, dbdata->in_sqlda);
-				dbi_Interbase_autocommit_set(dbdata,1);
-				if (error) {dbi_Interbase_Error(interp,dbdata,"executing rollback statement");goto error;}
+					dbi_Firebird_trans(dbdata), 0, cmdstring, SQL_DIALECT_V6, dbdata->in_sqlda);
+				dbi_Firebird_autocommit_set(dbdata,1);
+				if (error) {dbi_Firebird_Error(interp,dbdata,"executing rollback statement");goto error;}
 				goto clean;
 				break;
 		}
 	}
 	/* Execute prepared stmt */
-/*fprintf(stdout,"exec   stmt=%X trans=%X, in = %X, out = %X\n",(uint)dbdata->stmt,(uint)dbi_Interbase_trans(dbdata),(uint)dbdata->in_sqlda,(uint)dbdata->out_sqlda);fflush(stdout);*/
-	error = isc_dsql_execute(status_vector, dbi_Interbase_trans(dbdata), &(dbdata->stmt), SQL_DIALECT_V6, dbdata->in_sqlda);
+/*fprintf(stdout,"exec   stmt=%X trans=%X, in = %X, out = %X\n",(uint)dbdata->stmt,(uint)dbi_Firebird_trans(dbdata),(uint)dbdata->in_sqlda,(uint)dbdata->out_sqlda);fflush(stdout);*/
+	error = isc_dsql_execute(status_vector, dbi_Firebird_trans(dbdata), &(dbdata->stmt), SQL_DIALECT_V6, dbdata->in_sqlda);
 	if (error) {
-		dbi_Interbase_Error(interp,dbdata,"executing statement");
+		dbi_Firebird_Error(interp,dbdata,"executing statement");
 		goto error;
 	}
 	if (dbdata->out_sqlda->sqld != 0) {
@@ -1870,7 +1867,7 @@ int dbi_Interbase_Process_statement(
 		error = isc_dsql_set_cursor_name(status_vector, &(dbdata->stmt), Tcl_GetStringFromObj(dbcmd,NULL), (short)NULL);
 		Tcl_DecrRefCount(dbcmd);
 		if (error) {
-			dbi_Interbase_Error(interp,dbdata,"setting cursor");
+			dbi_Firebird_Error(interp,dbdata,"setting cursor");
 			goto error;
 		}
 */
@@ -1882,7 +1879,7 @@ int dbi_Interbase_Process_statement(
 		return TCL_ERROR;		
 }
 
-int dbi_Interbase_SplitSQL(
+int dbi_Firebird_SplitSQL(
 	Tcl_Interp *interp,
 	char *cmdstring,
 	int cmdlen,
@@ -1914,13 +1911,13 @@ int dbi_Interbase_SplitSQL(
 	while (1) {
 		if (cmdstring[i] == '\n') {
 			/* fprintf(stdout,"# %d,%d %*.*s\n",blevel,level,i-prevline,i-prevline,cmdstring+prevline);fflush(stdout); */
-			if (dbi_Interbase_Find_Prev(cmdstring+prevline,i-prevline,"begin")) {
+			if (dbi_Firebird_Find_Prev(cmdstring+prevline,i-prevline,"begin")) {
 				blevel++;
-			} else if (dbi_Interbase_Find_Prev(cmdstring+prevline,i-prevline,"BEGIN")) {
+			} else if (dbi_Firebird_Find_Prev(cmdstring+prevline,i-prevline,"BEGIN")) {
 				blevel++;
-			} else if (dbi_Interbase_Find_Prev(cmdstring+prevline,i-prevline,"end")) {
+			} else if (dbi_Firebird_Find_Prev(cmdstring+prevline,i-prevline,"end")) {
 				blevel--;
-			} else if (dbi_Interbase_Find_Prev(cmdstring+prevline,i-prevline,"END")) {
+			} else if (dbi_Firebird_Find_Prev(cmdstring+prevline,i-prevline,"END")) {
 				blevel--;
 			}
 			prevline = i+1;
@@ -1934,9 +1931,9 @@ int dbi_Interbase_SplitSQL(
 			if ((len > 7) && ((strncmp(cmdstring+prevline,"declare",7) == 0) || (strncmp(cmdstring+prevline,"DECLARE",7) == 0))) {
 				i++;continue;
 			}
-			if (dbi_Interbase_Find_Prev(cmdstring+prevline,i-prevline,"end")) {
+			if (dbi_Firebird_Find_Prev(cmdstring+prevline,i-prevline,"end")) {
 				blevel--;
-			} else if (dbi_Interbase_Find_Prev(cmdstring+prevline,i-prevline,"END")) {
+			} else if (dbi_Firebird_Find_Prev(cmdstring+prevline,i-prevline,"END")) {
 				blevel--;
 			}				find = strstr(cmdstring+prevline,"end");
 			if (((level != 0)||(blevel != 0))&&(i != cmdlen)) {
@@ -1981,9 +1978,9 @@ int dbi_Interbase_SplitSQL(
 	return TCL_OK;
 }
 
-int dbi_Interbase_Exec(
+int dbi_Firebird_Exec(
 	Tcl_Interp *interp,
-	dbi_Interbase_Data *dbdata,
+	dbi_Firebird_Data *dbdata,
 	Tcl_Obj *cmd,
 	int flags,
 	Tcl_Obj *nullvalue,
@@ -2005,29 +2002,29 @@ int dbi_Interbase_Exec(
 	cmdstring = Tcl_GetStringFromObj(cmd,&cmdlen);
 /*
 fprintf(stdout," --------- %s ----------\n",cmdstring);fflush(stdout);
-fprintf(stdout,"autocommit=%d transaction_state=%d\n",dbi_Interbase_autocommit_state(dbdata),dbi_Interbase_trans_state(dbdata));fflush(stdout);
+fprintf(stdout,"autocommit=%d transaction_state=%d\n",dbi_Firebird_autocommit_state(dbdata),dbi_Firebird_trans_state(dbdata));fflush(stdout);
 */
 	if (cmdlen == 0) {return TCL_OK;}
 	if (dbdata->cursor_open) {
-		dbi_Interbase_Free_Stmt(dbdata,DSQL_close);
+		dbi_Firebird_Free_Stmt(dbdata,DSQL_close);
 	}
-	error = dbi_Interbase_autocommit(interp,dbdata);
+	error = dbi_Firebird_autocommit(interp,dbdata);
 	if (error) {goto error;}
-	error = dbi_Interbase_SplitSQL(interp,cmdstring,cmdlen,&lines,&sizes);
+	error = dbi_Firebird_SplitSQL(interp,cmdstring,cmdlen,&lines,&sizes);
 	if (lines == NULL) {
 		if (cache) {
-			error = dbi_Interbase_Prepare_Cache(interp,dbdata,cmdlen,cmdstring,&new);
+			error = dbi_Firebird_Prepare_Cache(interp,dbdata,cmdlen,cmdstring,&new);
 			if (error) {goto error;}
 		} else	if (dbdata->out_sqlda_cache != NULL) {
-			dbi_Interbase_Restore_stmt(dbdata);
+			dbi_Firebird_Restore_stmt(dbdata);
 		}
 		if (!cache || new) {
-			error = dbi_Interbase_Prepare_statement(interp,dbdata,cmdlen,cmdstring);
-			if (error) {/*dbi_Interbase_autocommit_set(dbdata,1);*/goto error;}
+			error = dbi_Firebird_Prepare_statement(interp,dbdata,cmdlen,cmdstring);
+			if (error) {/*dbi_Firebird_autocommit_set(dbdata,1);*/goto error;}
 		} else {
-			error = isc_dsql_prepare(status_vector, dbi_Interbase_trans(dbdata), &(dbdata->stmt), cmdlen, cmdstring, SQL_DIALECT_V6, dbdata->out_sqlda);
+			error = isc_dsql_prepare(status_vector, dbi_Firebird_trans(dbdata), &(dbdata->stmt), cmdlen, cmdstring, SQL_DIALECT_V6, dbdata->out_sqlda);
 			if (error) {
-				dbi_Interbase_Error(interp,dbdata,"preparing statement");
+				dbi_Firebird_Error(interp,dbdata,"preparing statement");
 				goto error;
 			}
 		}
@@ -2035,12 +2032,12 @@ fprintf(stdout,"autocommit=%d transaction_state=%d\n",dbi_Interbase_autocommit_s
 			Tcl_AppendResult(interp,"wrong number of arguments given to exec",NULL);
 			goto error;
 		}
-		error = dbi_Interbase_Fill_in_sqlda(interp,dbdata,dbdata->in_sqlda,objc,objv,nullvalue);
+		error = dbi_Firebird_Fill_in_sqlda(interp,dbdata,dbdata->in_sqlda,objc,objv,nullvalue);
 		if (error) {goto error;}
-		error = dbi_Interbase_Process_statement(interp,dbdata,cmdlen,cmdstring);
-		if (error) {/*dbi_Interbase_autocommit_set(dbdata,1);*/goto error;}
+		error = dbi_Firebird_Process_statement(interp,dbdata,cmdlen,cmdstring);
+		if (error) {/*dbi_Firebird_autocommit_set(dbdata,1);*/goto error;}
 		if (dbdata->out_sqlda_cache == NULL) {
-			dbi_Interbase_Free_in_sqlda(dbdata->in_sqlda,dbdata->in_sqlda->sqld);
+			dbi_Firebird_Free_in_sqlda(dbdata->in_sqlda,dbdata->in_sqlda->sqld);
 		}
 	} else {
 		if (objc != 0) {
@@ -2052,22 +2049,22 @@ fprintf(stdout,"autocommit=%d transaction_state=%d\n",dbi_Interbase_autocommit_s
 			goto error;
 		}
 		if (dbdata->out_sqlda_cache != NULL) {
-			dbi_Interbase_Restore_stmt(dbdata);
+			dbi_Firebird_Restore_stmt(dbdata);
 		}
 		num = 0;
 		while (lines[num] != NULL) {
-			error = dbi_Interbase_Prepare_statement(interp,dbdata,sizes[num],lines[num]);
-			if (error) {/*dbi_Interbase_autocommit_set(dbdata,1);*/goto error;}
+			error = dbi_Firebird_Prepare_statement(interp,dbdata,sizes[num],lines[num]);
+			if (error) {/*dbi_Firebird_autocommit_set(dbdata,1);*/goto error;}
 			if (objc != dbdata->in_sqlda->sqld) {
 				Tcl_AppendResult(interp,"wrong number of arguments given to exec",NULL);
 				goto error;
 			}
-			error = dbi_Interbase_Fill_in_sqlda(interp,dbdata,dbdata->in_sqlda,objc,objv,nullvalue);
+			error = dbi_Firebird_Fill_in_sqlda(interp,dbdata,dbdata->in_sqlda,objc,objv,nullvalue);
 			if (error) {goto error;}
-			error = dbi_Interbase_Process_statement(interp,dbdata,sizes[num],lines[num]);
-			if (error) {/*dbi_Interbase_autocommit_set(dbdata,1);*/ goto error;}
+			error = dbi_Firebird_Process_statement(interp,dbdata,sizes[num],lines[num]);
+			if (error) {/*dbi_Firebird_autocommit_set(dbdata,1);*/ goto error;}
 			if (dbdata->out_sqlda_cache == NULL) {
-				dbi_Interbase_Free_in_sqlda(dbdata->in_sqlda,dbdata->in_sqlda->sqld);
+				dbi_Firebird_Free_in_sqlda(dbdata->in_sqlda,dbdata->in_sqlda->sqld);
 			}
 			num++;
 		}
@@ -2077,14 +2074,14 @@ fprintf(stdout,"autocommit=%d transaction_state=%d\n",dbi_Interbase_autocommit_s
 	if (dbdata->out_sqlda->sqld != 0) {
 		if (!usefetch) {
 			if (flat) {
-				error = dbi_Interbase_ToResult_flat(interp,dbdata,dbdata->out_sqlda,nullvalue);
+				error = dbi_Firebird_ToResult_flat(interp,dbdata,dbdata->out_sqlda,nullvalue);
 			} else {
-				error = dbi_Interbase_ToResult(interp,dbdata,dbdata->out_sqlda,nullvalue);
+				error = dbi_Firebird_ToResult(interp,dbdata,dbdata->out_sqlda,nullvalue);
 			}
 			if (error) {goto error;}
-			if (dbdata->cursor_open) {dbi_Interbase_Free_Stmt(dbdata,DSQL_close);}
-			if ((dbi_Interbase_autocommit_state(dbdata))&&(dbi_Interbase_trans_state(dbdata))) {
-				if (dbi_Interbase_Transaction_Commit(interp,dbdata,0) != TCL_OK) {
+			if (dbdata->cursor_open) {dbi_Firebird_Free_Stmt(dbdata,DSQL_close);}
+			if ((dbi_Firebird_autocommit_state(dbdata))&&(dbi_Firebird_trans_state(dbdata))) {
+				if (dbi_Firebird_Transaction_Commit(interp,dbdata,0) != TCL_OK) {
 					return TCL_ERROR;
 				}
 			}
@@ -2093,8 +2090,8 @@ fprintf(stdout,"autocommit=%d transaction_state=%d\n",dbi_Interbase_autocommit_s
 			dbdata->ntuples = -1;
 		}
 	} else {
-		if ((dbi_Interbase_autocommit_state(dbdata))&&(dbi_Interbase_trans_state(dbdata))) {
-			if (dbi_Interbase_Transaction_Commit(interp,dbdata,0) != TCL_OK) {
+		if ((dbi_Firebird_autocommit_state(dbdata))&&(dbi_Firebird_trans_state(dbdata))) {
+			if (dbi_Firebird_Transaction_Commit(interp,dbdata,0) != TCL_OK) {
 				return TCL_ERROR;
 			}
 		}
@@ -2109,16 +2106,16 @@ fprintf(stdout,"autocommit=%d transaction_state=%d\n",dbi_Interbase_autocommit_s
 		}
 		if (lines != NULL) {Tcl_Free((char *)lines);}
 		if (sizes != NULL) {Tcl_Free((char *)sizes);}
-		if ((dbi_Interbase_autocommit_state(dbdata))&&(dbi_Interbase_trans_state(dbdata))) {
-			if (dbdata->cursor_open) {dbi_Interbase_Free_Stmt(dbdata,DSQL_close);}
-			dbi_Interbase_Transaction_Rollback(interp,dbdata);
+		if ((dbi_Firebird_autocommit_state(dbdata))&&(dbi_Firebird_trans_state(dbdata))) {
+			if (dbdata->cursor_open) {dbi_Firebird_Free_Stmt(dbdata,DSQL_close);}
+			dbi_Firebird_Transaction_Rollback(interp,dbdata);
 		}
 		return TCL_ERROR;
 }
 
-int dbi_Interbase_Supports(
+int dbi_Firebird_Supports(
 	Tcl_Interp *interp,
-	dbi_Interbase_Data *dbdata,
+	dbi_Firebird_Data *dbdata,
 	Tcl_Obj *keyword)
 {
 	const static char *keywords[] = {
@@ -2167,9 +2164,9 @@ int dbi_Interbase_Supports(
 	return TCL_OK;
 }
 
-int dbi_Interbase_Info(
+int dbi_Firebird_Info(
 	Tcl_Interp *interp,
-	dbi_Interbase_Data *dbdata,
+	dbi_Firebird_Data *dbdata,
 	int objc,
 	Tcl_Obj **objv)
 {
@@ -2177,7 +2174,7 @@ int dbi_Interbase_Info(
 	int error,i;
 	dbcmd = Tcl_NewObj();
 	Tcl_GetCommandFullName(interp, dbdata->token, dbcmd);
-	cmd = Tcl_NewStringObj("::dbi::interbase::info",-1);
+	cmd = Tcl_NewStringObj("::dbi::firebird::info",-1);
 	Tcl_IncrRefCount(cmd);
 	error = Tcl_ListObjAppendElement(interp,cmd,dbcmd);
 	if (error) {Tcl_DecrRefCount(cmd);Tcl_DecrRefCount(dbcmd);return error;}
@@ -2190,20 +2187,20 @@ int dbi_Interbase_Info(
 	return error;
 }
 
-int dbi_Interbase_Tables(
+int dbi_Firebird_Tables(
 	Tcl_Interp *interp,
-	dbi_Interbase_Data *dbdata)
+	dbi_Firebird_Data *dbdata)
 {
 	int error;
 	Tcl_Obj *cmd = Tcl_NewStringObj("select rdb$relation_name from rdb$relations where RDB$SYSTEM_FLAG = 0",-1);
-	error = dbi_Interbase_Exec(interp,dbdata,cmd,EXEC_FLAT,NULL,0,NULL);
+	error = dbi_Firebird_Exec(interp,dbdata,cmd,EXEC_FLAT,NULL,0,NULL);
 	Tcl_DecrRefCount(cmd);
 	return error;
 }
 
-int dbi_Interbase_Cmd(
+int dbi_Firebird_Cmd(
 	Tcl_Interp *interp,
-	dbi_Interbase_Data *dbdata,
+	dbi_Firebird_Data *dbdata,
 	Tcl_Obj *table,
 	Tcl_Obj *varName,
 	char *cmdstring)
@@ -2227,9 +2224,9 @@ int dbi_Interbase_Cmd(
 	return error;
 }
 
-int dbi_Interbase_Serial(
+int dbi_Firebird_Serial(
 	Tcl_Interp *interp,
-	dbi_Interbase_Data *dbdata,
+	dbi_Firebird_Data *dbdata,
 	Tcl_Obj *subcmd,
 	int objc,
 	Tcl_Obj **objv)
@@ -2247,27 +2244,27 @@ int dbi_Interbase_Serial(
 	}
     switch (index) {
 	    case Add:
-			error = dbi_Interbase_TclEval(interp,dbdata,"::dbi::interbase::serial_add",objc,objv);	
+			error = dbi_Firebird_TclEval(interp,dbdata,"::dbi::firebird::serial_add",objc,objv);	
 			break;
 		case Delete:
-			error = dbi_Interbase_TclEval(interp,dbdata,"::dbi::interbase::serial_delete",objc,objv);	
+			error = dbi_Firebird_TclEval(interp,dbdata,"::dbi::firebird::serial_delete",objc,objv);	
 			break;
 		case Set:
-			error = dbi_Interbase_TclEval(interp,dbdata,"::dbi::interbase::serial_set",objc,objv);	
+			error = dbi_Firebird_TclEval(interp,dbdata,"::dbi::firebird::serial_set",objc,objv);	
 			break;
 		case Next:
-			error = dbi_Interbase_TclEval(interp,dbdata,"::dbi::interbase::serial_next",objc,objv);	
+			error = dbi_Firebird_TclEval(interp,dbdata,"::dbi::firebird::serial_next",objc,objv);	
 			break;
 		case Share:
-			error = dbi_Interbase_TclEval(interp,dbdata,"::dbi::interbase::serial_share",objc,objv);	
+			error = dbi_Firebird_TclEval(interp,dbdata,"::dbi::firebird::serial_share",objc,objv);	
 			break;
 	}
 	return error;
 }
 
-int dbi_Interbase_Createdb(
+int dbi_Firebird_Createdb(
 	Tcl_Interp *interp,
-	dbi_Interbase_Data *dbdata,
+	dbi_Firebird_Data *dbdata,
 	int objc,
 	Tcl_Obj *objv[])
 {
@@ -2334,12 +2331,12 @@ int dbi_Interbase_Createdb(
 		}
 	}
 	string = Tcl_GetStringFromObj(cmd,&len);
-	error = isc_dsql_execute_immediate(status_vector, &(dbdata->db), dbi_Interbase_trans(dbdata),
+	error = isc_dsql_execute_immediate(status_vector, &(dbdata->db), dbi_Firebird_trans(dbdata),
 		0,string, SQL_DIALECT_V6, NULL);
 	if (error) {
 		Tcl_AppendResult(interp,"creation of database \"",
 			Tcl_GetStringFromObj(objv[2],NULL) , "\" failed:\n", NULL);
-		dbi_Interbase_Error(interp,dbdata,"");
+		dbi_Firebird_Error(interp,dbdata,"");
 		goto error;
 	}
 	isc_detach_database(status_vector, &(dbdata->db));
@@ -2350,29 +2347,29 @@ int dbi_Interbase_Createdb(
 		return TCL_ERROR;
 }
 
-int dbi_Interbase_Close(
-	dbi_Interbase_Data *dbdata)
+int dbi_Firebird_Close(
+	dbi_Firebird_Data *dbdata)
 {
 	ISC_STATUS *status_vector = dbdata->status;
-	dbi_Interbase_Prepared *prepared;
+	dbi_Firebird_Prepared *prepared;
 	Tcl_HashSearch search;
 	Tcl_HashEntry *entry;
-	dbi_Interbase_Free_out_sqlda(dbdata->out_sqlda,dbdata->out_sqlda->sqld);
-	if (dbdata->cursor_open) {dbi_Interbase_Free_Stmt(dbdata,DSQL_close);}
+	dbi_Firebird_Free_out_sqlda(dbdata->out_sqlda,dbdata->out_sqlda->sqld);
+	if (dbdata->cursor_open) {dbi_Firebird_Free_Stmt(dbdata,DSQL_close);}
 	if (dbdata->out_sqlda_cache != NULL) {
-		dbi_Interbase_Restore_stmt(dbdata);
+		dbi_Firebird_Restore_stmt(dbdata);
 	}
 	/* delete statement */
 	if (dbdata->stmt != NULL) {
-		dbi_Interbase_Free_Stmt(dbdata,DSQL_drop);
+		dbi_Firebird_Free_Stmt(dbdata,DSQL_drop);
 		dbdata->stmt = NULL;
 	}
 	/* delete all cached statements */
 	entry = Tcl_FirstHashEntry(&(dbdata->preparedhash),&search);
 	while (entry != NULL) {
-		prepared = (dbi_Interbase_Prepared *)Tcl_GetHashValue(entry);
-		dbi_Interbase_Free_out_sqlda(prepared->out_sqlda,prepared->out_sqlda->sqld);
-		dbi_Interbase_Free_in_sqlda(prepared->in_sqlda,prepared->in_sqlda->sqld);
+		prepared = (dbi_Firebird_Prepared *)Tcl_GetHashValue(entry);
+		dbi_Firebird_Free_out_sqlda(prepared->out_sqlda,prepared->out_sqlda->sqld);
+		dbi_Firebird_Free_in_sqlda(prepared->in_sqlda,prepared->in_sqlda->sqld);
 		entry = Tcl_NextHashEntry(&search);
 	}
 	Tcl_DeleteHashTable(&(dbdata->preparedhash));
@@ -2395,7 +2392,7 @@ int dbi_Interbase_Close(
 		}
 		if (dbdata->db != NULL) {
 			if (isc_detach_database(dbdata->status, &(dbdata->db))) {
-				dbi_Interbase_Error(dbdata->interp,dbdata,"closing connection");
+				dbi_Firebird_Error(dbdata->interp,dbdata,"closing connection");
 				dbdata->db = NULL;
 				return TCL_ERROR;
 			}
@@ -2409,7 +2406,7 @@ int dbi_Interbase_Close(
 	} else {
 		/* this is a clone, so remove the clone from its parent */
 		int i;
-		dbi_Interbase_Data *parent = dbdata->parent;
+		dbi_Firebird_Data *parent = dbdata->parent;
 		for (i = 0 ; i < parent->clonesnum; i++) {
 			if (parent->clones[i] == dbdata) break;
 		}
@@ -2422,9 +2419,9 @@ int dbi_Interbase_Close(
 	return TCL_OK;
 }
 
-int dbi_Interbase_Dropdb(
+int dbi_Firebird_Dropdb(
 	Tcl_Interp *interp,
-	dbi_Interbase_Data *dbdata)
+	dbi_Firebird_Data *dbdata)
 {
 	int error;
 	if (dbdata->parent != NULL) {
@@ -2437,29 +2434,29 @@ int dbi_Interbase_Dropdb(
 	}
 	error = isc_drop_database(dbdata->status,&(dbdata->db));
 	if (error) {
-		dbi_Interbase_Error(interp,dbdata,"dropping database");
+		dbi_Firebird_Error(interp,dbdata,"dropping database");
 		return TCL_ERROR;
 	}
 	dbdata->db = NULL;
-	error = dbi_Interbase_Close(dbdata);
+	error = dbi_Firebird_Close(dbdata);
 	if (error) {return TCL_ERROR;}
 	return TCL_OK;
 }
 
-int dbi_Interbase_Destroy(
+int dbi_Firebird_Destroy(
 	ClientData clientdata)
 {
-	dbi_Interbase_Data *dbdata = (dbi_Interbase_Data *)clientdata;
+	dbi_Firebird_Data *dbdata = (dbi_Firebird_Data *)clientdata;
 	Tcl_DecrRefCount(dbdata->defnullvalue);
 	if (dbdata->database != NULL) {
-		dbi_Interbase_Close(dbdata);
+		dbi_Firebird_Close(dbdata);
 	}
 	Tcl_Free((char *)dbdata);
-	Tcl_DeleteExitHandler((Tcl_ExitProc *)dbi_Interbase_Destroy, clientdata);
+	Tcl_DeleteExitHandler((Tcl_ExitProc *)dbi_Firebird_Destroy, clientdata);
 	return TCL_OK;
 }
 
-int dbi_Interbase_Interface(
+int dbi_Firebird_Interface(
 	Tcl_Interp *interp,
 	int objc,
 	Tcl_Obj *objv[])
@@ -2498,13 +2495,13 @@ int dbi_Interbase_Interface(
 	}
 }
 
-int Dbi_interbase_DbObjCmd(
+int Dbi_firebird_DbObjCmd(
 	ClientData clientdata,
 	Tcl_Interp *interp,
 	int objc,
 	Tcl_Obj *objv[])
 {
-	dbi_Interbase_Data *dbdata = (dbi_Interbase_Data *)clientdata;
+	dbi_Firebird_Data *dbdata = (dbi_Firebird_Data *)clientdata;
 	int error=TCL_OK,i,index;
     const static char *subCmds[] = {
 		"interface","open", "exec", "fetch", "close",
@@ -2533,15 +2530,15 @@ int Dbi_interbase_DbObjCmd(
 	}
     switch (index) {
     case Interface:
-		return dbi_Interbase_Interface(interp,objc,objv);
+		return dbi_Firebird_Interface(interp,objc,objv);
     case Open:
 		if (dbdata->parent != NULL) {
 			Tcl_AppendResult(interp,"clone may not use open",NULL);
 			return TCL_ERROR;
 		}
-		return dbi_Interbase_Open(interp,dbdata,objc,objv);
+		return dbi_Firebird_Open(interp,dbdata,objc,objv);
 	case Create:
-		return dbi_Interbase_Createdb(interp,dbdata,objc,objv);
+		return dbi_Firebird_Createdb(interp,dbdata,objc,objv);
 	case Destroy:
 		if (objc != 2) {
 			Tcl_WrongNumArgs(interp, 2, objv, "");
@@ -2565,7 +2562,7 @@ int Dbi_interbase_DbObjCmd(
 			for (i = 0 ; i < dbdata->clonesnum; i++) {
 				dbcmd = Tcl_NewObj();
 				Tcl_GetCommandFullName(interp, dbdata->clones[i]->token, dbcmd);
-				if (strncmp(Tcl_GetStringFromObj(dbcmd,NULL),"::dbi::interbase::priv_",23) == 0) continue;
+				if (strncmp(Tcl_GetStringFromObj(dbcmd,NULL),"::dbi::firebird::priv_",23) == 0) continue;
 				error = Tcl_ListObjAppendElement(interp,result,dbcmd);
 				if (error) {Tcl_DecrRefCount(result);Tcl_DecrRefCount(dbcmd);return error;}
 			}
@@ -2636,31 +2633,31 @@ int Dbi_interbase_DbObjCmd(
 			}
 			i++;
 		}
-		return dbi_Interbase_Exec(interp,dbdata,objv[i],flags,nullvalue,objc-i-1,objv+i+1);
+		return dbi_Firebird_Exec(interp,dbdata,objv[i],flags,nullvalue,objc-i-1,objv+i+1);
 		}
 	case Fetch:
-		return dbi_Interbase_Fetch(interp,dbdata, objc, objv);
+		return dbi_Firebird_Fetch(interp,dbdata, objc, objv);
 	case Info:
-		return dbi_Interbase_Info(interp,dbdata,objc-2,objv+2);
+		return dbi_Firebird_Info(interp,dbdata,objc-2,objv+2);
 	case Tables:
 		if (objc != 2) {
 			Tcl_WrongNumArgs(interp, 2, objv, "");
 			return TCL_ERROR;
 		}
-		return dbi_Interbase_Tables(interp,dbdata);
+		return dbi_Firebird_Tables(interp,dbdata);
 	case Fields:
 		if (objc != 3) {
 			Tcl_WrongNumArgs(interp, 2, objv, "tablename");
 			return TCL_ERROR;
 		}
-		return dbi_Interbase_Cmd(interp,dbdata,objv[2],NULL,"::dbi::interbase::fieldsinfo");
+		return dbi_Firebird_Cmd(interp,dbdata,objv[2],NULL,"::dbi::firebird::fieldsinfo");
 	case Close:
 		if (objc != 2) {
 			Tcl_WrongNumArgs(interp, 2, objv, "");
 			return TCL_ERROR;
 		}
 		if (dbdata->parent == NULL) {
-			return dbi_Interbase_Close(dbdata);
+			return dbi_Firebird_Close(dbdata);
 		} else {
 			/* closing a clone also destroys it */
 			Tcl_DeleteCommandFromToken(interp,dbdata->token);
@@ -2675,13 +2672,13 @@ int Dbi_interbase_DbObjCmd(
 			Tcl_AppendResult(interp,"dbi object has no open database, open a connection first", NULL);
 			return error;
 		}
-		if (dbi_Interbase_trans_state(dbdata)) {
-			error = dbi_Interbase_Transaction_Commit(interp,dbdata,1);
-			if (error) {dbi_Interbase_Error(interp,dbdata,"committing transaction");return error;}
+		if (dbi_Firebird_trans_state(dbdata)) {
+			error = dbi_Firebird_Transaction_Commit(interp,dbdata,1);
+			if (error) {dbi_Firebird_Error(interp,dbdata,"committing transaction");return error;}
 		}
-		error = dbi_Interbase_Transaction_Start(interp,dbdata);
-		if (error) {dbi_Interbase_Error(interp,dbdata,"starting transaction");return error;}
-		dbi_Interbase_autocommit_set(dbdata,0);
+		error = dbi_Firebird_Transaction_Start(interp,dbdata);
+		if (error) {dbi_Firebird_Error(interp,dbdata,"starting transaction");return error;}
+		dbi_Firebird_autocommit_set(dbdata,0);
 		return TCL_OK;
 	case Commit:
 		if (objc != 2) {
@@ -2692,11 +2689,11 @@ int Dbi_interbase_DbObjCmd(
 			Tcl_AppendResult(interp,"dbi object has no open database, open a connection first", NULL);
 			return error;
 		}
-		dbi_Interbase_autocommit_set(dbdata,1);
-		if (dbdata->cursor_open) {dbi_Interbase_Free_Stmt(dbdata,DSQL_close);}
-		if (dbi_Interbase_trans_state(dbdata)) {
-			error = dbi_Interbase_Transaction_Commit(interp,dbdata,1);
-			if (error) {dbi_Interbase_Error(interp,dbdata,"committing transaction");return error;}
+		dbi_Firebird_autocommit_set(dbdata,1);
+		if (dbdata->cursor_open) {dbi_Firebird_Free_Stmt(dbdata,DSQL_close);}
+		if (dbi_Firebird_trans_state(dbdata)) {
+			error = dbi_Firebird_Transaction_Commit(interp,dbdata,1);
+			if (error) {dbi_Firebird_Error(interp,dbdata,"committing transaction");return error;}
 		}
 		return TCL_OK;
 	case Rollback:
@@ -2708,11 +2705,11 @@ int Dbi_interbase_DbObjCmd(
 			Tcl_AppendResult(interp,"dbi object has no open database, open a connection first", NULL);
 			return error;
 		}
-		dbi_Interbase_autocommit_set(dbdata,1);
-		if (dbdata->cursor_open != 0) {dbi_Interbase_Free_Stmt(dbdata,DSQL_close);}
-		if (dbi_Interbase_trans_state(dbdata)) {
-			error = dbi_Interbase_Transaction_Rollback(interp,dbdata);
-			if (error) {dbi_Interbase_Error(interp,dbdata,"rolling back transaction");return error;}
+		dbi_Firebird_autocommit_set(dbdata,1);
+		if (dbdata->cursor_open != 0) {dbi_Firebird_Free_Stmt(dbdata,DSQL_close);}
+		if (dbi_Firebird_trans_state(dbdata)) {
+			error = dbi_Firebird_Transaction_Rollback(interp,dbdata);
+			if (error) {dbi_Firebird_Error(interp,dbdata,"rolling back transaction");return error;}
 		}
 		return TCL_OK;
 	case Serial:
@@ -2720,43 +2717,43 @@ int Dbi_interbase_DbObjCmd(
 			Tcl_WrongNumArgs(interp, 2, objv, "option table field ?value?");
 			return TCL_ERROR;
 		}
-		return dbi_Interbase_Serial(interp,dbdata,objv[2],objc-3,objv+3);
+		return dbi_Firebird_Serial(interp,dbdata,objv[2],objc-3,objv+3);
 	case Drop:
 		if (objc != 2) {
 			Tcl_WrongNumArgs(interp, 2, objv, "");
 			return TCL_ERROR;
 		}
-		return dbi_Interbase_Dropdb(interp,dbdata);
+		return dbi_Firebird_Dropdb(interp,dbdata);
 	case Clone:
 		if ((objc != 2) && (objc != 3)) {
 			Tcl_WrongNumArgs(interp, 2, objv, "?name?");
 			return TCL_ERROR;
 		}
 		if (objc == 3) {
-			return Dbi_interbase_Clone(interp,dbdata,objv[2]);
+			return Dbi_firebird_Clone(interp,dbdata,objv[2]);
 		} else {
-			return Dbi_interbase_Clone(interp,dbdata,NULL);
+			return Dbi_firebird_Clone(interp,dbdata,NULL);
 		}
 	case Supports:
 		if (objc == 2) {
-			return dbi_Interbase_Supports(interp,dbdata,NULL);
+			return dbi_Firebird_Supports(interp,dbdata,NULL);
 		} if (objc == 3) {
-			return dbi_Interbase_Supports(interp,dbdata,objv[2]);
+			return dbi_Firebird_Supports(interp,dbdata,objv[2]);
 		} else {
 			Tcl_WrongNumArgs(interp, 2, objv, "?keyword?");
 			return TCL_ERROR;
 		}
 	case Blob:
-		return dbi_Interbase_Blob(interp,dbdata, objc, objv);
+		return dbi_Firebird_Blob(interp,dbdata, objc, objv);
 	case Newblob:
-		return dbi_Interbase_NewBlob(interp,dbdata, objc, objv);
+		return dbi_Firebird_NewBlob(interp,dbdata, objc, objv);
 	}
 	return error;
 }
 
 static int dbi_num = 0;
-int Dbi_interbase_DoNewDbObjCmd(
-	dbi_Interbase_Data *dbdata,
+int Dbi_firebird_DoNewDbObjCmd(
+	dbi_Firebird_Data *dbdata,
 	Tcl_Interp *interp,
 	Tcl_Obj *dbi_nameObj)
 {
@@ -2794,34 +2791,34 @@ int Dbi_interbase_DoNewDbObjCmd(
 	dbdata->in_sqlda->version = SQLDA_VERSION1;
 	if (dbi_nameObj == NULL) {
 		dbi_num++;
-		sprintf(buffer,"::dbi::interbase::dbi%d",dbi_num);
+		sprintf(buffer,"::dbi::firebird::dbi%d",dbi_num);
 		dbi_nameObj = Tcl_NewStringObj(buffer,strlen(buffer));
 	}
 	dbi_name = Tcl_GetStringFromObj(dbi_nameObj,NULL);
-	dbdata->token = Tcl_CreateObjCommand(interp,dbi_name,(Tcl_ObjCmdProc *)Dbi_interbase_DbObjCmd,
-		(ClientData)dbdata,(Tcl_CmdDeleteProc *)dbi_Interbase_Destroy);
-	Tcl_CreateExitHandler((Tcl_ExitProc *)dbi_Interbase_Destroy, (ClientData)dbdata);
+	dbdata->token = Tcl_CreateObjCommand(interp,dbi_name,(Tcl_ObjCmdProc *)Dbi_firebird_DbObjCmd,
+		(ClientData)dbdata,(Tcl_CmdDeleteProc *)dbi_Firebird_Destroy);
+	Tcl_CreateExitHandler((Tcl_ExitProc *)dbi_Firebird_Destroy, (ClientData)dbdata);
 	Tcl_SetObjResult(interp,dbi_nameObj);
 	return TCL_OK;
 }
 
-int Dbi_interbase_NewDbObjCmd(
+int Dbi_firebird_NewDbObjCmd(
 	ClientData clientdata,
 	Tcl_Interp *interp,
 	int objc,
 	Tcl_Obj *objv[])
 {
-	dbi_Interbase_Data *dbdata;
+	dbi_Firebird_Data *dbdata;
 	int error;
 	if ((objc < 1)||(objc > 2)) {
 		Tcl_WrongNumArgs(interp,2,objv,"?dbName?");
 		return TCL_ERROR;
 	}
-	dbdata = (dbi_Interbase_Data *)Tcl_Alloc(sizeof(dbi_Interbase_Data));
+	dbdata = (dbi_Firebird_Data *)Tcl_Alloc(sizeof(dbi_Firebird_Data));
 	if (objc == 2) {
-		error = Dbi_interbase_DoNewDbObjCmd(dbdata,interp,objv[1]);
+		error = Dbi_firebird_DoNewDbObjCmd(dbdata,interp,objv[1]);
 	} else {
-		error = Dbi_interbase_DoNewDbObjCmd(dbdata,interp,NULL);
+		error = Dbi_firebird_DoNewDbObjCmd(dbdata,interp,NULL);
 	}
 	if (error) {
 		Tcl_Free((char *)dbdata);
@@ -2829,22 +2826,22 @@ int Dbi_interbase_NewDbObjCmd(
 	return error;
 }
 
-int Dbi_interbase_Clone(
+int Dbi_firebird_Clone(
 	Tcl_Interp *interp,
-	dbi_Interbase_Data *dbdata,
+	dbi_Firebird_Data *dbdata,
 	Tcl_Obj *name)
 {
-	dbi_Interbase_Data *parent = NULL;
-	dbi_Interbase_Data *clone_dbdata = NULL;
+	dbi_Firebird_Data *parent = NULL;
+	dbi_Firebird_Data *clone_dbdata = NULL;
 	int error;
 	parent = dbdata;
 	while (parent->parent != NULL) {parent = parent->parent;}
-	clone_dbdata = (dbi_Interbase_Data *)Tcl_Alloc(sizeof(dbi_Interbase_Data));
-	error = Dbi_interbase_DoNewDbObjCmd(clone_dbdata,interp,name);
+	clone_dbdata = (dbi_Firebird_Data *)Tcl_Alloc(sizeof(dbi_Firebird_Data));
+	error = Dbi_firebird_DoNewDbObjCmd(clone_dbdata,interp,name);
 	if (error) {Tcl_Free((char *)clone_dbdata);return TCL_ERROR;}
 	name = Tcl_GetObjResult(interp);
 	parent->clonesnum++;
-	parent->clones = (dbi_Interbase_Data **)Tcl_Realloc((char *)parent->clones,parent->clonesnum*sizeof(dbi_Interbase_Data **));
+	parent->clones = (dbi_Firebird_Data **)Tcl_Realloc((char *)parent->clones,parent->clonesnum*sizeof(dbi_Firebird_Data **));
 	parent->clones[parent->clonesnum-1] = clone_dbdata;
 	clone_dbdata->parent = parent;
 	clone_dbdata->dpblen = parent->dpblen;
@@ -2856,7 +2853,7 @@ int Dbi_interbase_Clone(
 	Tcl_InitHashTable(&(clone_dbdata->preparedhash),TCL_STRING_KEYS);
 	error = isc_dsql_allocate_statement(clone_dbdata->status, &(clone_dbdata->db), &(clone_dbdata->stmt));
 	if (error) {
-		dbi_Interbase_Error(interp,dbdata,"allocating statement");
+		dbi_Firebird_Error(interp,dbdata,"allocating statement");
 		goto error;
 	}
 	return TCL_OK;
@@ -2866,7 +2863,7 @@ int Dbi_interbase_Clone(
 		return TCL_ERROR;
 }
 
-int Dbi_interbase_Init(interp)
+int Dbi_firebird_Init(interp)
 	Tcl_Interp *interp;		/* Interpreter to add extra commands */
 {
 #ifdef USE_TCL_STUBS
@@ -2874,7 +2871,7 @@ int Dbi_interbase_Init(interp)
 		return TCL_ERROR;
 	}
 #endif
-	Tcl_CreateObjCommand(interp,"dbi_interbase",(Tcl_ObjCmdProc *)Dbi_interbase_NewDbObjCmd,
+	Tcl_CreateObjCommand(interp,"dbi_firebird",(Tcl_ObjCmdProc *)Dbi_firebird_NewDbObjCmd,
 		(ClientData)NULL,(Tcl_CmdDeleteProc *)NULL);
 	Tcl_Eval(interp,"");
 	return TCL_OK;
