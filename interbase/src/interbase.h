@@ -12,14 +12,18 @@ typedef struct dbi_Interbase_Data {
 	XSQLDA *out_sqlda;                 /* out sqlda */
 	XSQLDA *in_sqlda;                  /* in sqlda */
 	Tcl_Obj *database;
+	struct dbi_Interbase_Data *parent;
+	struct dbi_Interbase_Data **clones;
+	int clonesnum;
 	char *dpb;
 	int dpbpos;
 	int dpblen;
+	int tuple;
+	int ntuples;
 	int autocommit;
 	int cursor_open;
 	int out_sqlda_filled;
-	int tuple;
-	int ntuples;
 } dbi_Interbase_Data;
+
 
 EXTERN int dbi_Interbase_Init(Tcl_Interp *interp);

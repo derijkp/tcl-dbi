@@ -560,7 +560,7 @@ PACKAGE=dbi_interbase
 
 MAJOR_VERSION=0
 # $Format: "MINOR_VERSION=$ProjectMajorVersion: 0 $ \"$
-MINOR_VERSION=1
+MINOR_VERSION=0
 PATCHLEVEL=
 
 VERSION=${MAJOR_VERSION}.${MINOR_VERSION}${PATCHLEVEL}
@@ -1852,6 +1852,8 @@ else
 		for i in \
 			`ls -d ${temp_includedir} 2>/dev/null` \
 			/usr/local/include /usr/include \
+			"/Program Files/Firebird/include" \
+			"/Program Files/borland/interBase/Include" \
 			"/Program Files/Borland/InterBase/SDK/include"; do
 		    if test -f "$i/ibase.h" ; then
 				ac_cv_c_interbaseinclude=$i
@@ -1882,7 +1884,7 @@ fi
 
 	
     echo $ac_n "checking for interbase library files""... $ac_c" 1>&6
-echo "configure:1886: checking for interbase library files" >&5
+echo "configure:1888: checking for interbase library files" >&5
     # Check whether --with-interbaselib or --without-interbaselib was given.
 if test "${with_interbaselib+set}" = set; then
   withval="$with_interbaselib"
@@ -1894,7 +1896,7 @@ fi
 	    ac_cv_c_interbaselib=${with_interbaselib}
 	elif test -f "${with_interbaselib}/libgds.a" ; then
 	    ac_cv_c_interbaselib=${with_interbaselib}
-	elif test -f "${with_interbaselib}/gds32.lib" ; then
+	elif test -f "${with_interbaselib}/gds32_ms.lib" ; then
 	    ac_cv_c_interbaselib=${with_interbaselib}
 	else
 	    { echo "configure: error: ${with_interbaselib} directory does not contain interbase public library file $libgdsfile" 1>&2; exit 1; }
@@ -1915,14 +1917,16 @@ else
 		for i in \
 			`ls -d ${temp_libdir} 2>/dev/null` \
 			/usr/local/lib /usr/lib \
-			/Program Files/Borland/InterBase/SDK/lib ; do
+			"/Program Files/Firebird/lib" \
+			"/Program Files/borland/interBase/Lib" \
+			"/Program Files/Borland/InterBase/SDK/lib_ms" ; do
 		    if test -f "$i/libgds.so" ; then
 				ac_cv_c_interbaselib=$i
 				break
 		    elif test -f "$i/libgds.a" ; then
 				ac_cv_c_interbaselib=$i
 				break
-		    elif test -f "$i/gds32.lib" ; then
+		    elif test -f "$i/gds32_ms.lib" ; then
 				ac_cv_c_interbaselib=$i
 				break
 		    fi
@@ -1932,8 +1936,6 @@ else
 fi
 
     fi
-
-    # Print a message based on how we determined the library path
 
 	case "`uname -s`" in
 		*win32* | *WIN32* | *CYGWIN_NT* |*CYGWIN_98*|*CYGWIN_95*)
@@ -1945,7 +1947,7 @@ fi
 		
 		    # Convert to a native path and substitute into the output files.
 		
-		    INTERBASE_LIB=`${CYGPATH} "${ac_cv_c_interbaselib}/gds32.lib"`
+		    INTERBASE_LIB=\"`${CYGPATH} "${ac_cv_c_interbaselib}/gds32_ms.lib"`\"
 		;;
 		*)
 		    if test x"${ac_cv_c_interbaselib}" = x ; then

@@ -18,15 +18,37 @@ It presents a generic api to open, query, and change databases.
 
 <commanddef>
 <command><cmd>objectName</cmd> <method>open</method> <m>database</m> ?<m>arg</m> ...?</command>
-<desc>open the given 'database'. Extra arguments can (must) be given, depending on the backend
+<desc>Opens the given 'database'. Extra arguments can (must) be given, depending on the backend
 used. <m>database</m> is an identifier of the database. What this is exactly, can depend on 
-the implementation
+the implementation.
+<p>
+<m>arg ..</m> usually consists of one or more of the following optional parameters:
+<optlist>
+<optdef>
+<optname>-user</optname><optarg>username</optarg>
+<desc>connect to the database as <optarg>username</optarg> instead of connecting as the 
+current user.</desc>
+</optdef>
+<optdef>
+<optname>-password</optname><optarg>password</optarg>
+<desc>provide a password if required</desc>
+</optdef>
+<optdef>
+<optname>-role</optname><optarg>role</optarg>
+<desc>connect using the given <optarg>role</optarg></desc>
+</optdef>
+<optdef>
+<optname>-host</optname><optarg>host</optarg>
+<desc>connect to a database on a different host</desc>
+</optdef>
+</optlist>
+</p>
 </desc>
 </commanddef>
 
 <commanddef>
 <command><cmd>objectName</cmd> <method>exec</method> ?<m>options</m>? <m>sql</m> ?<m>param</m> ...?</command>
-<desc>execute arbitrary SQL commands in the currently open database. when a select 
+<desc>Executes arbitrary SQL commands in the currently open database. when a select 
 query has been processed, and the -usefetch option is not used, the command returns a list 
 of lists: each element of this list contains the selected values of one record (in a list).
 Otherwise nothing is returned
@@ -61,11 +83,16 @@ example:
 
 <commanddef>
 <command><cmd>objectName</cmd> <method>fetch</method> ?<m>options</m>? ?<m>option</m>? ?<m>line</m>? ?<m>field</m>?</command>
-<desc>Fetch one line of data of the result of a previous query. This will only work after 
+<desc>Fetches one line of data of the result of a previous query. This will only work after 
 the exec method has been invoked with the -usefetch option. Normally, the next line in
 the result will be fetched. The optional arguments	can be used to fetch a specific 
 line and/or field. by specifying <m>option</m>, other information about the result may 
 be obtained.
+<p>
+When calling exec again, the results are cleared, and cannot be fetched any longer
+using the fetch method. If you want to use the exec method while keeping the
+resultset available, use a clone (see further) of the dbi object.
+</p>
 <p>
 If present, <m>line</m> is an an integer &gt;= 0 indicating which line of the result to fetch.
 If <m>line</m> is "current", the current line will be fetched. Not all databases allow 
@@ -104,60 +131,60 @@ examples:
 
 <commanddef>
 <command><cmd>objectName</cmd> <method>tables</method></command>
-<desc>returns a list with tables present in the current database
+<desc>Returns a list with tables present in the current database
 </desc>
 </commanddef>
 
 <commanddef>
 <command><cmd>objectName</cmd> <method>fields</method> <m>tableName</m></command>
-<desc>returns a list with the fields present in the <m>tableName</m>
+<desc>Returns a list with the fields present in the <m>tableName</m>
 </desc>
 </commanddef>
 
 <commanddef>
 <command><cmd>objectName</cmd> <method>close</method></command>
-<desc>close the current database connection
+<desc>Closes the current database connection
 </desc>
 </commanddef>
 
 <commanddef>
 <command><cmd>objectName</cmd> <method>begin</method></command>
-<desc>Start a transaction
+<desc>Starts a transaction
 </desc>
 </commanddef>
 
 <commanddef>
 <command><cmd>objectName</cmd> <method>commit</method></command>
-<desc>Commit the current transaction
+<desc>Commits the current transaction
 </desc>
 </commanddef>
 
 <commanddef>
 <command><cmd>objectName</cmd> <method>rollback</method></command>
-<desc>rollback the current transaction
+<desc>Does a rollback for the current transaction
 </desc>
 </commanddef>
 
 <commanddef>
 <command><cmd>objectName</cmd> <method>destroy</method></command>
-<desc>destroy the dbi object
+<desc>Destroys the dbi object
 </desc>
 </commanddef>
 
 <commanddef>
 <command><cmd>objectName</cmd> <method>serial</method> <m>option</m> args ...</command>
-<desc>create or manage a serial field
+<desc>Creates or manages a serial field
 	<commandlist>
 	<commanddef>
 	<command><cmd>objectName</cmd> <method>serial</method> add <m>table</m> <m>field</m> ?<m>value</m>?</command>
-	<desc>convert the integer field <m>field</m> in the given <m>table</m> into a serial 
+	<desc>Converts the integer field <m>field</m> in the given <m>table</m> into a serial 
 	field (using generators, triggers, ...) and optionally initialise it with <m>value</m>
 	</desc>
 	</commanddef>
 	
 	<commanddef>
 	<command><cmd>objectName</cmd> <method>serial</method> delete <m>table</m> <m>field</m></command>
-	<desc>return the given serial field in the given table into a normal integer field
+	<desc>Returns the given serial field in the given table into a normal integer field
 	</desc>
 	</commanddef>
 	
@@ -170,7 +197,7 @@ examples:
 	
 	<commanddef>
 	<command><cmd>objectName</cmd> <method>serial</method> next <m>table</m> <m>field</m></command>
-	<desc>Increment the current value of the given serial field by 1, and return the new value
+	<desc>Increments the current value of the given serial field by 1, and return the new value
 	</desc>
 	</commanddef>
 	
@@ -180,7 +207,7 @@ examples:
 
 <commanddef>
 <command><cmd>objectName</cmd> <method>info</method> <m>option</m> args ...</command>
-<desc>Return information about the database, database tables, etc.
+<desc>Returns information about the database, database tables, etc.
 Which information is returned depends on <m>option</m>. Some options require further
 arguments. The options and information available can depend on the database and on the 
 implementation of the interface. eg. some databases do not support roles, so you cannot 
@@ -192,8 +219,8 @@ get information about them. Some options that should be avaiable are:
 	</commanddef>
 	<commanddef>
 	<command><cmd>objectName</cmd> <method>info</method> <method>systemtables</method></command>
-	<desc>the systemtables are not included in the list returned by "objectName tables". 
-	You can get them using this command</desc>
+	<desc>Returns the systemtables. These are not included in the list returned by 
+	"objectName tables".</desc>
 	</commanddef>
 	<commanddef>
 	<command><cmd>objectName</cmd> <method>info</method> <method>views</method></command>
@@ -245,6 +272,62 @@ get information about them. Some options that should be avaiable are:
 	provided, only roles accessible by the given user are returned</desc> 
 	</commanddef>
 	</commandlist>
+</desc>
+</commanddef>
+
+<commanddef>
+<command><cmd>objectName</cmd> <method>supports</method> ?<m>keyword</m>?</command>
+<desc>Returns 1 if the object supports the feature indicated by <m>keyword</m>, and 0
+if it does not. If <m>keyword</m> is not provided, the keywords for all supported
+features are returned. Following keywords can be available:
+<dle>
+<dl><dt>lines</dt><dd>support for "objectName fetch lines"</dd></dl>
+<dl><dt>backfetch</dt><dd>support for going back when fetching results</dd></dl>
+<dl><dt>columnperm</dt><dd>support for working with permissions per column</dd></dl>
+<dl><dt>blobparams</dt><dd>support for blobs throug parameters</dd></dl>
+<dl><dt>sharedtransactions</dt><dd>a clone shares the same transaction with its parent</dd></dl>
+<dl><dt>transactions</dt><dd>support for transactions</dd></dl>
+<dl><dt>roles</dt><dd>support for roles</dd></dl>
+<dl><dt>domains</dt><dd>support for domains</dd></dl>
+</dle>
+</desc>
+</commanddef>
+
+<commanddef>
+<command><cmd>objectName</cmd> <method>clone</method> ?<m>name</m>?</command>
+<desc>Creates a clone of the dbi object. You will be able invoke the clone using the
+command <m>name</m>. If not provided, a name will be created and returned as a result.
+A clone is an object very similar to the dbi object it spawned from. It	supports the same
+methods, and has the same connection parameters (user, etc.) A clone is dependend on its
+parent: If the parent is destroyed, or its connection closed, the clone will be destroyed.
+Closing a clone will also destroy it. A clone can be eg. be created for using exec while 
+keeping open a resultset for fetching data line by line, or to compare different resultsets
+using fetch. Creating a clone has several advantages to creating a new connection:
+<ul>
+<li>The user of the interface does not have to know the parameters of the connection to
+temporarily spawn a clone</li>
+<li>If the backend database api allows it, a clone actually shares the connection with its 
+parent, making the creation of a clone a lot faster then creating a new connection.
+</li>
+</ul>
+<p>
+If possible, a clone also shares transactions with its parent. Since this is not always 
+possible; You can check if it actually does this using "objectName supports sharedtransactions".
+</p>
+</desc>
+</commanddef>
+
+<commanddef>
+<command><cmd>objectName</cmd> <method>clones</method></command>
+<desc>Returns a list of clones spawned from the dbi object. This command will give an
+error when invoked from a clone.
+</desc>
+</commanddef>
+
+<commanddef>
+<command><cmd>objectName</cmd> <method>parent</method></command>
+<desc>Returns the parent dbi object that spawned this clone. A dbi object 
+that is not a clone, will return its own name.
 </desc>
 </commanddef>
 

@@ -10,7 +10,7 @@ namespace eval dbi::odbc {}
 # $Format: "set ::dbi::odbc::version 0.$ProjectMajorVersion$"$
 set ::dbi::odbc::version 0.0
 # $Format: "set ::dbi::odbc::patchlevel $ProjectMinorVersion$"$
-set ::dbi::odbc::patchlevel 10
+set ::dbi::odbc::patchlevel 11
 package provide dbi_odbc $::dbi::odbc::version
 
 proc ::dbi::odbc::init {name testcmd} {
@@ -63,14 +63,7 @@ proc ::dbi::odbc::init {name testcmd} {
 		# Load the shared library if present
 		# If not, Tcl code will be loaded when necessary
 		#
-		if [file exists $libfile] {
-			if {"[info commands $testcmd]" == ""} {
-				load $libfile
-			}
-		} else {
-			set noc 1
-			source [file join ${dir} lib listnoc.tcl]
-		}
+		load $libfile
 		catch {unset libbase}
 	}
 }
@@ -78,4 +71,22 @@ proc ::dbi::odbc::init {name testcmd} {
 rename ::dbi::odbc::init {}
 
 lappend auto_path [file join $::dbi::odbc::dir lib]
+
+set ::dbi::odbc::privatedbnum 1
+proc ::dbi::odbc::privatedb {db} {
+	variable privatedb
+	variable privatedbnum
+	set parent [$db parent]
+	if {[::info exists privatedb($parent)]} {
+		if {![string equal [::info commands $privatedb($parent)] ""]} {
+			return $privatedb($parent)
+		} else {
+			unset privatedb($parent)
+		}
+	}
+	set privatedb($parent) ::dbi::odbc::priv_$privatedbnum
+	incr privatedbnum
+	$parent clone $privatedb($parent)
+	return $privatedb($parent)
+}
 

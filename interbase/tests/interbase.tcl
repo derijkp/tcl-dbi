@@ -12,16 +12,12 @@ package require dbi_interbase
 set object [dbi_interbase]
 set object2 [dbi_interbase]
 
-interface test dbi/admin-0.1 $object \
-	-testdb /home/ib/testdbi.gdb
-
-interface test dbi/blob-0.1 $object \
+interface test dbi_admin-0.1 $object \
 	-testdb /home/ib/testdbi.gdb
 
 array set opt [subst {
 	-testdb /home/ib/testdbi.gdb
 	-user2 PDR
-	-lines 0
 	-object2 $object2
 }]
 
@@ -29,6 +25,10 @@ eval interface test dbi-0.1 $object [array get opt]
 
 ::dbi::opendb
 ::dbi::initdb
+
+interface::test {interface match} {
+	$object supports
+} {columnperm blobparams roles domains}
 
 interface::test {transactions via exec} {
 	$object exec {delete from "location";}
@@ -73,38 +73,7 @@ interface::test {trigger with declare} {
 	$object exec {update "person" set "first_name" = 'test' where "id" = 3}
 } {}
 
-catch {$object exec {create role "test"}}
-catch {$object exec {create role "try"}}
-
-interface::test {info roles} {
-	$object info roles
-} {test try}
-
-catch {$object exec "grant \"test\" to [$object info user]"}
-catch {$object exec "grant \"try\" to [$object info user]"}
-
-interface::test {info roles user} {
-	$object info roles [$object info user]
-} {test try}
-
-$object exec "revoke \"try\" from [$object info user]"
-
-interface::test {info roles user: one revoked} {
-	$object info roles [$object info user]
-} {test}
-
-catch {$object exec "create domain \"tdom\" as varchar(6)"}
-catch {$object exec "create domain \"idom\" as integer"}
-
-interface::test {info domains} {
-	$object info domains
-} {idom tdom}
-
-interface::test {info domain} {
-	$object info domain tdom
-} {varchar(6) nullable}
-
 $object destroy
 $object2 destroy
 
-interface::testsummarize
+interface testsummarize

@@ -14,6 +14,9 @@ typedef struct dbi_Postgresql_Data {
 	PGconn *conn;
 	PGresult *res;
 	int respos;
+	struct dbi_Postgresql_Data *parent;
+	struct dbi_Postgresql_Data **clones;
+	int clonesnum;
 } dbi_Postgresql_Data;
 
 EXTERN int dbi_Postgresql_Init(Tcl_Interp *interp);

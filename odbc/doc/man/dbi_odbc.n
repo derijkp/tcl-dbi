@@ -1,0 +1,58 @@
+'\"
+'\" Generated from doc/xml/dbi_odbc.n.xml
+'\"
+.so man.macros
+.TH dbi_odbc n "" Tcl ""
+.BS
+.SH NAME
+dbi_odbc \- create dbi object for accessing odbc databases
+.SH SYNOPSIS
+
+
+.nf
+\&\fBdbi_interface\fP ?\fIobjectName\fR?
+.fi
+.BE
+.SH DESCRIPTION
+.PP
+The \fBdbi_odbc\fP command creates an object that can be used to connect
+to databases using ODBC. The object supports the
+dbi interface for accessing and querying databases.
+.SH "EXTRA COMMANDS"
+Besides the commands needed to support the dbi interface, dbi_odbc objects have some
+extra low level commands:
+.TP
+\&\fB\fBobjectName\fP \fBsqlcolumns\fP \fIcatalog\fB \fIschema\fB \fItable\fB \fIfield\fB
+\&\fRReturns specified SQLColumns catalog data
+.TP
+\&\fB\fBobjectName\fP \fBsqlprimarykeys\fP \fIcatalog\fB \fIschema\fB \fItable\fB
+\&\fRReturns specified SQLPrimaryKeys catalog data
+.TP
+\&\fB\fBobjectName\fP \fBsqlcolumnprivileges\fP \fIcatalog\fB \fIschema\fB \fItable\fB \fIfield\fB
+\&\fRReturns specified SQLColumnPrivileges catalog data
+.TP
+\&\fB\fBobjectName\fP \fBsqltableprivileges\fP \fIcatalog\fB \fIschema\fB \fItable\fB
+\&\fRReturns specified SQLTablePrivileges catalog data
+.TP
+\&\fB\fBobjectName\fP \fBsqlforeignkeys\fP \fIpkcatalog\fB \fIpkschema\fB \fIpktable\fB \fIfkcatalog\fB \fIfkschema\fB \fIfktable\fB
+\&\fRReturns specified SQLForeignKeys catalog data
+.TP
+\&\fB\fBobjectName\fP \fBsqlspecialcolumns\fP \fItype\fB \fIcatalog\fB \fIschema\fB \fItable\fB \fIscope\fB \fInullable\fB
+\&\fRReturns specified SQLSpecialColumns catalog data
+.TP
+\&\fB\fBobjectName\fP \fBsqlstatistics\fP \fIcatalog\fB \fIschema\fB \fItable\fB \fIunique\fB \fIquick\fB
+\&\fRReturns specified SQLStatistics catalog data
+.TP
+\&\fB\fBobjectName\fP \fBsqltables\fP \fIcatalog\fB \fIschema\fB \fItable\fB \fIunique\fB \fItabletype\fB
+\&\fRReturns specified SQLTables catalog data
+.TP
+\&\fB\fBobjectName\fP \fBsqlprocedures\fP \fIcatalog\fB \fIschema\fB \fIprocedure\fB
+\&\fRReturns specified SQLProcedures catalog data
+.TP
+\&\fB\fBobjectName\fP \fBsqlgetinfo\fP \fIinfotype\fB
+\&\fRReturns information about the backend and the driver. If the \fIinfotype\fR given is unknown,
+an error message containing a list of all possible types of info is returned.
+.SH "SEE ALSO"
+interface_dbi, interface_dbi_admin
+.SH KEYWORDS
+dbi, odbc, interface, database, sql

@@ -34,19 +34,21 @@ typedef struct ParamBuffer {
 
 typedef struct dbi_odbc_Data {
 	Tcl_Command token;
+	Tcl_Interp *interp;
 	SQLHDBC hdbc;
 	SQLHSTMT hstmt;
 	RETCODE rc;
 	int hasconn;
-	Tcl_Obj *namespace;
 	Tcl_Obj *dbms_name;
 	Tcl_Obj *dbms_ver;
-	Tcl_Obj *user_name;
 	int supportpos;
 	Tcl_Obj *defnullvalue;
 	odbc_Result result;
 	int autocommit;
 	int trans;
+	struct dbi_odbc_Data *parent;
+	Tcl_Command *clones;
+	int clonesnum;
 } dbi_odbc_Data;
 
 #define DB_OPENCONN(dbdata) (dbdata->hasconn == 1)

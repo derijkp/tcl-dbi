@@ -11,6 +11,16 @@
 #include <stdlib.h>
 #include "postgresql.h"
 
+void Tcl_GetCommandFullName(
+    Tcl_Interp *interp,
+    Tcl_Command command,
+    Tcl_Obj *objPtr);
+
+int Dbi_Postgresql_Clone(
+	Tcl_Interp *interp,
+	dbi_Postgresql_Data *dbdata,
+	Tcl_Obj *name);
+
 /******************************************************************/
 
 void dbi_Postgresql_NoticeProcessor(
@@ -112,8 +122,7 @@ int dbi_Postgresql_ToResult(
 	Tcl_Obj *nullvalue)
 {
 	Tcl_Obj *result = NULL, *line = NULL, *element = NULL;
-	char *string;
-	int t,f,error,len,type;
+	int t,f,error;
 	int ntuples = PQntuples(res);
 	int nfields = PQnfields(res);
 	if (nullvalue == NULL) {
@@ -149,7 +158,6 @@ int dbi_Postgresql_Error(
 	Tcl_Interp *interp,
 	dbi_Postgresql_Data *dbdata)
 {
-	Tcl_Obj *cmd;
 	Tcl_AppendResult(interp,"database error:\n",
 		PQerrorMessage(dbdata->conn), NULL);
 	return TCL_ERROR;
@@ -204,6 +212,7 @@ int dbi_Postgresql_ParseStatement(
 	result[pos] = -1;
 	*resultsize = pos;
 	*parsedstatement = result;
+	return TCL_OK;
 }
 
 int dbi_Postgresql_Exec(
@@ -332,7 +341,7 @@ int dbi_Postgresql_Fetch(
 	PGresult *res = dbdata->res;
 	Tcl_Obj *result = NULL, *line = NULL, *element = NULL;
 	char *string;
-	int error,stringlen;
+	int error;
 	int ntuples = PQntuples(res);
 	int nfields = PQnfields(res);
 	/*
@@ -499,7 +508,7 @@ int dbi_Postgresql_Tables(
 	dbi_Postgresql_Data *dbdata)
 {
 	int error;
-	Tcl_Obj *cmd = Tcl_NewStringObj("select relname from pg_class where relkind = 'r' and relname !~ '^pg_'",70);
+	Tcl_Obj *cmd = Tcl_NewStringObj("select relname from pg_class where (relkind = 'r' or relkind = 'v') and relname !~ '^pg_' and relname !~ '^pga_'",-1);
 	error = dbi_Postgresql_Exec(interp,dbdata,cmd,0,NULL,0,(Tcl_Obj **)NULL);
 	Tcl_DecrRefCount(cmd);
 	return error;
@@ -546,8 +555,7 @@ int dbi_Postgresql_Serial(
 	Tcl_Obj *field,
 	Tcl_Obj *current)
 {
-	Tcl_Obj *cmd,*temp;
-	char *name;
+	Tcl_Obj *cmd,*dbcmd;
 	int error,index;
     static char *subCmds[] = {
 		"add", "delete", "set", "next",
@@ -561,24 +569,24 @@ int dbi_Postgresql_Serial(
 	}
     switch (index) {
 	    case Add:
-			cmd = Tcl_NewStringObj("::dbi::postgresql_serial_add",-1);
+			cmd = Tcl_NewStringObj("::dbi::postgresql::serial_add",-1);
 			break;
 		case Delete:
-			cmd = Tcl_NewStringObj("::dbi::postgresql_serial_delete",-1);
+			cmd = Tcl_NewStringObj("::dbi::postgresql::serial_delete",-1);
 			current = NULL;
 			break;
 		case Set:
-			cmd = Tcl_NewStringObj("::dbi::postgresql_serial_set",-1);
+			cmd = Tcl_NewStringObj("::dbi::postgresql::serial_set",-1);
 			break;
 		case Next:
-			cmd = Tcl_NewStringObj("::dbi::postgresql_serial_next",-1);
+			cmd = Tcl_NewStringObj("::dbi::postgresql::serial_next",-1);
 			break;
 	}
 	Tcl_IncrRefCount(cmd);
-	name = Tcl_GetCommandName(interp,dbdata->token);
-	temp = Tcl_NewStringObj(name,-1);
-	error = Tcl_ListObjAppendElement(interp,cmd,temp);
-	if (error) {Tcl_DecrRefCount(cmd);Tcl_DecrRefCount(temp);return error;}
+	dbcmd = Tcl_NewObj();
+	Tcl_GetCommandFullName(interp, dbdata->token, dbcmd);
+	error = Tcl_ListObjAppendElement(interp,cmd,dbcmd);
+	if (error) {Tcl_DecrRefCount(cmd);Tcl_DecrRefCount(dbcmd);return error;}
 	error = Tcl_ListObjAppendElement(interp,cmd,table);
 	if (error) {Tcl_DecrRefCount(cmd);return error;}
 	error = Tcl_ListObjAppendElement(interp,cmd,field);
@@ -592,21 +600,58 @@ int dbi_Postgresql_Serial(
 	return error;
 }
 
+int dbi_Postgresql_Supports(
+	Tcl_Interp *interp,
+	dbi_Postgresql_Data *dbdata,
+	Tcl_Obj *keyword)
+{
+	static char *keywords[] = {
+		"lines","backfetch","transactions","sharedtransactions",
+		(char *) NULL};
+	enum keywordsIdx {
+		Lines, Backfetch,Transactions,Sharedtransactions
+	};
+	int error,index;
+	if (keyword == NULL) {
+		char **keyword = keywords;
+		int index = 0;
+		while (1) {
+			if (*keyword == NULL) break;
+			switch(index) {
+				default:
+					Tcl_AppendElement(interp,*keyword);
+			}
+			keyword++;
+			index++;
+		}
+	} else {
+		error = Tcl_GetIndexFromObj(interp, keyword, keywords, "", 0, (int *) &index);
+		if (error == TCL_OK) {
+			switch(index) {
+				default:
+					Tcl_SetObjResult(interp,Tcl_NewIntObj(1));
+			}
+		} else {
+			Tcl_SetObjResult(interp,Tcl_NewIntObj(0));
+		}
+	}
+	return TCL_OK;
+}
+
 int dbi_Postgresql_Info(
 	Tcl_Interp *interp,
 	dbi_Postgresql_Data *dbdata,
 	int objc,
 	Tcl_Obj **objv)
 {
-	Tcl_Obj *cmd,*temp;
-	char *name;
+	Tcl_Obj *cmd,*dbcmd;
 	int error,i;
-	name = Tcl_GetCommandName(interp,dbdata->token);
-	cmd = Tcl_NewStringObj("::dbi::postgresql_info",-1);
+	dbcmd = Tcl_NewObj();
+	Tcl_GetCommandFullName(interp, dbdata->token, dbcmd);
+	cmd = Tcl_NewStringObj("::dbi::postgresql::info",-1);
 	Tcl_IncrRefCount(cmd);
-	temp = Tcl_NewStringObj(name,-1);
-	error = Tcl_ListObjAppendElement(interp,cmd,temp);
-	if (error) {Tcl_DecrRefCount(cmd);Tcl_DecrRefCount(temp);return error;}
+	error = Tcl_ListObjAppendElement(interp,cmd,dbcmd);
+	if (error) {Tcl_DecrRefCount(cmd);Tcl_DecrRefCount(dbcmd);return error;}
 	for (i = 0 ; i < objc ; i++) {
 		error = Tcl_ListObjAppendElement(interp,cmd,objv[i]);
 		if (error) {Tcl_DecrRefCount(cmd);return error;}
@@ -616,22 +661,21 @@ int dbi_Postgresql_Info(
 	return error;
 }
 
-int dbi_Postgresql_Tableinfo(
+int dbi_Postgresql_Cmd(
 	Tcl_Interp *interp,
 	dbi_Postgresql_Data *dbdata,
 	Tcl_Obj *table,
 	Tcl_Obj *varName,
 	char *cmdstring)
 {
-	Tcl_Obj *cmd,*temp;
-	char *name;
+	Tcl_Obj *cmd,*dbcmd;
 	int error;
-	name = Tcl_GetCommandName(interp,dbdata->token);
+	dbcmd = Tcl_NewObj();
+	Tcl_GetCommandFullName(interp, dbdata->token, dbcmd);
 	cmd = Tcl_NewStringObj(cmdstring,-1);
 	Tcl_IncrRefCount(cmd);
-	temp = Tcl_NewStringObj(name,-1);
-	error = Tcl_ListObjAppendElement(interp,cmd,temp);
-	if (error) {Tcl_DecrRefCount(cmd);Tcl_DecrRefCount(temp);return error;}
+	error = Tcl_ListObjAppendElement(interp,cmd,dbcmd);
+	if (error) {Tcl_DecrRefCount(cmd);Tcl_DecrRefCount(dbcmd);return error;}
 	error = Tcl_ListObjAppendElement(interp,cmd,table);
 	if (error) {Tcl_DecrRefCount(cmd);return error;}
 	if (varName != NULL) {
@@ -683,11 +727,30 @@ int dbi_Postgresql_Interface(
 }
 
 int dbi_Postgresql_Close(
-	Tcl_Interp *interp,
 	dbi_Postgresql_Data *dbdata)
 {
-	if (dbdata->conn != NULL) PQfinish(dbdata->conn);
-	dbdata->conn = NULL;
+	while (dbdata->clonesnum) {
+		Tcl_DeleteCommandFromToken(dbdata->interp,dbdata->clones[0]->token);
+	}
+	if (dbdata->clones != NULL) {
+		Tcl_Free((char *)dbdata->clones);
+		dbdata->clones = NULL;
+	}
+	if (dbdata->parent == NULL) {
+		if (dbdata->conn != NULL) PQfinish(dbdata->conn);
+		dbdata->conn = NULL;
+	} else {
+		dbi_Postgresql_Data *parent = dbdata->parent;
+		int i;
+		for (i = 0 ; i < parent->clonesnum; i++) {
+			if (parent->clones[i] == dbdata) break;
+		}
+		i++;
+		for (; i < parent->clonesnum; i++) {
+			parent->clones[i-1] = parent->clones[i];
+		}
+		parent->clonesnum--;
+	}
 	return TCL_OK;
 }
 
@@ -695,11 +758,13 @@ int dbi_Postgresql_Destroy(
 	ClientData clientdata)
 {
 	dbi_Postgresql_Data *dbdata = (dbi_Postgresql_Data *)clientdata;
-	if (dbdata->conn != NULL) PQfinish(dbdata->conn);
+	dbi_Postgresql_Close(dbdata);
 	Tcl_Free((char *)dbdata);
+	Tcl_DeleteExitHandler((Tcl_ExitProc *)dbi_Postgresql_Destroy, clientdata);
 	return TCL_OK;
 }
 
+static int dbi_num = 0;
 int Dbi_Postgresql_DbObjCmd(
 	ClientData clientdata,
 	Tcl_Interp *interp,
@@ -710,17 +775,17 @@ int Dbi_Postgresql_DbObjCmd(
 	int error=TCL_OK,i,index;
     static char *subCmds[] = {
 		"interface","open", "exec", "fetch", "close",
-		"info", "tables","fields", "tableinfo",
+		"info", "tables","fields",
 		"begin", "commit", "rollback",
-		"destroy", "serial",
-		"create", "drop",
+		"destroy", "serial","supports",
+		"create", "drop","clone","clones","parent",
 		(char *) NULL};
     enum ISubCmdIdx {
 		Interface, Open, Exec, Fetch, Close,
-		Info, Tables, Fields, Tableinfo,
+		Info, Tables, Fields, 
 		Begin, Commit, Rollback,
-		Destroy, Serial,
-		Create, Drop
+		Destroy, Serial, Supports,
+		Create, Drop, Clone, Clones, Parent
     };
 	if (objc < 2) {
 		Tcl_WrongNumArgs(interp, 1, objv, "option ?...?");
@@ -734,7 +799,18 @@ int Dbi_Postgresql_DbObjCmd(
     case Interface:
 		return dbi_Postgresql_Interface(interp,objc,objv);
     case Open:
+		if (dbdata->parent != NULL) {
+			Tcl_AppendResult(interp,"clone may not use open",NULL);
+			return TCL_ERROR;
+		}
 		return dbi_Postgresql_Open(interp,dbdata,objc,objv);
+	case Destroy:
+		if (objc != 2) {
+			Tcl_WrongNumArgs(interp, 2, objv, "");
+			return TCL_ERROR;
+		}
+		Tcl_DeleteCommandFromToken(interp,dbdata->token);
+		return TCL_OK;
 	case Create:
 		Tcl_AppendResult(interp,"dbi_postgresql does not support createdb\n", NULL);
 		return TCL_ERROR;
@@ -747,7 +823,53 @@ int Dbi_Postgresql_DbObjCmd(
 			return TCL_ERROR;
 		}
 		return dbi_Postgresql_Dropdb(interp,dbdata);
-*/	case Exec:
+*/
+	case Clones:
+		if (objc != 2) {
+			Tcl_WrongNumArgs(interp, 2, objv, "");
+			return TCL_ERROR;
+		}
+		if (dbdata->parent != NULL) {
+			Tcl_AppendResult(interp,"error: object \"",Tcl_GetStringFromObj(objv[0],NULL),"\" is a clone", NULL);
+			return TCL_ERROR;
+		}
+		if (dbdata->clonesnum) {
+			Tcl_Obj *dbcmd,*result;
+			int i;
+			result = Tcl_NewObj();
+			for (i = 0 ; i < dbdata->clonesnum; i++) {
+				dbcmd = Tcl_NewObj();
+				Tcl_GetCommandFullName(interp, dbdata->clones[i]->token, dbcmd);
+				if (strncmp(Tcl_GetStringFromObj(dbcmd,NULL),"::dbi::postgresql::priv_",23) == 0) continue;
+				error = Tcl_ListObjAppendElement(interp,result,dbcmd);
+				if (error) {Tcl_DecrRefCount(result);Tcl_DecrRefCount(dbcmd);return error;}
+			}
+			Tcl_SetObjResult(interp,result);
+		}
+		return TCL_OK;
+	case Parent:
+		if (objc != 2) {
+			Tcl_WrongNumArgs(interp, 2, objv, "");
+			return TCL_ERROR;
+		}
+		if (dbdata->parent != NULL) {
+			dbdata = dbdata->parent;
+		}
+		{
+		Tcl_Obj *result;
+		result = Tcl_NewObj();
+		Tcl_GetCommandFullName(interp, dbdata->token, result);
+		Tcl_SetObjResult(interp,result);
+		return TCL_OK;
+		}
+	}
+	/* commands only allowable with open database */
+	if (dbdata->conn == NULL) {
+		Tcl_AppendResult(interp,"dbi object has no open database, open a connection first", NULL);
+		return TCL_ERROR;
+	}
+    switch (index) {
+	case Exec:
 		{
 		Tcl_Obj *nullvalue = NULL, *command = NULL;
 		char *string;
@@ -800,24 +922,24 @@ int Dbi_Postgresql_DbObjCmd(
 			return TCL_ERROR;
 		}
 		return dbi_Postgresql_Tables(interp,dbdata);
-	case Tableinfo:
-		if (objc != 4) {
-			Tcl_WrongNumArgs(interp, 2, objv, "tablename varName");
-			return TCL_ERROR;
-		}
-		return dbi_Postgresql_Tableinfo(interp,dbdata,objv[2],objv[3],"::dbi::postgresql_tableinfo");
 	case Fields:
 		if (objc != 3) {
 			Tcl_WrongNumArgs(interp, 2, objv, "fields tablename");
 			return TCL_ERROR;
 		}
-		return dbi_Postgresql_Tableinfo(interp,dbdata,objv[2],NULL,"::dbi::postgresql_fieldsinfo");
+		return dbi_Postgresql_Cmd(interp,dbdata,objv[2],NULL,"::dbi::postgresql::fieldsinfo");
 	case Close:
 		if (objc != 2) {
 			Tcl_WrongNumArgs(interp, 2, objv, "");
 			return TCL_ERROR;
 		}
-		return dbi_Postgresql_Close(interp,dbdata);
+		if (dbdata->parent == NULL) {
+			return dbi_Postgresql_Close(dbdata);
+		} else {
+			/* closing a clone also destroys it */
+			Tcl_DeleteCommandFromToken(interp,dbdata->token);
+			return TCL_OK;
+		}
 	case Begin:
 		if (objc != 2) {
 			Tcl_WrongNumArgs(interp, 2, objv, "");
@@ -854,13 +976,6 @@ int Dbi_Postgresql_DbObjCmd(
 		error = dbi_Postgresql_Transaction_Rollback(interp,dbdata);
 		if (error) {return dbi_Postgresql_Error(interp,dbdata);}
 		return TCL_OK;
-	case Destroy:
-		if (objc != 2) {
-			Tcl_WrongNumArgs(interp, 2, objv, "");
-			return TCL_ERROR;
-		}
-		Tcl_DeleteCommandFromToken(interp,dbdata->token);
-		return TCL_OK;
 	case Serial:
 		if (objc < 5) {
 			Tcl_WrongNumArgs(interp, 1, objv, "serial option table field ?value?");
@@ -871,39 +986,46 @@ int Dbi_Postgresql_DbObjCmd(
 		} else {
 			return dbi_Postgresql_Serial(interp,dbdata,objv[2],objv[3],objv[4],NULL);
 		}
+	case Clone:
+		if ((objc != 2) && (objc != 3)) {
+			Tcl_WrongNumArgs(interp, 2, objv, "?name?");
+			return TCL_ERROR;
+		}
+		if (objc == 3) {
+			return Dbi_Postgresql_Clone(interp,dbdata,objv[2]);
+		} else {
+			return Dbi_Postgresql_Clone(interp,dbdata,NULL);
+		}
+	case Supports:
+		if (objc == 2) {
+			return dbi_Postgresql_Supports(interp,dbdata,NULL);
+		} if (objc == 3) {
+			return dbi_Postgresql_Supports(interp,dbdata,objv[2]);
+		} else {
+			Tcl_WrongNumArgs(interp, 2, objv, "?keyword?");
+			return TCL_ERROR;
+		}
 	}
 	return error;
 }
 
-
-static int dbi_num = 0;
-int Dbi_Postgresql_NewDbObjCmd(
-	ClientData clientdata,
+int Dbi_Postgresql_DoNewDbObjCmd(
+	dbi_Postgresql_Data *dbdata,
 	Tcl_Interp *interp,
-	int objc,
-	Tcl_Obj *objv[])
+	Tcl_Obj *dbi_nameObj)
 {
-	dbi_Postgresql_Data *dbdata;
-	Tcl_Obj *dbi_nameObj = NULL;
 	char buffer[40];
 	char *dbi_name;
-	int start;
-	if ((objc < 1)||(objc > 2)) {
-		Tcl_WrongNumArgs(interp,2,objv,"?dbName?");
-		return TCL_ERROR;
-	}
-	dbdata = (dbi_Postgresql_Data *)Tcl_Alloc(sizeof(dbi_Postgresql_Data));
 	dbdata->conn = NULL;
 	dbdata->respos = -1;
 	dbdata->res = NULL;
-	if (objc == 2) {
-		dbi_nameObj = objv[1];
-		start = 2;
-	} else {
+	dbdata->clones = NULL;
+	dbdata->clonesnum = 0;
+	dbdata->parent = NULL;
+	if (dbi_nameObj == NULL) {
 		dbi_num++;
-		sprintf(buffer,"::dbi::dbi_postgresql%d",dbi_num);
+		sprintf(buffer,"::dbi::postgresql::dbi%d",dbi_num);
 		dbi_nameObj = Tcl_NewStringObj(buffer,strlen(buffer));
-		start = 2;
 	}
 	dbi_name = Tcl_GetStringFromObj(dbi_nameObj,NULL);
 	dbdata->interp = interp;
@@ -911,6 +1033,52 @@ int Dbi_Postgresql_NewDbObjCmd(
 		(ClientData)dbdata,(Tcl_CmdDeleteProc *)dbi_Postgresql_Destroy);
 	Tcl_CreateExitHandler((Tcl_ExitProc *)dbi_Postgresql_Destroy, (ClientData)dbdata);
 	Tcl_SetObjResult(interp,dbi_nameObj);
+	return TCL_OK;
+}
+
+int Dbi_Postgresql_NewDbObjCmd(
+	ClientData clientdata,
+	Tcl_Interp *interp,
+	int objc,
+	Tcl_Obj *objv[])
+{
+	dbi_Postgresql_Data *dbdata;
+	int error;
+	if ((objc < 1)||(objc > 2)) {
+		Tcl_WrongNumArgs(interp,2,objv,"?dbName?");
+		return TCL_ERROR;
+	}
+	dbdata = (dbi_Postgresql_Data *)Tcl_Alloc(sizeof(dbi_Postgresql_Data));
+	if (objc == 2) {
+		error = Dbi_Postgresql_DoNewDbObjCmd(dbdata,interp,objv[1]);
+	} else {
+		error = Dbi_Postgresql_DoNewDbObjCmd(dbdata,interp,NULL);
+	}
+	if (error) {
+		Tcl_Free((char *)dbdata);
+	}
+	return error;
+}
+
+int Dbi_Postgresql_Clone(
+	Tcl_Interp *interp,
+	dbi_Postgresql_Data *dbdata,
+	Tcl_Obj *name)
+{
+	dbi_Postgresql_Data *parent = NULL;
+	dbi_Postgresql_Data *clone_dbdata = NULL;
+	int error;
+	parent = dbdata;
+	while (parent->parent != NULL) {parent = parent->parent;}
+	clone_dbdata = (dbi_Postgresql_Data *)Tcl_Alloc(sizeof(dbi_Postgresql_Data));
+	error = Dbi_Postgresql_DoNewDbObjCmd(clone_dbdata,interp,name);
+	if (error) {Tcl_Free((char *)clone_dbdata);return TCL_ERROR;}
+	name = Tcl_GetObjResult(interp);
+	parent->clonesnum++;
+	parent->clones = (dbi_Postgresql_Data **)Tcl_Realloc((char *)parent->clones,parent->clonesnum*sizeof(dbi_Postgresql_Data **));
+	parent->clones[parent->clonesnum-1] = clone_dbdata;
+	clone_dbdata->parent = parent;
+	clone_dbdata->conn = parent->conn;
 	return TCL_OK;
 }
 

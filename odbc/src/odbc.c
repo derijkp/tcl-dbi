@@ -23,7 +23,59 @@
 
 static SQLHENV dbi_odbc_env;
 
+void Tcl_GetCommandFullName(
+    Tcl_Interp *interp,
+    Tcl_Command command,
+    Tcl_Obj *objPtr);
+
+int Dbi_odbc_Clone(
+	Tcl_Interp *interp,
+	dbi_odbc_Data *dbdata,
+	Tcl_Obj *name);
+
 /******************************************************************/
+
+int dbi_odbc_autocommit_state(
+	dbi_odbc_Data *dbdata)
+{
+	if (dbdata->parent != NULL) {
+		return dbdata->parent->autocommit;
+	} else {
+		return dbdata->autocommit;
+	}
+}
+
+int dbi_odbc_autocommit(
+	dbi_odbc_Data *dbdata,
+	int state)
+{
+	if (dbdata->parent != NULL) {
+		dbdata->parent->autocommit = state;
+	} else {
+		dbdata->autocommit = state;
+	}
+}
+
+int dbi_odbc_trans_state(
+	dbi_odbc_Data *dbdata)
+{
+	if (dbdata->parent != NULL) {
+		return dbdata->parent->trans;
+	} else {
+		return dbdata->trans;
+	}
+}
+
+int dbi_odbc_trans(
+	dbi_odbc_Data *dbdata,
+	int state)
+{
+	if (dbdata->parent != NULL) {
+		dbdata->parent->trans = state;
+	} else {
+		dbdata->trans = state;
+	}
+}
 
 void dbi_odbc_error(
 	Tcl_Interp *interp,
@@ -88,9 +140,9 @@ int dbi_odbc_Transaction_Rollback(
 	dbi_odbc_Data *dbdata)
 {
 	RETCODE rc;
-	if ((dbdata->autocommit)&&(dbdata->trans)) {
+	if ((dbi_odbc_autocommit_state(dbdata))&&(dbi_odbc_trans_state(dbdata))) {
 		rc = SQLEndTran(SQL_HANDLE_DBC,dbdata->hdbc,SQL_ROLLBACK);
-		dbdata->trans = 0;
+		dbi_odbc_trans(dbdata,0);
 		if (rc) {
 			Tcl_AppendResult(interp,"error rolling back transaction:\n", NULL);
 			dbi_odbc_error(interp,rc,dbdata->hdbc,SQL_NULL_HSTMT);
@@ -106,7 +158,7 @@ int dbi_odbc_Transaction_Start(
 	dbi_odbc_Data *dbdata)
 {
 	RETCODE rc;
-	if ((dbdata->autocommit)&&(dbdata->trans)) {
+	if ((dbi_odbc_autocommit_state(dbdata))&&(dbi_odbc_trans_state(dbdata))) {
 		rc = SQLEndTran(SQL_HANDLE_DBC,dbdata->hdbc,SQL_COMMIT);
 		if (rc) {
 			Tcl_AppendResult(interp,"error starting transaction:\n", NULL);
@@ -115,7 +167,7 @@ int dbi_odbc_Transaction_Start(
 			return TCL_ERROR;
 		}
 	}
-	dbdata->trans = 1;
+	dbi_odbc_trans(dbdata,1);
 	return TCL_OK;
 }
 
@@ -124,7 +176,7 @@ int dbi_odbc_Transaction_Commit(
 	dbi_odbc_Data *dbdata)
 {
 	RETCODE rc;
-	if ((dbdata->autocommit)&&(dbdata->trans)) {
+	if ((dbi_odbc_autocommit_state(dbdata))&&(dbi_odbc_trans_state(dbdata))) {
 		rc = SQLEndTran(SQL_HANDLE_DBC,dbdata->hdbc,SQL_COMMIT);
 		if (rc) {
 			Tcl_AppendResult(interp,"error committing transaction:\n", NULL);
@@ -133,7 +185,7 @@ int dbi_odbc_Transaction_Commit(
 			return TCL_ERROR;
 		}
 /* fprintf(stdout," ---- committed ---- \n");fflush(stdout); */
-		dbdata->trans = 0;
+		dbi_odbc_trans(dbdata,0);
 	}
 	return TCL_OK;
 }
@@ -217,9 +269,6 @@ int dbi_odbc_Open(
 	if (len > 5) {len = 5;}
 	dbdata->dbms_ver = Tcl_NewStringObj(buffer,(int)len);
 	Tcl_IncrRefCount(dbdata->dbms_ver);
-	SQLGetInfo(dbdata->hdbc,SQL_USER_NAME,(SQLPOINTER)buffer,(SQLSMALLINT)99,&len);
-	dbdata->user_name = Tcl_NewStringObj(buffer,(int)len);
-	Tcl_IncrRefCount(dbdata->user_name);
 	SQLGetInfo(dbdata->hdbc,SQL_DYNAMIC_CURSOR_ATTRIBUTES1,&uint,0,NULL);
 	if (uint && SQL_CA1_ABSOLUTE) {
 		dbdata->supportpos = 1;
@@ -467,7 +516,6 @@ int dbi_odbc_Exec(
 {
 	SQLHSTMT hstmt = dbdata->hstmt;
 	char *command;
-	long erg;
 	int *lens = NULL;
 	int error, commandlen,number,i,showcmd = 0;
 	if (!DB_OPENCONN(dbdata)) {
@@ -480,7 +528,7 @@ int dbi_odbc_Exec(
 /*
 fprintf(stdout,"************************************\n");fflush(stdout);
 fprintf(stdout,"%s\n",command);fflush(stdout);
-fprintf(stdout," ---- trans: %d autocommit: %d\n",dbdata->trans,dbdata->autocommit);fflush(stdout);
+fprintf(stdout," ---- trans: %d autocommit: %d\n",dbi_odbc_trans_state(dbdata),dbi_odbc_autocommit_state(dbdata));fflush(stdout);
 */
 	error = dbi_odbc_clearresult(hstmt,&(dbdata->result));
 	if (error) {return error;}
@@ -489,7 +537,7 @@ fprintf(stdout," ---- trans: %d autocommit: %d\n",dbdata->trans,dbdata->autocomm
 	if (error) {goto error;}
 	if (number == 1) {
 		error = dbi_odbc_Process_statement(interp,dbdata,commandlen,command,nullvalue,objc,objv);
-		if (error) {dbdata->autocommit = 1;goto error;}
+		if (error) {dbi_odbc_autocommit(dbdata,1);goto error;}
 	} else {
 		if (objc != 0) {
 			Tcl_AppendResult(interp,"multiple commands cannot take arguments\n", NULL);
@@ -498,7 +546,7 @@ fprintf(stdout," ---- trans: %d autocommit: %d\n",dbdata->trans,dbdata->autocomm
 		for(i = 0 ; i < number ; i++) {
 			/* fprintf(stdout,"%d: %*.*s\n",lens[i],lens[i],lens[i],command);fflush(stdout); */
 			error = dbi_odbc_Process_statement(interp,dbdata,lens[i],command,nullvalue,0,NULL);
-			if (error) {dbdata->autocommit = 1;goto error;}
+			if (error) {dbi_odbc_autocommit(dbdata,1);goto error;}
 			command += lens[i]+1;
 		}
 		Tcl_Free((char *)lens); lens = NULL;
@@ -528,7 +576,7 @@ fprintf(stdout," ---- trans: %d autocommit: %d\n",dbdata->trans,dbdata->autocomm
 			}
 			break;
 		default:
-			dbi_odbc_error(interp,erg,SQL_NULL_HDBC,hstmt);
+			dbi_odbc_error(interp,dbdata->rc,SQL_NULL_HDBC,hstmt);
 			dbi_odbc_Transaction_Rollback(interp,dbdata);
 			showcmd = 1;
 			goto error;
@@ -789,31 +837,46 @@ int dbi_odbc_Fetch(
 }
 
 int dbi_odbc_Close(
-	Tcl_Interp *interp,
 	dbi_odbc_Data *dbdata)
 {
 	if (!DB_OPENCONN(dbdata)) return TCL_OK;
 	dbi_odbc_clearresult(dbdata->hstmt,&(dbdata->result));
-	if (dbdata->trans) {
-		SQLEndTran(SQL_HANDLE_DBC,dbdata->hdbc,SQL_ROLLBACK);
-		dbdata->trans = 0;
-	}
-	SQLDisconnect(dbdata->hdbc);
 	SQLFreeHandle(SQL_HANDLE_STMT,dbdata->hstmt);
-	SQLFreeHandle(SQL_HANDLE_DBC,dbdata->hdbc);
-	if (dbdata->dbms_name != NULL) {
-		Tcl_DecrRefCount(dbdata->dbms_name);
-		dbdata->dbms_name = NULL;
+	if (dbi_odbc_trans_state(dbdata)) {
+		SQLEndTran(SQL_HANDLE_DBC,dbdata->hdbc,SQL_ROLLBACK);
+		dbi_odbc_trans(dbdata,0);
 	}
-	if (dbdata->dbms_ver != NULL) {
-		Tcl_DecrRefCount(dbdata->dbms_ver);
-		dbdata->dbms_ver = NULL;
+	while (dbdata->clonesnum) {
+		Tcl_DeleteCommandFromToken(dbdata->interp,dbdata->clones[0]);
 	}
-	if (dbdata->user_name != NULL) {
-		Tcl_DecrRefCount(dbdata->user_name);
-		dbdata->user_name = NULL;
+	if (dbdata->clones != NULL) {
+		Tcl_Free((char *)dbdata->clones);
+		dbdata->clones = NULL;
 	}
-	dbdata->hasconn = 0;
+	if (dbdata->parent == NULL) {
+		SQLDisconnect(dbdata->hdbc);
+		SQLFreeHandle(SQL_HANDLE_DBC,dbdata->hdbc);
+		if (dbdata->dbms_name != NULL) {
+			Tcl_DecrRefCount(dbdata->dbms_name);
+			dbdata->dbms_name = NULL;
+		}
+		if (dbdata->dbms_ver != NULL) {
+			Tcl_DecrRefCount(dbdata->dbms_ver);
+			dbdata->dbms_ver = NULL;
+		}
+		dbdata->hasconn = 0;
+	} else {
+		dbi_odbc_Data *parent = dbdata->parent;
+		int i;
+		for (i = 0 ; i < parent->clonesnum; i++) {
+			if (parent->clones[i] == dbdata->token) break;
+		}
+		i++;
+		for (; i < parent->clonesnum; i++) {
+			parent->clones[i-1] = parent->clones[i];
+		}
+		parent->clonesnum--;
+	}
 	return TCL_OK;
 }
 
@@ -928,8 +991,6 @@ int dbi_odbc_Catalog(
 {
 	SQLHSTMT hstmt;
 	RETCODE rc;
-	SQLCHAR buffer[STR_LEN];
-	SQLINTEGER size;
 	odbc_Result dbresult;
 	char *strbuffer[8];
 	int lenbuffer[8];
@@ -1008,7 +1069,6 @@ int dbi_odbc_Catalog(
 			break;
 		case CATALOG_SQLStatistics:
 			{
-			char *string;
 			int unique,quick;
 			error = Tcl_GetBooleanFromObj(interp,objv[3],&unique);
 			if (error) {return error;}
@@ -1056,7 +1116,7 @@ int dbi_odbc_SQLGetInfo_options(
 	dbi_odbc_Data *dbdata)
 {
 	Getinfo_cor *infocor;
-	int corsize,j,i;
+	int j;
 	for (j = 0 ; j < getinfo_size ; j++) {
 		if (getinfo_cor[j] == NULL) continue;
 		infocor = getinfo_cor[j];
@@ -1081,7 +1141,7 @@ int dbi_odbc_SQLGetInfo(
 	Getinfo_cor *infocor;
 	Getinfo_values *value;
 	char *string;
-	int stringlen,corsize,i,error;
+	int stringlen;
 	string = Tcl_GetStringFromObj(infotypeObj,&stringlen);
 	if ((stringlen == 7) && (strncmp(string,"options",stringlen) == 0)) {
 		dbi_odbc_SQLGetInfo_options(interp,dbdata);
@@ -1093,12 +1153,11 @@ int dbi_odbc_SQLGetInfo(
 		return TCL_ERROR;
 	}
 	infocor = getinfo_cor[stringlen];
-	while (infocor->name != NULL) {
+	while (infocor != NULL) {
 		if (strncmp(string,infocor->name,stringlen) == 0) break;
 		infocor++;
 	}
-	if (infocor->name == NULL) {
-		int size,j;
+	if (infocor == NULL) {
 		Tcl_AppendResult(interp,"Option \"",string,"\" not supported by sqlgetinfo, must be one of: ",NULL);
 		dbi_odbc_SQLGetInfo_options(interp,dbdata);
 		return TCL_ERROR;
@@ -1184,7 +1243,7 @@ int dbi_odbc_SQLGetInfo(
 	return TCL_OK;
 	error:
 		{
-		SQLCHAR SqlState[6], SQLStmt[100], Msg[SQL_MAX_MESSAGE_LENGTH];
+		SQLCHAR SqlState[6], Msg[SQL_MAX_MESSAGE_LENGTH];
 		SQLINTEGER NativeError;
 		SQLSMALLINT   i, MsgLen;
 		SQLRETURN     rc;
@@ -1198,13 +1257,49 @@ int dbi_odbc_SQLGetInfo(
 		return TCL_ERROR;
 }
 
-int dbi_odbc_getcmdname(
+int dbi_odbc_Supports(
 	Tcl_Interp *interp,
 	dbi_odbc_Data *dbdata,
-	Tcl_Obj **result)
+	Tcl_Obj *keyword)
 {
-	*result = Tcl_DuplicateObj(dbdata->namespace);
-	Tcl_AppendStringsToObj(*result,"::",Tcl_GetCommandName(interp,dbdata->token),NULL);
+	static char *keywords[] = {
+		"backfetch","transactions","sharedtransactions",
+		(char *) NULL};
+	enum keywordsIdx {
+		Backfetch,Transactions,Sharedtransactions
+	};
+	int error,index;
+	if (keyword == NULL) {
+		char **keyword = keywords;
+		index = 0;
+		while (1) {
+			if (*keyword == NULL) break;
+			switch(index) {
+				case Backfetch:
+					if (dbdata->supportpos) {
+						Tcl_AppendElement(interp,*keyword);
+					}
+					break;
+				default:
+					Tcl_AppendElement(interp,*keyword);
+			}
+			keyword++;
+			index++;
+		}
+	} else {
+		error = Tcl_GetIndexFromObj(interp, keyword, keywords, "", 0, (int *) &index);
+		if (error == TCL_OK) {
+			switch(index) {
+				case Backfetch:
+					Tcl_SetObjResult(interp,Tcl_NewIntObj(dbdata->supportpos));
+					break;
+				default:
+					Tcl_SetObjResult(interp,Tcl_NewIntObj(1));
+			}
+		} else {
+			Tcl_SetObjResult(interp,Tcl_NewIntObj(0));
+		}
+	}
 	return TCL_OK;
 }
 
@@ -1214,14 +1309,11 @@ int dbi_odbc_Info(
 	int objc,
 	Tcl_Obj **objv)
 {
-	Tcl_Obj *cmd, *dbcmd;
+	Tcl_Obj *cmd;
 	int error,i;
-	cmd = Tcl_NewStringObj("::dbi::odbc_info",-1);
+	cmd = Tcl_NewStringObj("::dbi::odbc::info ",-1);
 	Tcl_IncrRefCount(cmd);
-	error = dbi_odbc_getcmdname(interp,dbdata,&dbcmd);
-	if (error) {Tcl_DecrRefCount(cmd);return error;}
-	error = Tcl_ListObjAppendElement(interp,cmd,dbcmd);
-	if (error) {Tcl_DecrRefCount(cmd);Tcl_DecrRefCount(dbcmd);return error;}
+	Tcl_GetCommandFullName(interp, dbdata->token, cmd);
 	for (i = 0 ; i < objc ; i++) {
 		error = Tcl_ListObjAppendElement(interp,cmd,objv[i]);
 		if (error) {Tcl_DecrRefCount(cmd);return error;}
@@ -1239,7 +1331,7 @@ int dbi_odbc_Interface(
 {
 	int i;
 	static char *interfaces[] = {
-		"dbi", "0.1", "dbi/blob", "0.1",
+		"dbi", "0.1",
 		(char *) NULL};
 	if ((objc < 2)||(objc > 3)) {
 		Tcl_WrongNumArgs(interp,2,objv,"?pattern?");
@@ -1279,7 +1371,7 @@ int dbi_odbc_Serial(
 	Tcl_Obj *field,
 	Tcl_Obj *current)
 {
-	Tcl_Obj *cmd,*dbcmd = NULL;
+	Tcl_Obj *cmd,*dbcmd;
 	int error,index;
     static char *subCmds[] = {
 		"add", "delete", "set", "next",
@@ -1300,21 +1392,21 @@ int dbi_odbc_Serial(
 	Tcl_AppendObjToObj(cmd,dbdata->dbms_name);
     switch (index) {
 	    case Add:
-			Tcl_AppendStringsToObj(cmd,"_add ",NULL);
+			Tcl_AppendStringsToObj(cmd,"_add",NULL);
 			break;
 		case Delete:
-			Tcl_AppendStringsToObj(cmd,"_delete ",NULL);
+			Tcl_AppendStringsToObj(cmd,"_delete",NULL);
 			current = NULL;
 			break;
 		case Set:
-			Tcl_AppendStringsToObj(cmd,"_set ",NULL);
+			Tcl_AppendStringsToObj(cmd,"_set",NULL);
 			break;
 		case Next:
-			Tcl_AppendStringsToObj(cmd,"_next ",NULL);
+			Tcl_AppendStringsToObj(cmd,"_next",NULL);
 			break;
 	}
-	error = dbi_odbc_getcmdname(interp,dbdata,&dbcmd);
-	if (error) {Tcl_DecrRefCount(cmd);return error;}
+	dbcmd = Tcl_NewObj();
+	Tcl_GetCommandFullName(interp, dbdata->token, dbcmd);
 	error = Tcl_ListObjAppendElement(interp,cmd,dbcmd);
 	if (error) {Tcl_DecrRefCount(cmd);Tcl_DecrRefCount(dbcmd);return error;}
 	error = Tcl_ListObjAppendElement(interp,cmd,dbdata->dbms_ver);
@@ -1344,7 +1436,8 @@ int Dbi_odbc_DbObjCmd(
 		"interface","open", "exec", "fetch", "close",
 		"info", "tables","fields", "tableinfo",
 		"begin", "commit", "rollback",
-		"destroy", "serial",
+		"destroy", "serial","supports",
+		"clone","clones","parent",
 		"sqlcolumns","sqlcolumnprivileges","sqltables","sqltableprivileges",
 		"sqlprimarykeys","sqlforeignkeys",	"sqlspecialcolumns","sqlstatistics",
 		"sqlprocedures","sqlprocedurecolumns","sqlgetinfo",
@@ -1353,7 +1446,8 @@ int Dbi_odbc_DbObjCmd(
 		Interface, Open, Exec, Fetch, Close,
 		Info, Tables, Fields, Tableinfo,
 		Begin, Commit, Rollback,
-		Destroy, Serial,
+		Destroy, Serial, Supports,
+		Clone, Clones, Parent,
 		SQLColumns, SQLColumnPrivileges, SQLTables, SQLTablePrivileges,
 		SQLPrimaryKeys, SQLForeignKeys,	SQLSpecialColumns, SQLStatistics,
 		SQLProcedures,SQLProcedureColumns,SQLGetinfo
@@ -1370,7 +1464,63 @@ int Dbi_odbc_DbObjCmd(
 	case Interface:
 		return dbi_odbc_Interface(interp,objc,objv);
 	case Open:
+		if (dbdata->parent != NULL) {
+			Tcl_AppendResult(interp,"clone may not use open",NULL);
+			return TCL_ERROR;
+		}
 		return dbi_odbc_Open(interp,dbdata,objc,objv);
+	case Destroy:
+		if (objc != 2) {
+			Tcl_WrongNumArgs(interp, 2, objv, "");
+			return TCL_ERROR;
+		}
+		Tcl_DeleteCommandFromToken(interp,dbdata->token);
+		return TCL_OK;
+	case Clones:
+		if (objc != 2) {
+			Tcl_WrongNumArgs(interp, 2, objv, "");
+			return TCL_ERROR;
+		}
+		if (dbdata->parent != NULL) {
+			Tcl_AppendResult(interp,"error: object \"",Tcl_GetStringFromObj(objv[0],NULL),"\" is a clone", NULL);
+			return TCL_ERROR;
+		}
+		if (dbdata->clonesnum) {
+			Tcl_Obj *dbcmd,*result;
+			int i;
+			result = Tcl_NewObj();
+			for (i = 0 ; i < dbdata->clonesnum; i++) {
+				dbcmd = Tcl_NewObj();
+				Tcl_GetCommandFullName(interp, dbdata->clones[i], dbcmd);
+				if (strncmp(Tcl_GetStringFromObj(dbcmd,NULL),"::dbi::odbc::priv_",23) == 0) continue;
+				error = Tcl_ListObjAppendElement(interp,result,dbcmd);
+				if (error) {Tcl_DecrRefCount(result);Tcl_DecrRefCount(dbcmd);return error;}
+			}
+			Tcl_SetObjResult(interp,result);
+		}
+		return TCL_OK;
+	case Parent:
+		if (objc != 2) {
+			Tcl_WrongNumArgs(interp, 2, objv, "");
+			return TCL_ERROR;
+		}
+		if (dbdata->parent != NULL) {
+			dbdata = dbdata->parent;
+		}
+		{
+		Tcl_Obj *result;
+		result = Tcl_NewObj();
+		Tcl_GetCommandFullName(interp, dbdata->token, result);
+		Tcl_SetObjResult(interp,result);
+		return TCL_OK;
+		}
+	}
+	/* commands only allowable with open database */
+	if (!DB_OPENCONN(dbdata)) {
+		Tcl_AppendResult(interp,"dbi object has no open database, open a connection first", NULL);
+		return TCL_ERROR;
+	}
+	switch (index) {
 	case Exec:
 		{
 		Tcl_Obj *nullvalue = NULL, *command = NULL;
@@ -1435,30 +1585,28 @@ int Dbi_odbc_DbObjCmd(
 			Tcl_WrongNumArgs(interp, 2, objv, "");
 			return TCL_ERROR;
 		}
-		return dbi_odbc_Close(interp,dbdata);
+		if (dbdata->parent == NULL) {
+			return dbi_odbc_Close(dbdata);
+		} else {
+			/* closing a clone also destroys it */
+			Tcl_DeleteCommandFromToken(interp,dbdata->token);
+			return TCL_OK;
+		}
 	case Begin:
 		if (objc != 2) {
 			Tcl_WrongNumArgs(interp, 2, objv, "");
 			return TCL_ERROR;
 		}
-		if (!DB_OPENCONN(dbdata)) {
-			Tcl_AppendResult(interp,"dbi object has no open database, open a connection first", NULL);
-			return error;
-		}
 		error = dbi_odbc_Transaction_Start(interp,dbdata);
 		if (error) {return error;}
-		dbdata->autocommit = 0;
+		dbi_odbc_autocommit(dbdata,0);
 		return TCL_OK;
 	case Commit:
 		if (objc != 2) {
 			Tcl_WrongNumArgs(interp, 2, objv, "");
 			return TCL_ERROR;
 		}
-		if (!DB_OPENCONN(dbdata)) {
-			Tcl_AppendResult(interp,"dbi object has no open database, open a connection first", NULL);
-			return error;
-		}
-		dbdata->autocommit = 1;
+		dbi_odbc_autocommit(dbdata,1);
 		error = dbi_odbc_Transaction_Commit(interp,dbdata);
 		if (error) {return error;}
 		return TCL_OK;
@@ -1467,20 +1615,9 @@ int Dbi_odbc_DbObjCmd(
 			Tcl_WrongNumArgs(interp, 2, objv, "");
 			return TCL_ERROR;
 		}
-		if (!DB_OPENCONN(dbdata)) {
-			Tcl_AppendResult(interp,"dbi object has no open database, open a connection first", NULL);
-			return error;
-		}
-		dbdata->autocommit = 1;
+		dbi_odbc_autocommit(dbdata,1);
 		error = dbi_odbc_Transaction_Rollback(interp,dbdata);
 		if (error) {return error;}
-		return TCL_OK;
-	case Destroy:
-		if (objc != 2) {
-			Tcl_WrongNumArgs(interp, 2, objv, "");
-			return TCL_ERROR;
-		}
-		Tcl_DeleteCommandFromToken(interp,dbdata->token);
 		return TCL_OK;
 	case Serial:
 		if (objc < 5) {
@@ -1491,6 +1628,16 @@ int Dbi_odbc_DbObjCmd(
 			return dbi_odbc_Serial(interp,dbdata,objv[2],objv[3],objv[4],objv[5]);
 		} else {
 			return dbi_odbc_Serial(interp,dbdata,objv[2],objv[3],objv[4],NULL);
+		}
+	case Clone:
+		if ((objc != 2) && (objc != 3)) {
+			Tcl_WrongNumArgs(interp, 2, objv, "?name?");
+			return TCL_ERROR;
+		}
+		if (objc == 3) {
+			return Dbi_odbc_Clone(interp,dbdata,objv[2]);
+		} else {
+			return Dbi_odbc_Clone(interp,dbdata,NULL);
 		}
 	case SQLColumns:
 		if (objc != 6) {
@@ -1568,67 +1715,55 @@ int Dbi_odbc_DbObjCmd(
 			return TCL_ERROR;
 		}
 		return dbi_odbc_SQLGetInfo(interp,dbdata,objv[2]);
+	case Supports:
+		if (objc == 2) {
+			return dbi_odbc_Supports(interp,dbdata,NULL);
+		} if (objc == 3) {
+			return dbi_odbc_Supports(interp,dbdata,objv[2]);
+		} else {
+			Tcl_WrongNumArgs(interp, 2, objv, "?keyword?");
+			return TCL_ERROR;
+		}
 	}
 	return error;
 }
 
 int dbi_odbc_Destroy(
-	dbi_odbc_Data *dbdata)
+	ClientData clientdata)
 {
-	dbi_odbc_Close(NULL,dbdata);
-	if (dbdata->result.buffer != NULL) {
-		dbi_odbc_clearresult(dbdata->hstmt,&(dbdata->result));
-	}
-	Tcl_DecrRefCount(dbdata->defnullvalue);
-	Tcl_DecrRefCount(dbdata->namespace);
+	dbi_odbc_Data *dbdata = (dbi_odbc_Data *)clientdata;
+	dbi_odbc_Close(dbdata);
+	if (dbdata->defnullvalue != NULL) {Tcl_DecrRefCount(dbdata->defnullvalue);}
 	Tcl_Free((char *)dbdata);
+	Tcl_DeleteExitHandler((Tcl_ExitProc *)dbi_odbc_Destroy, clientdata);
 	return TCL_OK;
 }
 
 static int dbi_num = 0;
-int Dbi_odbc_NewDbObjCmd(
-	ClientData clientdata,
+int Dbi_odbc_DoNewDbObjCmd(
+	dbi_odbc_Data *dbdata,
 	Tcl_Interp *interp,
-	int objc,
-	Tcl_Obj *objv[])
+	Tcl_Obj *dbi_nameObj)
 {
-	dbi_odbc_Data *dbdata;
-	Tcl_Obj *dbi_nameObj = NULL;
 	char buffer[40];
 	char *dbi_name;
-	int start;
-	if ((objc < 1)||(objc > 2)) {
-		Tcl_WrongNumArgs(interp,2,objv,"?dbName?");
-		return TCL_ERROR;
-	}
-	dbdata = (dbi_odbc_Data *)Tcl_Alloc(sizeof(dbi_odbc_Data));
+	dbdata->interp = interp;
 	dbdata->hasconn = 0;
 	dbdata->defnullvalue = Tcl_NewObj();
 	dbdata->dbms_name = NULL;
 	dbdata->dbms_ver = NULL;
-	dbdata->user_name = NULL;
 	dbdata->autocommit = 1;
 	dbdata->trans = 0;
+	dbdata->clones = NULL;
+	dbdata->clonesnum = 0;
+	dbdata->parent = NULL;
 	dbi_odbc_initresult(&(dbdata->result));
 	Tcl_IncrRefCount(dbdata->defnullvalue);
-	/*
-		we are keeping the dbi namespace for future use. This means that said future use
-		will not work any longer when the command is renamed to  different namespace, but 
-		we cannot get the fully qualified (including namespaces) command name from the token
-    */
-	if (objc == 2) {
-		dbi_nameObj = objv[1];
-		start = 2;
-		Tcl_EvalEx(interp,"namespace current",17,0);
-		dbdata->namespace = Tcl_GetObjResult(interp);
-	} else {
+	if (dbi_nameObj == NULL) {
 		dbi_num++;
-		sprintf(buffer,"::dbi::dbi_odbc%d",dbi_num);
+		sprintf(buffer,"::dbi::odbc::dbi%d",dbi_num);
 		dbi_nameObj = Tcl_NewStringObj(buffer,strlen(buffer));
-		start = 2;
-		dbdata->namespace = Tcl_NewStringObj("::dbi",5);
 	}
-	Tcl_IncrRefCount(dbdata->namespace);
 	dbi_name = Tcl_GetStringFromObj(dbi_nameObj,NULL);
 	dbdata->token = Tcl_CreateObjCommand(interp,dbi_name,(Tcl_ObjCmdProc *)Dbi_odbc_DbObjCmd,
 		(ClientData)dbdata,(Tcl_CmdDeleteProc *)dbi_odbc_Destroy);
@@ -1637,9 +1772,72 @@ int Dbi_odbc_NewDbObjCmd(
 	return TCL_OK;
 }
 
+int Dbi_odbc_NewDbObjCmd(
+	ClientData clientdata,
+	Tcl_Interp *interp,
+	int objc,
+	Tcl_Obj *objv[])
+{
+	dbi_odbc_Data *dbdata;
+	int error;
+	if ((objc < 1)||(objc > 2)) {
+		Tcl_WrongNumArgs(interp,2,objv,"?dbName?");
+		return TCL_ERROR;
+	}
+	dbdata = (dbi_odbc_Data *)Tcl_Alloc(sizeof(dbi_odbc_Data));
+	if (objc == 2) {
+		error = Dbi_odbc_DoNewDbObjCmd(dbdata,interp,objv[1]);
+	} else {
+		error = Dbi_odbc_DoNewDbObjCmd(dbdata,interp,NULL);
+	}
+	if (error) {
+		Tcl_Free((char *)dbdata);
+	}
+	return error;
+}
+
 void dbi_odbc_exit(ClientData clientData)
 {
 	SQLFreeEnv(dbi_odbc_env);
+}
+
+int Dbi_odbc_Clone(
+	Tcl_Interp *interp,
+	dbi_odbc_Data *dbdata,
+	Tcl_Obj *name)
+{
+	SQLHSTMT hstmt;
+	dbi_odbc_Data *parent = NULL;
+	dbi_odbc_Data *clone_dbdata = NULL;
+	long erg;
+	int error;
+	parent = dbdata;
+	while (parent->parent != NULL) {parent = parent->parent;}
+	clone_dbdata = (dbi_odbc_Data *)Tcl_Alloc(sizeof(dbi_odbc_Data));
+	error = Dbi_odbc_DoNewDbObjCmd(clone_dbdata,interp,name);
+	if (error) {Tcl_Free((char *)clone_dbdata);return TCL_ERROR;}
+	name = Tcl_GetObjResult(interp);
+	parent->clonesnum++;
+	parent->clones = (Tcl_Command *)Tcl_Realloc((char *)parent->clones,parent->clonesnum*sizeof(Tcl_Command *));
+	parent->clones[parent->clonesnum-1] = clone_dbdata->token;
+	clone_dbdata->parent = parent;
+	clone_dbdata->hasconn = 1;
+	clone_dbdata->hdbc = parent->hdbc;
+	clone_dbdata->dbms_name = parent->dbms_name;
+	clone_dbdata->dbms_ver = parent->dbms_ver;
+	clone_dbdata->supportpos = parent->supportpos;
+	erg=SQLAllocHandle(SQL_HANDLE_STMT, dbdata->hdbc, &hstmt);
+	if ((erg != SQL_SUCCESS) && (erg != SQL_SUCCESS_WITH_INFO)) {
+		Tcl_AppendResult(interp,"ODBC Error allocating statement handle",NULL);
+		dbi_odbc_error(interp,erg,SQL_NULL_HDBC,dbdata->hstmt);
+		goto error;
+	}
+	clone_dbdata->hstmt = hstmt;
+	return TCL_OK;
+	error:
+		Tcl_DeleteCommandFromToken(interp,clone_dbdata->token);
+		Tcl_Free((char *)clone_dbdata);
+		return TCL_ERROR;
 }
 
 int Dbi_odbc_Init(interp)

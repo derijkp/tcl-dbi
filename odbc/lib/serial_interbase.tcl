@@ -1,6 +1,7 @@
 array set ::dbi::odbc::interbase_typetrans {261 blob 14 char 40 cstring 11 d_float 27 double 10 float 16 int64 8 integer 9 quad 7 smallint 12 date 13 time 35 timestamp 37 varchar}
 
 proc ::dbi::odbc::serial_Interbase_add {db version table field args} {
+	set db [privatedb $db]
 	upvar #0 ::dbi::odbc::interbase_typetrans typetrans
 	set name srl\$${table}_${field}
 	set btable $table
@@ -31,12 +32,14 @@ proc ::dbi::odbc::serial_Interbase_add {db version table field args} {
 }
 
 proc ::dbi::odbc::serial_Interbase_delete {db version table field} {
+	set db [privatedb $db]
 	set name srl\$${table}_${field}
 	$db exec {delete from rdb$generators where rdb$generator_name = ?} $name
 	$db exec "drop trigger \"$name\""
 }
 
 proc ::dbi::odbc::serial_Interbase_set {db version table field args} {
+	set db [privatedb $db]
 	set name srl\$${table}_${field}
 	if [llength $args] {
 		$db exec "set generator \"$name\" to [lindex $args 0]"
@@ -46,6 +49,7 @@ proc ::dbi::odbc::serial_Interbase_set {db version table field args} {
 }
 
 proc ::dbi::odbc::serial_Interbase_next {db version table field} {
+	set db [privatedb $db]
 	set name srl\$${table}_${field}
 	$db exec "select (gen_id(\"$name\",1)) from rdb\$database"
 }

@@ -10,7 +10,7 @@ namespace eval dbi::interbase {}
 # $Format: "set ::dbi::interbase::version 0.$ProjectMajorVersion$"$
 set ::dbi::interbase::version 0.0
 # $Format: "set ::dbi::interbase::patchlevel $ProjectMinorVersion$"$
-set ::dbi::interbase::patchlevel 10
+set ::dbi::interbase::patchlevel 11
 package provide dbi_interbase $::dbi::interbase::version
 
 proc ::dbi::interbase::init {name testcmd} {
@@ -60,24 +60,16 @@ proc ::dbi::interbase::init {name testcmd} {
 			if [file exists $libfile] {break}
 		}
 		#
-		# Load the shared library if present
-		# If not, Tcl code will be loaded when necessary
+		# Load the shared library
 		#
-		if [file exists $libfile] {
-			if {"[info commands $testcmd]" == ""} {
-				load $libfile
-			}
-		} else {
-			set noc 1
-			source [file join ${dir} lib listnoc.tcl]
-		}
+		load $libfile
 		catch {unset libbase}
 	}
 }
 ::dbi::interbase::init dbi_interbase dbi_interbase
 rename ::dbi::interbase::init {}
 
-array set ::dbi::interbase_typetrans {261 blob 14 char 40 cstring 11 d_float 27 double 10 float 16 int64 8 integer 9 quad 7 smallint 12 date 13 time 35 timestamp 37 varchar}
+array set ::dbi::interbase::typetrans {261 blob 14 char 40 cstring 11 d_float 27 double 10 float 16 int64 8 integer 9 quad 7 smallint 12 date 13 time 35 timestamp 37 varchar}
 
 #
 # Procs
@@ -108,7 +100,25 @@ proc ::dbi::string_split {string splitstring} {
 	return $result
 }
 
-proc ::dbi::interbase_index_info {db index} {
+set ::dbi::interbase::privatedbnum 1
+proc ::dbi::interbase::privatedb {db} {
+	variable privatedb
+	variable privatedbnum
+	set parent [$db parent]
+	if {[::info exists privatedb($parent)]} {
+		if {![string equal [::info commands $privatedb($parent)] ""]} {
+			return $privatedb($parent)
+		} else {
+			unset privatedb($parent)
+		}
+	}
+	set privatedb($parent) ::dbi::interbase::priv_$privatedbnum
+	incr privatedbnum
+	$parent clone $privatedb($parent)
+	return $privatedb($parent)
+}
+
+proc ::dbi::interbase::index_info {db index} {
 	set relation [$db exec {
 		select RDB$RELATION_NAME
 		from RDB$INDICES
@@ -135,8 +145,17 @@ proc ::dbi::interbase_index_info {db index} {
 	return [list $relation $field]
 }
 
-proc ::dbi::interbase_info {db args} {
-	upvar #0 ::dbi::interbase_typetrans typetrans
+proc ::dbi::interbase::indexsegments {db index} {
+	eval concat [$db exec {
+		select RDB$FIELD_NAME from RDB$INDEX_SEGMENTS
+		where RDB$INDEX_NAME = ?
+		order by RDB$FIELD_POSITION
+	} $index]
+}
+
+proc ::dbi::interbase::info {db args} {
+	upvar #0 ::dbi::interbase::typetrans typetrans
+	set db [privatedb $db]
 	set len [llength $args]
 	if {$len < 1} {error "wrong # args: should be \"$db info option ...\""}
 	set type [lindex $args 0]
@@ -310,15 +329,15 @@ proc ::dbi::interbase_info {db args} {
 					foreach {type name index} $line break
 					switch $type {
 						"PRIMARY KEY" {
-							set field [::dbi::interbase_indexsegments $db $index]
+							set field [::dbi::interbase::indexsegments $db $index]
 							lappend result primary,$field $name
 						}
 						"UNIQUE" {
-							set field [::dbi::interbase_indexsegments $db $index]
+							set field [::dbi::interbase::indexsegments $db $index]
 							lappend result unique,$field $name
 						}
 						"FOREIGN KEY" {
-							set field [::dbi::interbase_indexsegments $db $index]
+							set field [::dbi::interbase::indexsegments $db $index]
 							set temp2 [lindex [$db exec {
 								select rel.RDB$RELATION_NAME, rel.RDB$INDEX_NAME,
 								ref.RDB$UPDATE_RULE, ref.RDB$DELETE_RULE
@@ -326,7 +345,7 @@ proc ::dbi::interbase_info {db args} {
 								where rel.RDB$CONSTRAINT_NAME = ref. RDB$CONST_NAME_UQ
 									and ref.RDB$CONSTRAINT_NAME = ?
 							} $name] 0]
-							set reffield [::dbi::interbase_indexsegments $db [lindex $temp2 1]]
+							set reffield [::dbi::interbase::indexsegments $db [lindex $temp2 1]]
 							set reftable [lindex $temp2 0]
 							set rule [lindex $temp2 2]
 							if {"$rule" != "RESTRICT"} {lappend sub update_rule $rule}
@@ -356,15 +375,8 @@ proc ::dbi::interbase_info {db args} {
 	return $result
 }
 
-proc ::dbi::interbase_indexsegments {db index} {
-	eval concat [$db exec {
-		select RDB$FIELD_NAME from RDB$INDEX_SEGMENTS
-		where RDB$INDEX_NAME = ?
-		order by RDB$FIELD_POSITION
-	} $index]
-}
-
-proc ::dbi::interbase_fieldsinfo {db table} {
+proc ::dbi::interbase::fieldsinfo {db table} {
+	set db [privatedb $db]
 	set table $table
 	set c [$db exec {
 		select RDB$FIELD_NAME,RDB$FIELD_SOURCE,RDB$NULL_FLAG
@@ -379,128 +391,9 @@ proc ::dbi::interbase_fieldsinfo {db table} {
 	return $result
 }
 
-#proc ::dbi::interbase_tableinfo {db table var} {
-#	upvar $var data
-#	upvar #0 ::dbi::interbase_typetrans typetrans
-#	# Get table info
-#	catch {unset data}
-#	set table $table
-#	set c [$db exec {
-#		select RDB$RELATION_ID,RDB$OWNER_NAME from RDB$RELATIONS
-#		where RDB$RELATION_NAME = ?} $table]
-#	if ![llength $c] {error "table \"$table does not exist"}
-#	foreach {id data(owner)} [lindex $c 0] break
-#	set data(owner) [string tolower $data(owner)]
-#	# Get fields and field info
-#	set c [$db exec {
-#		select RDB$FIELD_NAME,RDB$FIELD_SOURCE,RDB$NULL_FLAG
-#		from RDB$RELATION_FIELDS
-#		where RDB$RELATION_NAME = ?
-#		order by RDB$FIELD_POSITION} $table]
-#	foreach line $c {
-#		foreach {field field_source notnull} $line break
-#		set ofield [string tolower $field]
-#		lappend data(fields) $ofield
-#		set data(field,$ofield,notnull) [? {$notnull == 1} 1 0]
-#		set c [$db exec {
-#			select RDB$FIELD_LENGTH,RDB$FIELD_PRECISION,RDB$FIELD_SCALE,RDB$FIELD_TYPE
-#			from RDB$FIELDS
-#			where RDB$FIELD_NAME = ? } $field_source]
-#		foreach {length precision scale fieldtype} [lindex $c 0] break
-#		set data(field,$ofield,type) $typetrans($fieldtype)
-#		switch $typetrans($fieldtype) {
-#			char - varchar {
-#				set data(field,$ofield,ftype) $typetrans($fieldtype)($length)
-#			}
-#			default {
-#				set data(field,$ofield,ftype) $typetrans($fieldtype)
-#			}
-#		}
-#		set data(field,$ofield,size) $length
-#	}
-#	# Get constraints information
-#	set c [$db exec {
-#		select RDB$CONSTRAINT_NAME,RDB$CONSTRAINT_TYPE,RDB$INDEX_NAME
-#		from RDB$RELATION_CONSTRAINTS
-#		where RDB$RELATION_NAME = ? } $table]
-#	foreach line $c {
-#		foreach {name type index} $line break
-#		switch $type {
-#			{NOT NULL} {
-#				foreach {dest_table dest_field} [::dbi::interbase_index_info $db $name] break
-#				set data(field,[string tolower $dest_field],notnull) 1
-#			}
-#			{UNIQUE} {
-#				foreach {dest_table dest_field} [::dbi::interbase_index_info $db $name] break
-#				set data(field,[string tolower $dest_field],unique) 1
-#			}
-#			{PRIMARY KEY} {
-#				foreach {dest_table dest_field} [::dbi::interbase_index_info $db $name] break
-#				set data(field,[string tolower $dest_field],primarykey) 1
-#			}
-#			{FOREIGN KEY} {
-#				set c [$db exec {
-#					select RDB$UPDATE_RULE,RDB$DELETE_RULE
-#					from RDB$REF_CONSTRAINTS
-#					where RDB$CONSTRAINT_NAME = ? } $name]
-#				foreach {src_table src_field} [::dbi::interbase_index_info $db $index] break
-#				set dest_index [$db exec {
-#					select RDB$CONST_NAME_UQ
-#					from RDB$REF_CONSTRAINTS
-#					where RDB$CONSTRAINT_NAME = ? } $name]
-#				foreach {dest_table dest_field} [::dbi::interbase_index_info $db $dest_index] break
-#				set data(foreignkey,[string tolower $src_field]) [list [string tolower $dest_table] [string tolower $dest_field]]
-#			}
-#			{CHECK} {
-#				set triggers [$db exec {
-#					select RDB$TRIGGER_NAME
-#					from RDB$CHECK_CONSTRAINTS
-#					where RDB$CONSTRAINT_NAME = ? } $name]
-#				foreach trigger $triggers {
-#					set triggerdone($trigger) 1
-#					set source [lindex [lindex [$db exec {
-#						select RDB$TRIGGER_SOURCE
-#						from RDB$TRIGGERS
-#						where RDB$TRIGGER_NAME = ? } $trigger] 0] 0]
-#					set data(check,$name) $source
-#				}
-#			}
-#		}
-#	}
-#	# Get index information
-#	set c [$db exec -nullvalue 0 {
-#		select RDB$INDEX_NAME,RDB$UNIQUE_FLAG,RDB$FOREIGN_KEY
-#		from RDB$INDICES
-#		where RDB$RELATION_NAME = ? } $table]
-#	foreach line $c {
-#		foreach {name unique foreign} $line break
-#		# if {"$foreign" != "0"} continue
-#		set fields [$db exec {
-#			select RDB$FIELD_NAME
-#			from RDB$INDEX_SEGMENTS
-#			where RDB$INDEX_NAME = ? } $name]
-#		set name [string tolower $name]
-#		set data(index,[string tolower $fields],name) $name
-#		set data(index,$name,isunique) $unique
-#		set data(index,$name,isforeign) [? {"$foreign" != "0"} 1 0]
-#	}
-#	# Get trigger information
-#	set c [$db exec {
-#		select RDB$TRIGGER_NAME,RDB$TRIGGER_SEQUENCE,RDB$TRIGGER_TYPE,RDB$TRIGGER_SOURCE
-#		from RDB$TRIGGERS
-#		where RDB$RELATION_NAME = ? } $table]
-#	foreach line $c {
-#		foreach {name sequence type source} $line break
-#		if [::info exists triggerdone($name)] continue
-#		set name [string tolower $name]
-#		set data(trigger,$name,sequence) $sequence
-#		set data(trigger,$name,type) [lindex {{} {before insert} {after insert} {before update} {after update} {before delete} {after delete}} $type]
-#		set data(trigger,$name,source) $source
-#	}
-#}
-
-proc ::dbi::interbase_serial_add {db table field args} {
-	upvar #0 ::dbi::interbase_typetrans typetrans
+proc ::dbi::interbase::serial_add {db table field args} {
+	upvar #0 ::dbi::interbase::typetrans typetrans
+	set db [privatedb $db]
 	set name srl\$${table}_${field}
 	set btable $table
 	if [llength $args] {set current [lindex $args 0]} else {set current 1}
@@ -536,14 +429,16 @@ proc ::dbi::interbase_serial_add {db table field args} {
 	return $current
 }
 
-proc ::dbi::interbase_serial_delete {db table field} {
+proc ::dbi::interbase::serial_delete {db table field} {
 	set name srl\$${table}_${field}
+	set db [privatedb $db]
 	$db exec {delete from rdb$generators where rdb$generator_name = ?} $name
 	$db exec "drop trigger \"$name\""
 }
 
-proc ::dbi::interbase_serial_set {db table field args} {
+proc ::dbi::interbase::serial_set {db table field args} {
 	set name srl\$${table}_${field}
+	set db [privatedb $db]
 	if [llength $args] {
 		$db exec "set generator \"$name\" to [lindex $args 0]"
 	} else {
@@ -551,7 +446,8 @@ proc ::dbi::interbase_serial_set {db table field args} {
 	}
 }
 
-proc ::dbi::interbase_serial_next {db table field} {
+proc ::dbi::interbase::serial_next {db table field} {
+	set db [privatedb $db]
 	set name srl\$${table}_${field}
 	$db exec "select (gen_id(\"$name\",1)) from rdb\$database"
 }

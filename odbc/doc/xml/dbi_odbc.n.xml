@@ -1,0 +1,93 @@
+<manpage package="dbi" title="dbi_odbc" id="dbi_odbc" cat="dbi">
+<namesection>
+<name>dbi_odbc</name>
+<desc>create dbi object for accessing odbc databases</desc>
+</namesection>
+
+<synopsis>
+<syntax><cmd>dbi_interface</cmd> ?<m>objectName</m>?</syntax>
+</synopsis>
+
+<section>
+<title>DESCRIPTION</title>
+<p>
+The <cmd>dbi_odbc</cmd> command creates an object that can be used to connect
+to databases using ODBC. The object supports the 
+<ref manpage="interface_dbi">dbi interface</ref> for accessing and querying databases.
+</p>
+</section>
+
+<section>
+<title>EXTRA COMMANDS</title>
+Besides the commands needed to support the dbi interface, dbi_odbc objects have some
+extra low level commands:
+<commandlist>
+<commanddef>
+<command><cmd>objectName</cmd> <method>sqlcolumns</method> <m>catalog</m> <m>schema</m> <m>table</m> <m>field</m></command>
+<desc>Returns specified SQLColumns catalog data
+</desc>
+</commanddef>
+<commanddef>
+<command><cmd>objectName</cmd> <method>sqlprimarykeys</method> <m>catalog</m> <m>schema</m> <m>table</m></command>
+<desc>Returns specified SQLPrimaryKeys catalog data
+</desc>
+</commanddef>
+<commanddef>
+<command><cmd>objectName</cmd> <method>sqlcolumnprivileges</method> <m>catalog</m> <m>schema</m> <m>table</m> <m>field</m></command>
+<desc>Returns specified SQLColumnPrivileges catalog data
+</desc>
+</commanddef>
+<commanddef>
+<command><cmd>objectName</cmd> <method>sqltableprivileges</method> <m>catalog</m> <m>schema</m> <m>table</m></command>
+<desc>Returns specified SQLTablePrivileges catalog data
+</desc>
+</commanddef>
+<commanddef>
+<command><cmd>objectName</cmd> <method>sqlforeignkeys</method> <m>pkcatalog</m> <m>pkschema</m> <m>pktable</m> <m>fkcatalog</m> <m>fkschema</m> <m>fktable</m></command>
+<desc>Returns specified SQLForeignKeys catalog data
+</desc>
+</commanddef>
+<commanddef>
+<command><cmd>objectName</cmd> <method>sqlspecialcolumns</method> <m>type</m> <m>catalog</m> <m>schema</m> <m>table</m> <m>scope</m> <m>nullable</m></command>
+<desc>Returns specified SQLSpecialColumns catalog data
+</desc>
+</commanddef>
+<commanddef>
+<command><cmd>objectName</cmd> <method>sqlstatistics</method> <m>catalog</m> <m>schema</m> <m>table</m> <m>unique</m> <m>quick</m></command>
+<desc>Returns specified SQLStatistics catalog data
+</desc>
+</commanddef>
+<commanddef>
+<command><cmd>objectName</cmd> <method>sqltables</method> <m>catalog</m> <m>schema</m> <m>table</m> <m>unique</m> <m>tabletype</m></command>
+<desc>Returns specified SQLTables catalog data
+</desc>
+</commanddef>
+<commanddef>
+<command><cmd>objectName</cmd> <method>sqlprocedures</method> <m>catalog</m> <m>schema</m> <m>procedure</m></command>
+<desc>Returns specified SQLProcedures catalog data
+</desc>
+</commanddef>
+<commanddef>
+<command><cmd>objectName</cmd> <method>sqlgetinfo</method> <m>infotype</m></command>
+<desc>Returns information about the backend and the driver. If the <m>infotype</m> given is unknown, 
+an error message containing a list of all possible types of info is returned.
+</desc>
+</commanddef>
+</commandlist>
+</section>
+
+<seealso>
+<ref>interface_dbi</ref>
+<ref>interface_dbi_admin</ref>
+</seealso>
+
+<keywords>
+<keyword>dbi</keyword>
+<keyword>odbc</keyword>
+<keyword>interface</keyword>
+<keyword>database</keyword>
+<keyword>sql</keyword>
+</keywords>
+
+</manpage>
+

@@ -10,10 +10,10 @@ namespace eval dbi::postgresql {}
 # $Format: "set ::dbi::postgresql::version 0.$ProjectMajorVersion$"$
 set ::dbi::postgresql::version 0.0
 # $Format: "set ::dbi::postgresql::patchlevel $ProjectMinorVersion$"$
-set ::dbi::postgresql::patchlevel 10
+set ::dbi::postgresql::patchlevel 11
 package provide dbi_postgresql $::dbi::postgresql::version
 
-proc ::dbi::string_split {string splitstring} {
+proc ::dbi::postgresql::string_split {string splitstring} {
 	set result ""
 	set len [string length $splitstring]
 	while 1 {
@@ -78,14 +78,7 @@ proc ::dbi::postgresql::init {name testcmd} {
 		# Load the shared library if present
 		# If not, Tcl code will be loaded when necessary
 		#
-		if [file exists $libfile] {
-			if {"[info commands $testcmd]" == ""} {
-				load $libfile
-			}
-		} else {
-			set noc 1
-			source [file join ${dir} lib listnoc.tcl]
-		}
+		load $libfile
 		catch {unset libbase}
 	}
 }
@@ -96,6 +89,24 @@ rename ::dbi::postgresql::init {}
 # Procs
 # -----
 #
+set ::dbi::postgresql::privatedbnum 1
+proc ::dbi::postgresql::privatedb {db} {
+	variable privatedb
+	variable privatedbnum
+	set parent [$db parent]
+	if {[::info exists privatedb($parent)]} {
+		if {![string equal [::info commands $privatedb($parent)] ""]} {
+			return $privatedb($parent)
+		} else {
+			unset privatedb($parent)
+		}
+	}
+	set privatedb($parent) ::dbi::postgresql::priv_$privatedbnum
+	incr privatedbnum
+	$parent clone $privatedb($parent)
+	return $privatedb($parent)
+}
+
 proc ::dbi::? {expr truevalue falsevalue} {
 	uplevel if [list $expr] {{set ::dbi::temp 1} else {set ::dbi::temp 0}}
 	if $::dbi::temp {return $truevalue} else {return $falsevalue}
@@ -116,24 +127,28 @@ proc ::dbi::string_split {string splitstring} {
 	return $result
 }
 
-proc ::dbi::postgresql_fieldsinfo {db table} {
+proc ::dbi::postgresql::fieldsinfo {db table} {
+	set db [privatedb $db]
 	set c [$db exec "\
-		select attnum,attname,typname,attlen,attnotnull,atttypmod,usename,usesysid,pg_class.oid,relpages,reltuples,relhaspkey,relhasrules,relacl \
+		select attnum,attname,attnum,typname,attlen,attnotnull,atttypmod,usename,usesysid,pg_class.oid,relpages,reltuples,relhaspkey,relhasrules,relacl \
 		from pg_class,pg_user,pg_attribute,pg_type \
 		where (pg_class.relname='$table') and (pg_class.oid=pg_attribute.attrelid) and (pg_class.relowner=pg_user.usesysid) and (pg_attribute.atttypid=pg_type.oid) \
 		order by attnum"] 
 	if ![llength $c] {error "table \"$table\" does not exist"}
 	set result ""
-	foreach line [lrange $c 6 end] {
-		lappend result [lindex $line 1]
+	foreach line $c {
+		if {[lindex $line 2] > 0} {
+			lappend result [lindex $line 1]
+		}
 	}
 	return $result
 }
 
-array set ::dbi::postgresql_typetrans {bpchar char int4 integer int2 integer}
-proc ::dbi::postgresql_tableinfo {db table var} {
+array set ::dbi::postgresql::typetrans {bpchar char int4 integer int2 smallint float8 double}
+proc ::dbi::postgresql::tableinfo {db table var} {
+	set db [privatedb $db]
 	upvar $var data
-	upvar ::dbi::postgresql_typetrans typetrans
+	upvar ::dbi::postgresql::typetrans typetrans
 	catch {unset data}
 	set c [$db exec "\
 		select attnum,attname,typname,attlen,attnotnull,atttypmod,usename,usesysid,pg_class.oid,relpages,reltuples,relhaspkey,relhasrules,relacl \
@@ -194,7 +209,8 @@ proc ::dbi::postgresql_tableinfo {db table var} {
 	}
 }
 
-proc ::dbi::postgresql_serial_add {db table field args} {
+proc ::dbi::postgresql::serial_add {db table field args} {
+	set db [privatedb $db]
 	if [llength $args] {set current [lindex $args 0]} else {set current 1}
 	set name ${table}_${field}_seq
 	catch {$db exec "drop sequence \"$name\""}
@@ -208,14 +224,16 @@ proc ::dbi::postgresql_serial_add {db table field args} {
 	return $current	
 }
 
-proc ::dbi::postgresql_serial_delete {db table field} {
+proc ::dbi::postgresql::serial_delete {db table field} {
+	set db [privatedb $db]
 	set name ${table}_${field}_seq
 	catch {$db exec "alter table \"$table\" alter \"$field\" drop default"}
 	catch {$db exec "drop sequence \"$name\";"}
 	catch {$db exec "drop index \"${table}_${field}_key\""}
 }
 
-proc ::dbi::postgresql_serial_set {db table field args} {
+proc ::dbi::postgresql::serial_set {db table field args} {
+	set db [privatedb $db]
 	set name ${table}_${field}_seq
 	if [llength $args] {
 		$db exec [subst -nobackslashes {
@@ -228,14 +246,16 @@ proc ::dbi::postgresql_serial_set {db table field args} {
 	}
 }
 
-proc ::dbi::postgresql_serial_next {db table field} {
+proc ::dbi::postgresql::serial_next {db table field} {
+	set db [privatedb $db]
 	set name ${table}_${field}_seq
 	$db exec [subst -nobackslashes -nocommands {
 		select nextval('$name');
 	}]
 }
 
-proc ::dbi::postgresql_info {db args} {
+proc ::dbi::postgresql::info {db args} {
+	set db [privatedb $db]
 	set len [llength $args]
 	if {$len < 1} {error "wrong # args: should be \"$db info option ...\""}
 	set type [lindex $args 0]
@@ -254,7 +274,7 @@ proc ::dbi::postgresql_info {db args} {
 			return [$db tables]
 		}
 		systemtables {
-			set result [$db exec {select relname from pg_class where relkind = 'r' and (relname ~ '^pg_' or relname ~ '^pga_')}]
+			set result [$db exec {select relname from pg_class where (relkind = 'r' or relkind = 'v') and relname like 'pg\\_%'}]
 		}
 		views {
 			set result [$db exec {select viewname from pg_views where (viewname !~ '^pg_' and viewname !~ '^pga_')}]
@@ -273,11 +293,12 @@ proc ::dbi::postgresql_info {db args} {
 				set user [lindex $args 2]
 				set userid [$db exec "select usesysid from pg_user where usename = '$user'"]
 				set result {}
-				set c [$db exec "select relname from pg_class	where relowner = $userid and relkind = 'r' and relname !~ '^pga_'"]
+				set c [$db exec "select relname from pg_class	where relowner = $userid and (relkind = 'r' or relkind = 'v') and relname !~ 'pg_' and relname !~ '^pga_'"]
 				foreach table $c {
 					lappend result $table
 				}
-				foreach line [$db exec "select relname,relacl from pg_class	where relowner != $userid and relkind = 'r' and relname !~ '^pg_' and relname !~ '^pga_'"] {
+				set c [$db exec "select relname,relacl from pg_class	where relowner != $userid and (relkind = 'r' or relkind = 'v') and relname !~ '^pg_' and relname !~ '^pga_'"]
+				foreach line $c {
 					foreach {table acl} $line break
 					if {[regexp [subst {"($user|)=.*$char.*"}] $acl]} {
 						lappend result $table
@@ -303,7 +324,7 @@ proc ::dbi::postgresql_info {db args} {
 		}
 		table {
 			if {$len == 2} {
-				upvar ::dbi::postgresql_typetrans typetrans
+				upvar ::dbi::postgresql::typetrans typetrans
 				set table [lindex $args 1]
 				set result ""
 				set c [$db exec "\
@@ -388,4 +409,3 @@ proc ::dbi::postgresql_info {db args} {
 	}
 	return $result
 }
-

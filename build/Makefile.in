@@ -11,7 +11,7 @@
 # See the file "license.terms" for information on usage and redistribution
 # of this file, and for a DISCLAIMER OF ALL WARRANTIES.
 #
-# RCS: @(#) $Id: Makefile.in 1.1 Tue, 27 Jun 2000 10:01:26 +0200 peter $
+# RCS: @(#) $Id: Makefile.in 1.2 Thu, 06 Sep 2001 15:36:24 +0200 peter $
 
 #========================================================================
 # Edit the following few lines when writing a new extension
@@ -199,7 +199,8 @@ LINK = $(CCLD) $(AM_CFLAGS) $(CFLAGS) $(LDFLAGS) -o $@
 # for the BINARIES that you specified above have already been done.
 #========================================================================
 
-all: binaries libraries doc
+#all: binaries libraries doc
+all: libraries doc
 
 #========================================================================
 # The binaries target builds executable programs, Windows .dll's, unix
@@ -217,7 +218,8 @@ libraries:
 
 doc:
 
-install: all install-binaries install-libraries install-doc
+#install: all install-binaries install-libraries install-doc
+install: all install-libraries install-doc
 
 install-binaries: binaries install-lib-binaries install-bin-binaries
 

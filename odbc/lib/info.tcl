@@ -1,10 +1,11 @@
-proc ::dbi::odbc_info {db args} {
+proc ::dbi::odbc::info {db args} {
+	set db [privatedb $db]
 	set len [llength $args]
 	if {$len < 1} {error "wrong # args: should be \"$db info option ...\""}
 	set type [lindex $args 0]
 	switch -exact $type {
 		user {
-			set result [$db sqlgetinfo user_name]
+			set result [string toupper [$db sqlgetinfo user_name]]
 		}
 		fields {
 			if {$len == 2} {

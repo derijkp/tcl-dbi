@@ -10,7 +10,7 @@ namespace eval ::dbi {}
 # $Format: "set ::dbi::version 0.$ProjectMajorVersion$"$
 set ::dbi::version 0.0
 # $Format: "set ::dbi::patchlevel $ProjectMinorVersion$"$
-set ::dbi::patchlevel 10
+set ::dbi::patchlevel 11
 package provide dbi $::dbi::version
 
 proc ::dbi::init {name testcmd} {
@@ -45,9 +45,6 @@ rename dbi::init {}
 # define interfaces
 #
 package require interface
-interface add dbi 0.1 [file join $dbi::dir interfaces dbi.txt] [file join $dbi::dir interfaces test_dbi.tcl]
-interface add dbi/admin 0.1 [file join $dbi::dir interfaces dbi_admin.txt] [file join $dbi::dir interfaces test_dbi_admin.tcl]
-interface add dbi/blob 0.1 [file join $dbi::dir interfaces dbi_blob.txt] [file join $dbi::dir interfaces test_dbi_blob.tcl]
 
 lappend auto_path [file join $::dbi::dir lib]
 lappend auto_path $dbi::dir

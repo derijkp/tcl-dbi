@@ -26,4 +26,4 @@ set version 0.1
 $object destroy
 $object2 destroy
 
-interface::testsummarize
+interface testsummarize

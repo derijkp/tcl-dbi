@@ -12,7 +12,7 @@
 # See the file "license.terms" for information on usage and redistribution
 # of this file, and for a DISCLAIMER OF ALL WARRANTIES.
 #
-# RCS: @(#) $Id: Makefile 1.4 Fri, 03 Aug 2001 19:09:07 +0200 peter $
+# RCS: @(#) $Id: Makefile 1.5 Thu, 06 Sep 2001 15:36:24 +0200 peter $
 
 #========================================================================
 # Edit the following few lines when writing a new extension
@@ -56,7 +56,7 @@ OBJECTS = $(dbi_interbase_OBJECTS)
 # objects and the library itself in a platform-independent manner.
 #========================================================================
 
-dbi_interbase_LIB_FILE = libdbi_interbase0.1.so
+dbi_interbase_LIB_FILE = libdbi_interbase0.0.so
 $(dbi_interbase_LIB_FILE)_OBJECTS = $(dbi_interbase_OBJECTS)
 
 #========================================================================
@@ -73,7 +73,7 @@ GENERIC_HDRS=$(SOURCE_DIR)/interbase.h
 SAMPLE_NEW_VAR=@SAMPLE_NEW_VAR@
 DBI_INCLUDE=-I"../../src"
 DBI_LIB=@DBI_LIB@
-INTERBASE_INCLUDE=-I"/usr//include"
+INTERBASE_INCLUDE=-I"/usr/include"
 INTERBASE_LIB=-L"/usr/lib" -lgds -lcrypt
 
 #========================================================================
@@ -86,7 +86,7 @@ SHELL = /bin/sh
 
 srcdir = .
 top_srcdir = .
-prefix = /usr/
+prefix = /usr
 exec_prefix = ${prefix}
 
 bindir = ${exec_prefix}/bin
@@ -105,10 +105,10 @@ tcllibdir = ${prefix}/lib
 
 DESTDIR =
 
-pkgdatadir = $(datadir)/dbi_interbase0.1
-pkglibdir = $(libdir)/dbi_interbase0.1
-pkgtcllibdir = $(tcllibdir)/dbi_interbase0.1
-pkgincludedir = $(includedir)/dbi_interbase0.1
+pkgdatadir = $(datadir)/dbi_interbase0.0
+pkglibdir = $(libdir)/dbi_interbase0.0
+pkgtcllibdir = $(tcllibdir)/dbi_interbase0.0
+pkgincludedir = $(includedir)/dbi_interbase0.0
 
 top_builddir = .
 
@@ -127,7 +127,7 @@ PRE_UNINSTALL = :
 POST_UNINSTALL = :
 
 PACKAGE = dbi_interbase
-VERSION = 0.1
+VERSION = 0.0
 CC = cc
 CFLAGS_DEBUG = -g
 CFLAGS_DEFAULT = -O -D__NO_STRING_INLINES -D__NO_MATH_INLINES
@@ -165,7 +165,7 @@ INCLUDE_DIR_NATIVE = @INCLUDE_DIR_NATIVE@
 TCL_BMAP_DIR_NATIVE = @TCL_BMAP_DIR_NATIVE@
 TCL_PLATFORM_DIR_NATIVE = @TCL_PLATFORM_DIR_NATIVE@
 TCL_GENERIC_DIR_NATIVE = @TCL_GENERIC_DIR_NATIVE@
-TCLSH_PROG = /usr//bin/tclsh8.3
+TCLSH_PROG = /usr/bin/tclsh8.3
 SHARED_BUILD = 1
 TCL_LIB_SPEC = -L/usr/lib -ltcl8.3${TCL_DBGX}
 
@@ -173,11 +173,11 @@ AUTOCONF = autoconf
 
 LDFLAGS = $(LDFLAGS_DEBUG)
 
-INCLUDES = -I"/usr//include" $(INTERBASE_INCLUDE) $(DBI_INCLUDE)
+INCLUDES = -I"/usr/include" $(INTERBASE_INCLUDE) $(DBI_INCLUDE)
 
 EXTRA_CFLAGS = $(TCL_DEFS) $(PROTO_FLAGS) $(SECURITY_FLAGS) $(MEM_DEBUG_FLAGS) $(KEYSYM_FLAGS) $(NO_DEPRECATED_FLAGS) $(TCL_EXTRA_CFLAGS)
 
-DEFS =  -DVERSION=\"0.1\" -DUSE_TCL_STUBS=1  $(EXTRA_CFLAGS)
+DEFS =  -DVERSION=\"0.0\" -DUSE_TCL_STUBS=1  $(EXTRA_CFLAGS)
 
 ACLOCAL_M4 = $(top_srcdir)/aclocal.m4
 CONFIGDIR = $(top_srcdir)
@@ -237,13 +237,13 @@ install-libraries: libraries
 	echo "Adapting pkgIndex.tcl"
 	$(TCLSH_PROG) $(srcdir)/install-replace.tcl \
 		$(srcdir)/../pkgIndex.tcl $(DESTDIR)$(pkglibdir)/pkgIndex.tcl \
-		@TCLLIBDIR@ "$(DESTDIR)$(tcllibdir)/dbi_interbase0.1" \
+		@TCLLIBDIR@ "$(DESTDIR)$(tcllibdir)/dbi_interbase0.0" \
 	echo "Adapting init.tcl"
 	$(TCLSH_PROG) $(srcdir)/install-replace.tcl \
 		$(srcdir)/../init.tcl $(DESTDIR)$(pkgtcllibdir)/init.tcl \
 		@LIB_LIBRARY@ "$(dbi_interbase_LIB_FILE)" \
 		@LIBDIR@ "$(DESTDIR)$(libdir)" \
-		@TCLLIBDIR@ "$(DESTDIR)$(tcllibdir)/dbi_interbase0.1" \
+		@TCLLIBDIR@ "$(DESTDIR)$(tcllibdir)/dbi_interbase0.0" \
 		@DATADIR@ "$(DESTDIR)$(datadir)" \
 		@BINDIR@ "$(DESTDIR)$(bindir)"
 

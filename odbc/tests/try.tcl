@@ -4,12 +4,12 @@ exec tclsh "$0" "$@"
 puts "source [info script]"
 
 namespace eval interface {}
+set type interbase
+set testdb /home/ib/testdbi.gdb
 set type postgresql
 set testdb testdbi
 set type odbc
-set testdb testdbi
-set type interbase
-set testdb /home/ib/testdbi.gdb
+set testdb pgtestdbi
 
 set interface dbi/try
 set version 0.1
@@ -67,8 +67,6 @@ proc ::dbi::createdb {} {
 			"name" varchar(100),
 			"score" double precision
 		);
-	}
-	$object exec {
 		create table "address" (
 			"id" int not null primary key,
 			"street" varchar(100),
@@ -154,35 +152,22 @@ proc ::dbi::opendb {} {
 	upvar opt opt
 	$object open $opt(-testdb)
 }
-::dbi::opendb
-#	::dbi::cleandb
-#	::dbi::createdb
-#	::dbi::filldb
-::dbi::initdb
+#::dbi::opendb
+#::dbi::initdb
 
-# -------------------------------------------------------
-# 							Tests
-# -------------------------------------------------------
-# serial
-# ------
-
-	set clone [$object clone]
-	$clone exec -usefetch {select * from "location"}
-	$clone close
-
-	set views [$object info views]
-	$object close
+puts "start test"
 	$object open $opt(-testdb)
-	$object info views
-
-
-interface::test {info may be implemented using a clone, see if it is respawned ok} {
-	set views [$object info views]
 	$object close
-	::dbi::opendb
-	$object info views
-} v_test
+puts ok2
+	$object open $opt(-testdb)
+	$object close
+puts ok3
+	$object open $opt(-testdb)
+puts close
+	$object close
+puts ok
 
 #puts "tests done"
-#$object close
+$object close
 interface::testsummarize
+
