@@ -1527,8 +1527,8 @@ int Dbi_odbc_DbObjCmd(
 	switch (index) {
 	case Exec:
 		{
-	    static char *switches[] = {"-usefetch", "-nullvalue", "-flat",(char *) NULL};
-	    enum switchesIdx {Usefetch, Nullvalue, Flat};
+	    static char *switches[] = {"-usefetch", "-nullvalue", "-flat","-cache",(char *) NULL};
+	    enum switchesIdx {Usefetch, Nullvalue, Flat, Cache};
 		Tcl_Obj *nullvalue = NULL;
 		char *string;
 		int usefetch = 0, flat = 0;

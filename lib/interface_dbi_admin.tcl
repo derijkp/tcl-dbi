@@ -57,5 +57,24 @@ proc ::interfaces::dbi_admin-0.8 {option args} {
 		$object tables
 	} {}
 	
+	interface::test {create, drop, create and open with clone present} {
+		catch {$object close}
+		$object open $opt(-testdb)
+		$object drop
+		$object create $opt(-testdb)
+		$object open $opt(-testdb)
+		set clone [$object clone]
+		$object exec {create table "test" (i integer, t varchar(100))}
+		$clone exec {insert into "test" values (1,'abcdefgh')}
+		$object exec {select * from "test"}
+		$object drop
+		$object create $opt(-testdb)
+		$object open $opt(-testdb)
+		set clone [$object clone]
+		$object exec {create table "test" (i integer, t varchar(100))}
+		$object exec {insert into "test" values (1,'abcdefgh')}
+		$clone exec {select * from "test"}
+	} {{1 abcdefgh}}
+
 	$object close
 }

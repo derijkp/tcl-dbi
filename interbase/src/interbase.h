@@ -5,6 +5,8 @@
 #include "tcl.h"
 /*#include "dbi.h"*/
 
+#define SEGM_SIZE 8192
+
 typedef struct dbi_Interbase_Data {
 	Tcl_Command token;
 	Tcl_Interp *interp;
@@ -18,6 +20,7 @@ typedef struct dbi_Interbase_Data {
 	struct dbi_Interbase_Data *parent;
 	struct dbi_Interbase_Data **clones;
 	int clonesnum;
+	Tcl_Obj *defnullvalue;
 	char *dpb;
 	int dpbpos;
 	int dpblen;
@@ -25,8 +28,25 @@ typedef struct dbi_Interbase_Data {
 	int ntuples;
 	int autocommit;
 	int cursor_open;
-	int out_sqlda_filled;
+	Tcl_HashTable preparedhash;
+	XSQLDA *out_sqlda_cache;
+	XSQLDA *in_sqlda_cache;
+	int blobid;
+	ISC_QUAD newblob_id;
+	isc_blob_handle blob_handle;
+	isc_blob_handle newblob_handle;
+	char newblob_buffer[SEGM_SIZE];
+	int newblob_buffer_free;
 } dbi_Interbase_Data;
 
+typedef struct dbi_Interbase_prepared {
+	XSQLDA *out_sqlda;
+	XSQLDA *in_sqlda;
+} dbi_Interbase_Prepared;
 
 EXTERN int dbi_Interbase_Init(Tcl_Interp *interp);
+
+#define EXEC_USEFETCH 1
+#define EXEC_FLAT 2
+#define EXEC_BLOBID 4
+#define EXEC_CACHE 4

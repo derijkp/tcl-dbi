@@ -12,7 +12,7 @@
 # See the file "license.terms" for information on usage and redistribution
 # of this file, and for a DISCLAIMER OF ALL WARRANTIES.
 #
-# RCS: @(#) $Id: Makefile 1.6 Mon, 01 Oct 2001 16:27:53 +0200 peter $
+# RCS: @(#) $Id: Makefile 1.5.1.1 Fri, 04 Jan 2002 17:58:38 +0100 peter $
 
 #========================================================================
 # Edit the following few lines when writing a new extension

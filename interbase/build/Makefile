@@ -12,7 +12,7 @@
 # See the file "license.terms" for information on usage and redistribution
 # of this file, and for a DISCLAIMER OF ALL WARRANTIES.
 #
-# RCS: @(#) $Id: Makefile 1.6 Mon, 01 Oct 2001 16:27:53 +0200 peter $
+# RCS: @(#) $Id: Makefile 1.5.1.1 Fri, 04 Jan 2002 17:58:38 +0100 peter $
 
 #========================================================================
 # Edit the following few lines when writing a new extension
@@ -127,7 +127,7 @@ POST_UNINSTALL = :
 PACKAGE = dbi_interbase
 VERSION = 0.8
 CC = cc
-CFLAGS_DEBUG = -g
+CFLAGS_DEBUG = -g -Wall
 CFLAGS_DEFAULT = -O -D__NO_STRING_INLINES -D__NO_MATH_INLINES
 CFLAGS_OPTIMIZE = -O -D__NO_STRING_INLINES -D__NO_MATH_INLINES
 CLEANFILES = extratcl
@@ -169,7 +169,7 @@ TCL_LIB_SPEC = -L/usr/lib -ltcl8.3${TCL_DBGX}
 
 AUTOCONF = autoconf
 
-LDFLAGS = $(LDFLAGS_DEFAULT)
+LDFLAGS = $(LDFLAGS_DEBUG)
 
 INCLUDES = -I"/usr//include" $(INTERBASE_INCLUDE)
 
@@ -185,7 +185,7 @@ CONFIG_CLEAN_FILES = mkIndex.tcl
 CPPFLAGS = 
 LIBS = 
 AR = ar
-CFLAGS = ${CFLAGS_DEFAULT} ${CFLAGS_WARNING} ${SHLIB_CFLAGS}
+CFLAGS = ${CFLAGS_DEBUG} ${CFLAGS_WARNING} ${SHLIB_CFLAGS}
 COMPILE = $(CC) $(DEFS) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(AM_CFLAGS) $(CFLAGS)
 CCLD = $(CC)
 LINK = $(CCLD) $(AM_CFLAGS) $(CFLAGS) $(LDFLAGS) -o $@

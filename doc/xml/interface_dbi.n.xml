@@ -76,7 +76,23 @@ The fetch method will be used to get the results instead.</desc>
 </optdef>
 <optdef>
 <optname>-nullvalue</optname><optarg>nullval</optarg>
-<desc>nullval will be returned for each NULL value in the result instead of an empty string</desc>
+<desc>nullval will be returned for each NULL value in the result instead of an empty string
+For sql commands using input parameters, parameters which are given a value of nullval 
+will put a NULL value in the ?</desc>
+</optdef>
+<optdef>
+<optname>-blobid</optname>
+<desc>if present, return blobids instead of blob values for select queries. The id can be used to access the 
+blob using the blob subcommand (eg. to get only parts of really large blob). If the dbi object does not 
+support this function (check with "object supportd blobid"), this option will be ignored</desc>
+For update and insert functions, the blob fields must be given a blobid (created with the newblob subcommand)
+as a parameter.
+</optdef>
+<optdef>
+<optname>-cache</optname>
+<desc>if present, the current query is cached (using prepared statement) for future use. If the
+same query is run again with the -cache option, it will run faster. dbi objects that do not
+support caching should ignore the option</desc>
 </optdef>
 </optlist>
 </p>
@@ -114,7 +130,6 @@ any of the following values:
 <dle>
 <dl><dt>pos</dt><dd>return the current position in the result. The first line is position 0</dd></dl>
 <dl><dt>fields</dt><dd>return the fields present in the resultset</dd></dl>
-<dl><dt>clear</dt><dd>clear the current resultset, do not return anything</dd></dl>
 <dl><dt>isnull</dt><dd>returns 1 if the result contains a NULL value at the given line and field</dd></dl>
 <dl><dt>lines</dt><dd>returns the number of lines in the result. This function cannot always be supported by a dbi object</dd></dl>
 </dle>
@@ -291,12 +306,62 @@ features are returned. Following keywords can be available:
 <dl><dt>lines</dt><dd>support for "objectName fetch lines"</dd></dl>
 <dl><dt>backfetch</dt><dd>support for going back when fetching results</dd></dl>
 <dl><dt>columnperm</dt><dd>support for working with permissions per column</dd></dl>
-<dl><dt>blobparams</dt><dd>support for blobs throug parameters</dd></dl>
+<dl><dt>blobparams</dt><dd>support for blobs through parameters</dd></dl>
+<dl><dt>blobids</dt><dd>support for blobs using blobids, and the blob and newblob subcommands</dd></dl>
 <dl><dt>sharedtransactions</dt><dd>a clone shares the same transaction with its parent</dd></dl>
 <dl><dt>transactions</dt><dd>support for transactions</dd></dl>
 <dl><dt>roles</dt><dd>support for roles</dd></dl>
 <dl><dt>domains</dt><dd>support for domains</dd></dl>
 </dle>
+</desc>
+</commanddef>
+
+<commanddef>
+<command><cmd>objectName</cmd> <method>blob</method> <m>option</m> args ...</command>
+<desc>manipulate blobs via a blobid returned by exec/fetch using the -blobid option. This is
+not supported for all dbi objects (check with "object supports blobids"). Also, not all subcommands
+presented here are supported for all objects.
+	<commandlist>
+	<commanddef>
+	<command><cmd>objectName</cmd> <method>blob</method> <method>open</method> <m>blobid</m></command>
+	<desc>open the blob identified by the given <m>blobid</m> for processing</desc>
+	</commanddef>
+	<commanddef>
+	<command><cmd>objectName</cmd> <method>blob</method> <method>get</method> ?<m>size</m>?</command>
+	<desc>get the remaining data in the open blob. If <m>size</m> is given, only return <m>size</m> bytes
+	of the blob data</desc>
+	</commanddef>
+	<commanddef>
+	<command><cmd>objectName</cmd> <method>blob</method> <method>skip</method> <m>size</m></command>
+	<desc>skip <m>size</m> bytes from the open blob</desc>
+	</commanddef>
+	<commanddef>
+	<command><cmd>objectName</cmd> <method>blob</method> <method>close</method></command>
+	<desc>close the blob currently opened</desc>
+	</commanddef>
+	</commandlist>
+</desc>
+</commanddef>
+
+<commanddef>
+<command><cmd>objectName</cmd> <method>newblob</method> <m>option</m> args ...</command>
+<desc>manipulate blobs via a blobid returned by exec/fetch using the -blobid option. This is
+not supported for all dbi objects (check with "object supports blobids"). Also, not all subcommands
+presented here are supported for all objects.
+	<commandlist>
+	<commanddef>
+	<command><cmd>objectName</cmd> <method>newblob</method> <method>create</method> <m>blobid</m></command>
+	<desc>create a new blob. The blobid for this blob will be returned when you close the new blob</desc>
+	</commanddef>
+	<commanddef>
+	<command><cmd>objectName</cmd> <method>newblob</method> <method>put</method> <m>data</m></command>
+	<desc>append <m>data</m> to the newly created blob</desc>
+	</commanddef>
+	<commanddef>
+	<command><cmd>objectName</cmd> <method>newblob</method> <method>close</method></command>
+	<desc>close the newly created blob. This function will return the blobid</desc>
+	</commanddef>
+	</commandlist>
 </desc>
 </commanddef>
 

@@ -12,7 +12,7 @@
 # See the file "license.terms" for information on usage and redistribution
 # of this file, and for a DISCLAIMER OF ALL WARRANTIES.
 #
-# RCS: @(#) $Id: Makefile 1.6 Mon, 01 Oct 2001 16:27:53 +0200 peter $
+# RCS: @(#) $Id: Makefile 1.5.1.1 Fri, 04 Jan 2002 17:58:38 +0100 peter $
 
 #========================================================================
 # Edit the following few lines when writing a new extension
@@ -110,7 +110,7 @@ pkgincludedir = $(includedir)/dbi_postgresql0.8
 
 top_builddir = .
 
-INSTALL = /usr/bin/install -c
+INSTALL = /usr//bin/install -c
 INSTALL_PROGRAM = ${INSTALL}
 INSTALL_DATA = ${INSTALL} -m 644
 INSTALL_SCRIPT = ${INSTALL_PROGRAM}
@@ -151,7 +151,7 @@ TCL_EXTRA_CFLAGS =
 TCL_LD_FLAGS = -rdynamic
 TCL_LIBS = -ldl  -lieee -lm
 TCL_SHLIB_LD_LIBS = ${LIBS}
-TCL_SRC_DIR = /home/vince/rpm/BUILD/tcltk-8.3.2/tcl8.3.2
+TCL_SRC_DIR = /home/snailtalk/RPM/BUILD/tcltk-8.3.3/tcl8.3.3
 TCL_DBGX = 
 TCL_STUB_LIB_FILE = libtclstub8.3${TCL_DBGX}.a
 TCL_STUB_LIB_SPEC = -L/usr/lib -ltclstub8.3${TCL_DBGX}

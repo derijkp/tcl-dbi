@@ -10,7 +10,7 @@ namespace eval dbi::interbase {}
 # $Format: "set ::dbi::interbase::version 0.$ProjectMajorVersion$"$
 set ::dbi::interbase::version 0.8
 # $Format: "set ::dbi::interbase::patchlevel $ProjectMinorVersion$"$
-set ::dbi::interbase::patchlevel 2
+set ::dbi::interbase::patchlevel 3
 package provide dbi_interbase $::dbi::interbase::version
 
 proc ::dbi::interbase::init {name testcmd} {
@@ -413,16 +413,18 @@ proc ::dbi::interbase::serial_add {db table field args} {
 		from RDB$FIELDS
 		where RDB$FIELD_NAME = ? } $fieldsource]
 	set type $typetrans($type)
-	$db exec "
-		create generator \"$name\"; \n\
-		create trigger \"$name\" for \"$table\" before \n\
-		insert as \n\
-		begin \n\
-			if (NEW.\"$field\" is null) then
-			NEW.\"$field\" = cast (gen_id(\"$name\",1) as $type); \n\
-		end; \n\
-		set generator \"$name\" to $current \
-	"
+	$db exec [subst {
+		create generator "$name";
+		create trigger "$name" for "$table" before
+		insert as
+		begin
+			if (NEW."$field" is null) then
+			NEW."$field" = cast (gen_id("$name",1) as $type);
+		end;
+	}]
+	$db exec [subst {
+		set generator "$name" to $current
+	}]
 	return $current
 }
 

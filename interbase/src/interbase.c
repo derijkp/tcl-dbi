@@ -27,6 +27,10 @@ int Dbi_interbase_Clone(
 	dbi_Interbase_Data *dbdata,
 	Tcl_Obj *name);
 
+int dbi_Interbase_Free_Stmt(
+	dbi_Interbase_Data *dbdata,
+	int action);
+
 /******************************************************************/
 
 int dbi_Interbase_autocommit_state(
@@ -108,6 +112,7 @@ int dbi_Interbase_Reconnect(
 	if (error) {
 		Tcl_AppendResult(interp,"reconnection to database \"",
 			Tcl_GetStringFromObj(dbdata->database,NULL) , "\" failed\n", NULL);
+		
 		goto error;
 	}
 	error = isc_dsql_allocate_statement(dbdata->status, &(dbdata->db), &(dbdata->stmt));
@@ -138,19 +143,136 @@ int dbi_Interbase_Reconnect(
 		return TCL_ERROR;
 }
 
-int dbi_Interbase_Free_out_sqlda(
-	dbi_Interbase_Data *dbdata)
+int dbi_Interbase_Error(
+	Tcl_Interp *interp,
+	dbi_Interbase_Data *dbdata,
+	char *premsg)
 {
-	XSQLDA *sqlda = dbdata->out_sqlda;
-	int i;
-	if (dbdata->out_sqlda_filled) {
-		for(i = 0 ; i < sqlda->sqld ; i++) {
-			if (sqlda->sqlvar[i].sqldata != NULL) Tcl_Free((char *)sqlda->sqlvar[i].sqldata);
-			if (sqlda->sqlvar[i].sqltype & 1) Tcl_Free((char *)sqlda->sqlvar[i].sqlind);
-		}
-		sqlda->sqld = 0;
+	ISC_STATUS *status_vector = dbdata->status;
+	char msg[512];
+	long SQLCODE;
+	int error;
+	if (strlen(premsg) != 0) {
+		Tcl_AppendResult(interp,"error ",premsg,":\n", NULL);
 	}
-	dbdata->out_sqlda_filled = 0;
+	SQLCODE = isc_sqlcode(status_vector);
+	isc_sql_interprete(SQLCODE, msg, 512);
+	while(isc_interprete(msg + 1, &status_vector)) {
+		Tcl_AppendResult(interp,msg+1," - ", NULL);
+	}
+	if (dbdata->cursor_open != 0) {dbi_Interbase_Free_Stmt(dbdata,DSQL_close);}
+	if (SQLCODE == -902) {
+		error = dbi_Interbase_Reconnect(interp,dbdata);
+		if (error) {
+			Tcl_AppendResult(interp,"error while reconnecting\n", NULL);
+			return TCL_ERROR;
+		} else {
+			Tcl_AppendResult(interp,"reconnected\n", NULL);
+			return TCL_OK;
+		}
+	}
+	if ((dbi_Interbase_autocommit_state(dbdata))&&(dbi_Interbase_trans_state(dbdata))) {
+/*fprintf(stdout,"error rollback transaction %X for stmt=%X\n",(uint)dbi_Interbase_trans(dbdata),(uint)dbdata->stmt);fflush(stdout);*/
+		error = isc_rollback_transaction(status_vector, dbi_Interbase_trans(dbdata));
+		if (error) {
+			Tcl_AppendResult(interp,"error rolling back transaction:\n", NULL);
+			dbi_Interbase_Error(interp,dbdata,"rollback in errorhandling");
+			return TCL_ERROR;
+		}
+	}
+	return SQLCODE;
+}
+
+int dbi_Interbase_Blob_Create(
+	Tcl_Interp *interp,
+	dbi_Interbase_Data *dbdata,
+	Tcl_Obj *data,
+	ISC_QUAD *blob_id)
+{
+	ISC_STATUS *status_vector = dbdata->status;
+	isc_blob_handle blob_handle = NULL;
+	char *string;
+	int error,pos,seglen,stringlen;
+	string = Tcl_GetStringFromObj(data,&stringlen);
+	seglen = stringlen;
+	if (seglen > 8192) {seglen = 8192;}
+	error = isc_create_blob2(status_vector, &(dbdata->db), dbi_Interbase_trans(dbdata), &blob_handle, blob_id, 0, NULL);
+	if (error) {goto error;}
+	pos = 0;
+	while (pos < stringlen) {
+		if ((pos+seglen) > stringlen) {seglen = stringlen - pos;}
+		error = isc_put_segment(status_vector, &blob_handle, seglen, string+pos);
+		if (error) {goto error;}
+		pos += seglen;
+	}
+	error = isc_close_blob(status_vector, &blob_handle);
+	if (error) {goto error;}
+	return TCL_OK;
+	error:
+		dbi_Interbase_Error(interp,dbdata,"creating blob");
+		return TCL_ERROR;
+}
+
+int dbi_Interbase_Blob_Get(
+	Tcl_Interp *interp,
+	dbi_Interbase_Data *dbdata,
+	ISC_QUAD *blob_id,
+	Tcl_Obj **resultPtr)
+{
+	ISC_STATUS *status_vector = dbdata->status;
+	ISC_STATUS blob_stat = 0;
+	isc_blob_handle blob_handle = NULL;
+	Tcl_Obj *result = NULL;
+	char blob_segment[8192];
+	int error;
+	unsigned short actual_seg_len;
+	error = isc_open_blob2(status_vector, &(dbdata->db),  dbi_Interbase_trans(dbdata), &blob_handle, blob_id, 0, NULL);
+	if (error) {dbi_Interbase_Error(interp,dbdata,"opening blob");goto error;}
+	result = Tcl_NewStringObj("",0);
+	actual_seg_len = 8192;
+	while (actual_seg_len) {
+		blob_stat = isc_get_segment(status_vector, &blob_handle,
+			&actual_seg_len,8192,blob_segment);
+		Tcl_AppendToObj(result,blob_segment,actual_seg_len);
+		if (blob_stat == isc_segstr_eof) break;
+		if (blob_stat) {dbi_Interbase_Error(interp,dbdata,"getting blob segment");goto error;}
+	}
+	if (isc_close_blob(status_vector, &blob_handle)) {
+		dbi_Interbase_Error(interp,dbdata,"closing blob");
+		goto error;
+	}
+	*resultPtr = result;
+	return TCL_OK;
+	error:
+		if (result != NULL) {Tcl_DecrRefCount(result);}
+		return TCL_ERROR;
+}
+
+int dbi_Interbase_Free_out_sqlda(
+	XSQLDA *sqlda,
+	int ipos)
+{
+	int i;
+	for(i = 0 ; i < ipos ; i++) {
+		if (sqlda->sqlvar[i].sqldata != NULL) Tcl_Free((char *)sqlda->sqlvar[i].sqldata);
+		if (sqlda->sqlvar[i].sqltype & 1) Tcl_Free((char *)sqlda->sqlvar[i].sqlind);
+	}
+	sqlda->sqld = 0;
+	return TCL_OK;
+}
+
+int dbi_Interbase_Free_Stmt(
+	dbi_Interbase_Data *dbdata,
+	int action)
+{
+	ISC_STATUS *status_vector = dbdata->status;
+	isc_stmt_handle *stmt = &(dbdata->stmt);
+	int error;
+	error = isc_dsql_free_statement(status_vector, stmt, action);
+	dbdata->cursor_open = 0;
+	if (dbdata->out_sqlda_cache == NULL) {
+		dbi_Interbase_Free_out_sqlda(dbdata->out_sqlda,dbdata->out_sqlda->sqld);
+	}
 	return TCL_OK;
 }
 
@@ -210,120 +332,292 @@ int dbi_Interbase_Prepare_out_sqlda(
 				}
 				Tcl_AppendResult(interp,"unsupported return type", NULL);
 				}
-				return TCL_ERROR;
+				goto error;
 		}
 		if (var->sqltype & 1) { /* allocate variable to hold NULL status */ 
 			var->sqlind = (short *)Tcl_Alloc(sizeof(short));
 		}
 	}
 	return TCL_OK;
-}
-
-int dbi_Interbase_Error(
-	Tcl_Interp *interp,
-	dbi_Interbase_Data *dbdata)
-{
-	ISC_STATUS *status_vector = dbdata->status;
-	isc_stmt_handle *stmt = &(dbdata->stmt);
-	char msg[512];
-	long SQLCODE;
-	int error;
-	SQLCODE = isc_sqlcode(status_vector);
-	isc_sql_interprete(SQLCODE, msg, 512);
-	while(isc_interprete(msg + 1, &status_vector)) {
-		Tcl_AppendResult(interp,msg+1," - ", NULL);
-	}
-	if (dbdata->cursor_open != 0) {
-		error = isc_dsql_free_statement(status_vector, stmt, DSQL_close);
-		dbdata->cursor_open = 0;
-		dbi_Interbase_Free_out_sqlda(dbdata);
-	}
-	if (SQLCODE == -902) {
-		error = dbi_Interbase_Reconnect(interp,dbdata);
-		if (error) {
-			Tcl_AppendResult(interp,"error while reconnecting\n", NULL);
-			return TCL_ERROR;
-		} else {
-			Tcl_AppendResult(interp,"reconnected\n", NULL);
-			return TCL_OK;
-		}
-	}
-	if ((dbi_Interbase_autocommit_state(dbdata))&&(dbi_Interbase_trans_state(dbdata))) {
-		error = isc_rollback_transaction(status_vector, dbi_Interbase_trans(dbdata));
-		if (error) {
-			Tcl_AppendResult(interp,"error rolling back transaction:\n", NULL);
-			dbi_Interbase_Error(interp,dbdata);
-			return TCL_ERROR;
-		}
-	}
-	return SQLCODE;
-}
-
-int dbi_Interbase_Blob_Create(
-	Tcl_Interp *interp,
-	dbi_Interbase_Data *dbdata,
-	Tcl_Obj *data,
-	ISC_QUAD *blob_id)
-{
-	ISC_STATUS *status_vector = dbdata->status;
-	isc_blob_handle blob_handle = NULL;
-	char *string;
-	int error,pos,seglen,stringlen;
-	string = Tcl_GetStringFromObj(data,&stringlen);
-	seglen = stringlen;
-	if (seglen > 8192) {seglen = 8192;}
-	error = isc_create_blob2(status_vector, &(dbdata->db), dbi_Interbase_trans(dbdata), &blob_handle, blob_id, 0, NULL);
-	if (error) {goto error;}
-	pos = 0;
-	while (pos < stringlen) {
-		if ((pos+seglen) > stringlen) {seglen = stringlen - pos;}
-		error = isc_put_segment(status_vector, &blob_handle, seglen, string+pos);
-		if (error) {goto error;}
-		pos += seglen;
-	}
-	error = isc_close_blob(status_vector, &blob_handle);
-	if (error) {goto error;}
-	return TCL_OK;
 	error:
-		dbi_Interbase_Error(interp,dbdata);
+		dbi_Interbase_Free_out_sqlda(out_sqlda,i);
 		return TCL_ERROR;
 }
 
-int dbi_Interbase_Blob_Get(
-	Tcl_Interp *interp,
-	dbi_Interbase_Data *dbdata,
-	ISC_QUAD *blob_id,
-	int start,
-	int end,
-	Tcl_Obj **resultPtr)
+int dbi_Interbase_Free_in_sqlda(
+	XSQLDA *in_sqlda,
+	int ipos)
 {
-	ISC_STATUS *status_vector = dbdata->status;
-	ISC_STATUS blob_stat = 0;
-	isc_blob_handle blob_handle = NULL;
-	Tcl_Obj *result = NULL;
-	char blob_segment[8192];
-	int blob_segsize,error;
-	unsigned short actual_seg_len;
-	blob_segsize = 400;
-	error = isc_open_blob2(status_vector, &(dbdata->db),  dbi_Interbase_trans(dbdata), &blob_handle, blob_id, 0, NULL);
-	if (error) {dbi_Interbase_Error(interp,dbdata);goto error;}
-	result = Tcl_NewStringObj("",0);
-	actual_seg_len = 8192;
-	while (actual_seg_len) {
-		blob_stat = isc_get_segment(status_vector, &blob_handle,
-			&actual_seg_len,8192,blob_segment);
-		Tcl_AppendToObj(result,blob_segment,actual_seg_len);
-		if (blob_stat == isc_segstr_eof) break;
-		if (blob_stat) {dbi_Interbase_Error(interp,dbdata);goto error;}
+	int i,dtype;
+	for(i = 0 ; i < ipos ; i++) {
+		dtype = (in_sqlda->sqlvar[i].sqltype & ~1);
+		switch(dtype) {
+			case SQL_TEXT:
+			case SQL_VARYING:
+				break;
+			default:
+				Tcl_Free((char *)in_sqlda->sqlvar[i].sqldata);
+		}
+		if (in_sqlda->sqlvar[i].sqltype & 1) Tcl_Free((char *)in_sqlda->sqlvar[i].sqlind);
 	}
-	if (isc_close_blob(status_vector, &blob_handle)) {
-		dbi_Interbase_Error(interp,dbdata);
-		goto error;
+	in_sqlda->sqld = 0;
+	return TCL_OK;
+}
+
+int dbi_Interbase_Prepare_in_sqlda(
+	Tcl_Interp *interp,
+	XSQLDA *in_sqlda)
+{
+	XSQLVAR *var = NULL;
+	int dtype,ipos = 0,nullable;
+	for (ipos = 0, var = in_sqlda->sqlvar; ipos < in_sqlda->sqld; ipos++, var++) {
+		if (var->sqltype & 1) {
+			var->sqlind = (short *)Tcl_Alloc(sizeof(short));
+			nullable = 1;
+		} else {
+			nullable = 0;
+		}
+		dtype = (var->sqltype & ~1);
+		/* fprintf(stdout,"ipos=%d, dtype=%d\n",ipos,dtype);fflush(stdout);*/
+		switch(dtype) {
+			case SQL_VARYING:
+				var->sqltype = SQL_TEXT | nullable;
+			case SQL_TEXT:
+				break;
+			case SQL_SHORT:
+				var->sqldata = (char *)Tcl_Alloc(sizeof(short));
+				break;
+			case SQL_LONG:
+				var->sqldata = (char *)Tcl_Alloc(sizeof(long));
+				break;
+			case SQL_INT64:
+				var->sqldata = (char *)Tcl_Alloc(sizeof(long));
+				break;
+			case SQL_FLOAT:
+				var->sqldata = (char *)Tcl_Alloc(sizeof(long));
+				break;
+			case SQL_D_FLOAT:
+			case SQL_DOUBLE:
+				var->sqldata = (char *)Tcl_Alloc(sizeof(long));
+				break;
+			case SQL_TIMESTAMP:
+				var->sqldata = (char *)Tcl_Alloc(sizeof(ISC_TIMESTAMP));
+				break;
+			case SQL_BLOB:
+				{
+				ISC_QUAD *blob_id;
+				blob_id = (ISC_QUAD *)Tcl_Alloc(sizeof(ISC_QUAD));
+				var->sqldata = (char *)blob_id;
+				}
+				break;
+			case SQL_ARRAY:
+			case SQL_QUAD:
+				var->sqldata = (char *)Tcl_Alloc(sizeof(ISC_QUAD));
+				break;
+			case SQL_TYPE_TIME:
+				var->sqldata = (char *)Tcl_Alloc(sizeof(ISC_TIME));
+				break;
+			case SQL_TYPE_DATE:
+				var->sqldata = (char *)Tcl_Alloc(sizeof(ISC_DATE));
+				break;
+			default:
+				Tcl_AppendResult(interp,"unsupported type", NULL);
+				goto error;
+		}
 	}
-	*resultPtr = result;
 	return TCL_OK;
 	error:
-		if (result != NULL) {Tcl_DecrRefCount(result);}
+		dbi_Interbase_Free_in_sqlda(in_sqlda,ipos);
+		return TCL_ERROR;
+}
+
+int dbi_Interbase_Fill_in_sqlda(
+	Tcl_Interp *interp,
+	dbi_Interbase_Data *dbdata,
+	XSQLDA *in_sqlda,
+	int objc,
+	Tcl_Obj **objv,
+	Tcl_Obj *nullvalue)
+{
+	XSQLVAR *var = NULL;
+	char *string, *nullstring;
+	int error,len,dtype,size,temp,ms,ipos = 0,nulllen;
+	if (nullvalue == NULL) {
+		nullstring = NULL; nulllen = 0;
+	} else {
+		nullstring = Tcl_GetStringFromObj(nullvalue,&nulllen);
+	}
+	for (ipos = 0, var = in_sqlda->sqlvar; ipos < in_sqlda->sqld; ipos++, var++) {
+		if (var->sqltype & 1) {
+			*(var->sqlind) = 1;
+			if (nullstring == NULL) {
+				*(var->sqlind) = 0;
+			} else {
+				string = Tcl_GetStringFromObj(objv[ipos],&len);
+				if ((len == nulllen)&&(strncmp(string,nullstring,len) == 0)) {
+					*(var->sqlind) = -1;
+					var->sqldata = NULL;
+					continue;
+				} else {
+					*(var->sqlind) = 0;
+				}
+			}
+		}
+		dtype = (var->sqltype & ~1);
+		/* fprintf(stdout,"ipos=%d, dtype=%d\n",ipos,dtype);fflush(stdout);*/
+		switch(dtype) {
+			case SQL_VARYING:
+				var->sqltype = SQL_TEXT;
+			case SQL_TEXT:
+				var->sqldata = Tcl_GetStringFromObj(objv[ipos],&size);
+				if (size > 32767) {
+					Tcl_AppendResult(interp,"String argument to large");
+					goto error;
+				}
+				var->sqllen = (short)size;
+				break;
+			case SQL_SHORT:
+				error = Tcl_GetIntFromObj(interp,objv[ipos],&temp);
+				if (error) {goto error;}
+				if (var->sqlscale < 0) {
+					ISC_INT64 tens;
+					short i;
+					tens = 1;
+					for (i = 0; i > var->sqlscale; i--) tens *= 10;
+					*(short *)var->sqldata = (short)(temp*tens);
+				} else if (var->sqlscale > 1) {
+					*(short *)var->sqldata = (short)(temp/var->sqlscale);
+				} else {
+					*(short *)var->sqldata = (short)temp;
+				}
+				break;
+			case SQL_LONG:
+				error = Tcl_GetIntFromObj(interp,objv[ipos],&temp);
+				*(long *)(var->sqldata) = (long)temp;
+				if (error) {goto error;}
+				if (var->sqlscale < 0) {
+					ISC_INT64 tens;
+					short i;
+					tens = 1;
+					for (i = 0; i > var->sqlscale; i--) tens *= 10;
+					*(long *)var->sqldata = (long)(temp*tens);
+				} else if (var->sqlscale > 1) {
+					*(long *)var->sqldata = (long)(temp/var->sqlscale);
+				} else {
+					*(long *)var->sqldata = (long)temp;
+				}
+				break;
+			case SQL_INT64:
+				break;
+				{
+				double temp;
+				error = Tcl_GetDoubleFromObj(interp,objv[ipos],&temp);
+				if (error) {goto error;}
+				if (var->sqlscale < 0) {
+					ISC_INT64 tens;
+					short i;
+					tens = 1;
+					for (i = 0; i > var->sqlscale; i--) tens *= 10;
+					*(ISC_INT64 *)var->sqldata = (ISC_INT64)temp*(ISC_INT64)tens;
+				} else if (var->sqlscale > 1) {
+					*(ISC_INT64 *)var->sqldata = (ISC_INT64)temp/(ISC_INT64)var->sqlscale;
+				} else {
+					*(ISC_INT64 *)var->sqldata = (ISC_INT64)temp;
+				}
+				}
+				break;
+			case SQL_FLOAT:
+				{
+				double temp;
+				error = Tcl_GetDoubleFromObj(interp,objv[ipos],&temp);
+				if (error) {goto error;}
+				*(float *)(var->sqldata) = (float)temp;
+				}
+				break;
+			case SQL_D_FLOAT:
+			case SQL_DOUBLE:
+				error = Tcl_GetDoubleFromObj(interp,objv[ipos],(double *)(var->sqldata));
+				if (error) {goto error;}
+				break;
+			case SQL_TIMESTAMP:
+				{
+				struct tm times;
+				int ms;
+				string = Tcl_GetStringFromObj(objv[ipos],&len);
+				times.tm_year = 0;
+				times.tm_mon = 0;
+				times.tm_mday = 0;
+				times.tm_hour = 0;
+				times.tm_min = 0;
+				times.tm_sec = 0;
+				sscanf(string,"%d-%d-%d %d:%d:%d.%d",&times.tm_year,&times.tm_mon,&times.tm_mday,&times.tm_hour,&times.tm_min,&times.tm_sec,&ms);
+				times.tm_year -= 1900;
+				times.tm_mon -= 1;
+				isc_encode_timestamp(&times,(ISC_TIMESTAMP *) var->sqldata);
+				}
+				break;
+			case SQL_BLOB:
+				{
+				ISC_QUAD *blob_id = (ISC_QUAD *)var->sqldata;
+				if (dbdata->blobid) {
+					error = sscanf(Tcl_GetStringFromObj(objv[ipos],NULL),"%lx:%lx", &(blob_id->isc_quad_high), &(blob_id->isc_quad_low));
+					if (error != 2) {
+						Tcl_AppendResult(interp, "error in format of blob id",NULL);
+						goto error;
+					}
+				} else {
+					error = dbi_Interbase_Blob_Create(interp,dbdata,objv[ipos],blob_id);
+					if (error) {dbi_Interbase_Error(interp,dbdata,"creating blob");goto error;}
+					/*fprintf(stdout, "%08lx:%08lx\n", blob_id->isc_quad_high, blob_id->isc_quad_low);fflush(stdout);*/
+				}
+				}
+				break;
+			case SQL_ARRAY:
+			case SQL_QUAD:
+				/*
+				 * Print the blob id on blobs or arrays 
+				 */
+				{
+				}
+				break;
+			case SQL_TYPE_TIME:
+				{
+				struct tm times;
+				string = Tcl_GetStringFromObj(objv[ipos],&len);
+				times.tm_year = 0;
+				times.tm_mon = 0;
+				times.tm_mday = 0;
+				times.tm_hour = 0;
+				times.tm_min = 0;
+				times.tm_sec = 0;
+				sscanf(string,"%d:%d:%d.%d",&times.tm_hour,&times.tm_min,&times.tm_sec,&ms);
+				times.tm_year -= 1900;
+				isc_encode_sql_time(&times,(ISC_TIME *) var->sqldata);
+				}
+				break;
+			case SQL_TYPE_DATE:
+				{
+				struct tm times;
+				string = Tcl_GetStringFromObj(objv[ipos],&len);
+				times.tm_year = 0;
+				times.tm_mon = 0;
+				times.tm_mday = 0;
+				times.tm_hour = 0;
+				times.tm_min = 0;
+				times.tm_sec = 0;
+				sscanf(string,"%d-%d-%d",&times.tm_year,&times.tm_mon,&times.tm_mday);
+				times.tm_year -= 1900;
+				times.tm_mon -= 1;
+				isc_encode_sql_date(&times,(ISC_DATE *) var->sqldata);
+				}
+				break;
+			default:
+				Tcl_AppendResult(interp,"unsupported type", NULL);
+				goto error;
+		}
+	}
+	return TCL_OK;
+	error:
 		return TCL_ERROR;
 }
 
@@ -335,7 +629,7 @@ int dbi_Interbase_Open(
 {
 	static char *switches[] = {"-user","-password","-role", (char *) NULL};
 	char *string=NULL;
-	int len,i,dpbpos,item=0,index,error;
+	int len,i,dpbpos,item=0,index,error = TCL_OK;
 	if (dbdata->db != NULL) {
 		Tcl_AppendResult(interp,"dbi object has open connection, close first", NULL);
 		goto error;
@@ -344,6 +638,9 @@ int dbi_Interbase_Open(
 		Tcl_WrongNumArgs(interp,2,objv,"datasource ?options?");
 		return TCL_ERROR;
 	}
+	dbdata->stmt = NULL;
+	dbdata->trans = NULL;
+	dbdata->autocommit = 1;
 	dpbpos = 0;
 	if (dbdata->dpb != NULL) {Tcl_Free(dbdata->dpb);}
 	dbdata->dpblen = 200;
@@ -402,15 +699,17 @@ int dbi_Interbase_Open(
 		Tcl_AppendResult(interp,"connection to database \"",
 			Tcl_GetStringFromObj(dbdata->database,NULL) , "\" failed:\n", NULL);
 		Tcl_DecrRefCount(dbdata->database);dbdata->database=NULL;
-		dbi_Interbase_Error(interp,dbdata);
+		dbi_Interbase_Error(interp,dbdata,"opening to database");
 		goto error;
 	}
 	error = isc_dsql_allocate_statement(dbdata->status, &(dbdata->db), &(dbdata->stmt));
 	if (error) {
 		Tcl_AppendResult(interp,"Interbase error on statement allocation:\n", NULL);
-		dbi_Interbase_Error(interp,dbdata);
+		dbi_Interbase_Error(interp,dbdata,"allocating statement");
 		goto error;
 	}
+	Tcl_InitHashTable(&(dbdata->preparedhash),TCL_STRING_KEYS);
+	dbdata->out_sqlda_cache = NULL;
 	return TCL_OK;
 	error:
 		return TCL_ERROR;
@@ -504,9 +803,15 @@ int dbi_Interbase_Fetch_One(
 				{
 				ISC_QUAD bid;
                 bid = *(ISC_QUAD *)var->sqldata;
-/*fprintf(stdout, "%08lx:%08lx\n", bid.isc_quad_high, bid.isc_quad_low);fflush(stdout);*/
-				error = dbi_Interbase_Blob_Get(interp,dbdata,&bid,0,-1,&element);
-				if (error) {goto error;}
+				if (dbdata->blobid) {
+					char buffer[18];
+					sprintf(buffer, "%lx:%lx", bid.isc_quad_high, bid.isc_quad_low);
+					element = Tcl_NewStringObj(buffer,-1);
+				} else {
+					/*fprintf(stdout, "%08lx:%08lx\n", bid.isc_quad_high, bid.isc_quad_low);fflush(stdout);*/
+					error = dbi_Interbase_Blob_Get(interp,dbdata,&bid,&element);
+					if (error) {goto error;}
+				}
 				}
 				break;
 			case SQL_ARRAY:
@@ -582,6 +887,38 @@ int dbi_Interbase_Fetch_Row(
 		return TCL_ERROR;
 }
 
+int dbi_Interbase_Fetch_Array(
+	Tcl_Interp *interp,
+	dbi_Interbase_Data *dbdata,
+	XSQLDA *out_sqlda,
+	Tcl_Obj *nullvalue,
+	Tcl_Obj **result)
+{
+	Tcl_Obj *line = NULL, *element = NULL;
+	XSQLVAR *var;
+	int i,error;
+	line = Tcl_NewListObj(0,NULL);
+	for (i = 0; i < out_sqlda->sqld; i++) {
+		var = out_sqlda->sqlvar+i;
+		element = Tcl_NewStringObj(var->sqlname,var->sqlname_length);
+		error = Tcl_ListObjAppendElement(interp,line, element);
+		if (error) goto error;
+		element = NULL;
+		error = dbi_Interbase_Fetch_One(interp,dbdata,i,&element);
+		if (error) {goto error;}
+		if (element == NULL) {element = nullvalue;}
+		error = Tcl_ListObjAppendElement(interp,line, element);
+		if (error) goto error;
+		element = NULL;
+	}
+	*result = line;
+	return TCL_OK;
+	error:
+		if (line != NULL) Tcl_DecrRefCount(line);
+		if (element != NULL) Tcl_DecrRefCount(element);
+		return TCL_ERROR;
+}
+
 int dbi_Interbase_Fetch_Fields(
 	Tcl_Interp *interp,
 	dbi_Interbase_Data *dbdata,
@@ -607,676 +944,6 @@ int dbi_Interbase_Fetch_Fields(
 		return TCL_ERROR;
 }
 
-int dbi_Interbase_ToResult(
-	Tcl_Interp *interp,
-	dbi_Interbase_Data *dbdata,
-	XSQLDA *out_sqlda,
-	Tcl_Obj *nullvalue)
-{
-	ISC_STATUS *status_vector = dbdata->status;
-	isc_stmt_handle *stmt = &(dbdata->stmt);
-	Tcl_Obj *result = NULL, *line = NULL;
-    long fetch_stat;
-	int error;
-	result = Tcl_NewListObj(0,NULL);
-	while (1) {
-		fetch_stat = isc_dsql_fetch(status_vector, stmt, SQL_DIALECT_V6, out_sqlda);
-		if (fetch_stat) break;
-		error = dbi_Interbase_Fetch_Row(interp,dbdata,out_sqlda,nullvalue,&line);
-		if (error) {goto error;}
-		error = Tcl_ListObjAppendElement(interp,result, line);
-		if (error) goto error;
-		line = NULL;
-	}
-	Tcl_SetObjResult(interp, result);
-	return TCL_OK;
-	error:
-		if (result != NULL) Tcl_DecrRefCount(result);
-		if (line != NULL) Tcl_DecrRefCount(line);
-		return TCL_ERROR;
-}
-
-int dbi_Interbase_ToResult_flat(
-	Tcl_Interp *interp,
-	dbi_Interbase_Data *dbdata,
-	XSQLDA *out_sqlda,
-	Tcl_Obj *nullvalue)
-{
-	ISC_STATUS *status_vector = dbdata->status;
-	isc_stmt_handle *stmt = &(dbdata->stmt);
-	Tcl_Obj *result = NULL, *element = NULL;
-    long fetch_stat;
-	int error,i;
-	result = Tcl_NewListObj(0,NULL);
-	while (1) {
-		fetch_stat = isc_dsql_fetch(status_vector, stmt, SQL_DIALECT_V6, out_sqlda);
-		if (fetch_stat) break;
-		for (i = 0; i < out_sqlda->sqld; i++) {
-			error = dbi_Interbase_Fetch_One(interp,dbdata,i,&element);
-			if (error) {goto error;}
-			if (element == NULL) {element = nullvalue;}
-			error = Tcl_ListObjAppendElement(interp,result,element);
-			if (error) goto error;
-			element = NULL;
-		}
-	}
-	Tcl_SetObjResult(interp, result);
-	return TCL_OK;
-	error:
-		if (result != NULL) Tcl_DecrRefCount(result);
-		if (element != NULL) Tcl_DecrRefCount(element);
-		return TCL_ERROR;
-}
-
-int dbi_Interbase_Transaction_Commit(
-	Tcl_Interp *interp,
-	dbi_Interbase_Data *dbdata)
-{
-	ISC_STATUS *status_vector = dbdata->status;
-	isc_stmt_handle *stmt = &(dbdata->stmt);
-	int error;
-	if (dbdata->cursor_open != 0) {
-		error = isc_dsql_free_statement(status_vector, stmt, DSQL_close);
-		dbdata->cursor_open = 0;
-		dbi_Interbase_Free_out_sqlda(dbdata);
-	}
-	if ((dbi_Interbase_autocommit_state(dbdata))&&(dbi_Interbase_trans_state(dbdata))) {
-		error = isc_commit_retaining(dbdata->status, dbi_Interbase_trans(dbdata));
-		if (error) {
-			Tcl_AppendResult(interp,"error committing transaction:\n", NULL);
-			dbi_Interbase_Error(interp,dbdata);
-			return TCL_ERROR;
-		}
-	}
-	return TCL_OK;
-}
-
-int dbi_Interbase_Transaction_Commit_Close(
-	Tcl_Interp *interp,
-	dbi_Interbase_Data *dbdata)
-{
-	ISC_STATUS *status_vector = dbdata->status;
-	isc_stmt_handle *stmt = &(dbdata->stmt);
-	int error;
-	if (dbdata->cursor_open != 0) {
-		error = isc_dsql_free_statement(status_vector, stmt, DSQL_close);
-		dbdata->cursor_open = 0;
-		dbi_Interbase_Free_out_sqlda(dbdata);
-	}
-	if ((dbi_Interbase_autocommit_state(dbdata))&&(dbi_Interbase_trans_state(dbdata))) {
-		error = isc_commit_transaction(dbdata->status, dbi_Interbase_trans(dbdata));
-		if (error) {
-			Tcl_AppendResult(interp,"error committing transaction:\n", NULL);
-			dbi_Interbase_Error(interp,dbdata);
-			return TCL_ERROR;
-		}
-	}
-	return TCL_OK;
-}
-
-int dbi_Interbase_Transaction_Rollback(
-	Tcl_Interp *interp,
-	dbi_Interbase_Data *dbdata)
-{
-	ISC_STATUS *status_vector = dbdata->status;
-	isc_stmt_handle *stmt = &(dbdata->stmt);
-	int error;
-	if (dbdata->cursor_open != 0) {
-		error = isc_dsql_free_statement(status_vector, stmt, DSQL_close);
-		dbdata->cursor_open = 0;
-/*
-		if (error) {
-			Tcl_AppendResult(interp,"Interbase error:\n", NULL);
-			dbi_Interbase_Error(interp,dbdata);
-			return TCL_ERROR;
-		}
-*/
-		dbi_Interbase_Free_out_sqlda(dbdata);
-	}
-	if ((dbi_Interbase_autocommit_state(dbdata))&&(dbi_Interbase_trans_state(dbdata))) {
-		error = isc_rollback_transaction(dbdata->status, dbi_Interbase_trans(dbdata));
-		if (error) {
-			Tcl_AppendResult(interp,"error rolling back transaction:\n", NULL);
-			dbi_Interbase_Error(interp,dbdata);
-			return TCL_ERROR;
-		}
-	}
-	return TCL_OK;
-}
-
-int dbi_Interbase_Transaction_Start(
-	Tcl_Interp *interp,
-	dbi_Interbase_Data *dbdata)
-{
-	isc_tr_handle *trans = dbi_Interbase_trans(dbdata);
-	int error;
-	if (dbi_Interbase_autocommit_state(dbdata)) {
-		if (*trans == NULL) {
-			static char isc_tpb[] = {
-				isc_tpb_version3
-			};
-			error = isc_start_transaction(dbdata->status, trans,1,&(dbdata->db),(unsigned short) sizeof(isc_tpb),isc_tpb);
-			if (error) {
-				long SQLCODE;
-				SQLCODE = isc_sqlcode(dbdata->status);
-				if (SQLCODE == -902) {
-					error = dbi_Interbase_Reconnect(interp,dbdata);
-					if (error) {return TCL_ERROR;}
-					error = isc_start_transaction(dbdata->status, trans,1,&(dbdata->db), (unsigned short) sizeof(isc_tpb),isc_tpb);
-					if (!error) {return TCL_OK;}
-				}
-				Tcl_AppendResult(interp,"error starting transaction:\n", NULL);
-				dbi_Interbase_Error(interp,dbdata);
-				return TCL_ERROR;
-			}
-		} else {
-			error = dbi_Interbase_Transaction_Commit(interp,dbdata);
-			if (error) {
-				dbi_Interbase_Error(interp,dbdata);
-				return TCL_ERROR;
-			}
-		}
-	}
-	return TCL_OK;
-}
-
-int dbi_Interbase_Process_statement(
-	Tcl_Interp *interp,
-	dbi_Interbase_Data *dbdata,
-	int cmdlen,
-	char *cmdstring,
-	Tcl_Obj *nullvalue,
-	int objc,
-	Tcl_Obj **objv)
-{
-	ISC_STATUS *status_vector = dbdata->status;
-	isc_stmt_handle *stmt = &(dbdata->stmt);
-	XSQLVAR *var = NULL;
-	static char stmt_info[] = { isc_info_sql_stmt_type };
-	char info_buffer[20], *nullstring, *string;
-	short l;
-	int error,n = 0,nulllen,len,dtype,size,temp,ms,i,ipos = 0;
-	dbi_Interbase_Free_out_sqlda(dbdata);
-	error = isc_dsql_prepare(status_vector, dbi_Interbase_trans(dbdata), stmt, cmdlen, cmdstring, SQL_DIALECT_V6, dbdata->out_sqlda);
-	if (error) {
-		dbi_Interbase_Error(interp,dbdata);
-		goto error;
-	}
-	/* Get information about input of cmd */
-	error = isc_dsql_describe_bind(status_vector, stmt, SQL_DIALECT_V6, dbdata->in_sqlda);
-/* fprintf(stdout,"objc=%d, sqld=%d\n",objc,dbdata->in_sqlda->sqld);fflush(stdout); */
-	if (objc != dbdata->in_sqlda->sqld) {
-		Tcl_AppendResult(interp,"wrong number of arguments given to exec",NULL);
-		goto error;
-	}
-	if (dbdata->in_sqlda->sqld > dbdata->in_sqlda->sqln) {
-		n = dbdata->in_sqlda->sqld;
-		Tcl_Free((char *)dbdata->in_sqlda);
-		dbdata->in_sqlda = (XSQLDA *)Tcl_Alloc(XSQLDA_LENGTH(n));
-		dbdata->in_sqlda->sqln = n;
-		dbdata->in_sqlda->version = SQLDA_VERSION1;
-		isc_dsql_describe_bind(status_vector, stmt, SQL_DIALECT_V6, dbdata->in_sqlda);
-	}
-	nullstring = Tcl_GetStringFromObj(nullvalue,&nulllen);
-	for (ipos = 0, var = dbdata->in_sqlda->sqlvar; ipos < dbdata->in_sqlda->sqld; ipos++, var++) {
-		if (var->sqltype & 1) {
-			var->sqlind = (short *)Tcl_Alloc(sizeof(short));
-			*(var->sqlind) = 1;
-			string = Tcl_GetStringFromObj(objv[ipos],&len);
-			if ((len == nulllen)&&(strncmp(string,nullstring,len) == 0)) {
-				*(var->sqlind) = -1;
-			} else {
-				*(var->sqlind) = 0;
-			}
-		}
-		dtype = (var->sqltype & ~1);
-/* fprintf(stdout,"ipos=%d, dtype=%d\n",ipos,dtype);fflush(stdout);*/
-		switch(dtype) {
-			case SQL_VARYING:
-				var->sqltype = SQL_TEXT;
-			case SQL_TEXT:
-				var->sqldata = Tcl_GetStringFromObj(objv[ipos],&size);
-				if (size > 32767) {
-					Tcl_AppendResult(interp,"String argument to large");
-					goto error;
-				}
-				var->sqllen = (short)size;
-				break;
-			case SQL_SHORT:
-				var->sqldata = (char *)Tcl_Alloc(sizeof(short));
-				error = Tcl_GetIntFromObj(interp,objv[ipos],&temp);
-				if (error) {goto error;}
-				if (var->sqlscale < 0) {
-					ISC_INT64 tens;
-					short i;
-					tens = 1;
-					for (i = 0; i > var->sqlscale; i--) tens *= 10;
-					*(short *)var->sqldata = (short)(temp*tens);
-				} else if (var->sqlscale > 1) {
-					*(short *)var->sqldata = (short)(temp/var->sqlscale);
-				} else {
-					*(short *)var->sqldata = (short)temp;
-				}
-				break;
-			case SQL_LONG:
-				var->sqldata = (char *)Tcl_Alloc(sizeof(long));
-				error = Tcl_GetIntFromObj(interp,objv[ipos],&temp);
-				*(long *)(var->sqldata) = (long)temp;
-				if (error) {goto error;}
-				if (var->sqlscale < 0) {
-					ISC_INT64 tens;
-					short i;
-					tens = 1;
-					for (i = 0; i > var->sqlscale; i--) tens *= 10;
-					*(long *)var->sqldata = (long)(temp*tens);
-				} else if (var->sqlscale > 1) {
-					*(long *)var->sqldata = (long)(temp/var->sqlscale);
-				} else {
-					*(long *)var->sqldata = (long)temp;
-				}
-				break;
-			case SQL_INT64:
-				break;
-				{
-				double temp;
-				var->sqldata = (char *)Tcl_Alloc(sizeof(long));
-				error = Tcl_GetDoubleFromObj(interp,objv[ipos],&temp);
-				if (error) {goto error;}
-				if (var->sqlscale < 0) {
-					ISC_INT64 tens;
-					short i;
-					tens = 1;
-					for (i = 0; i > var->sqlscale; i--) tens *= 10;
-					*(ISC_INT64 *)var->sqldata = (ISC_INT64)temp*(ISC_INT64)tens;
-				} else if (var->sqlscale > 1) {
-					*(ISC_INT64 *)var->sqldata = (ISC_INT64)temp/(ISC_INT64)var->sqlscale;
-				} else {
-					*(ISC_INT64 *)var->sqldata = (ISC_INT64)temp;
-				}
-				}
-				break;
-			case SQL_FLOAT:
-				{
-				double temp;
-				var->sqldata = (char *)Tcl_Alloc(sizeof(long));
-				error = Tcl_GetDoubleFromObj(interp,objv[ipos],&temp);
-				if (error) {goto error;}
-				*(float *)(var->sqldata) = (float)temp;
-				}
-				break;
-			case SQL_D_FLOAT:
-			case SQL_DOUBLE:
-				var->sqldata = (char *)Tcl_Alloc(sizeof(long));
-				error = Tcl_GetDoubleFromObj(interp,objv[ipos],(double *)(var->sqldata));
-				if (error) {goto error;}
-				break;
-			case SQL_TIMESTAMP:
-				{
-				struct tm times;
-				int ms;
-				var->sqldata = (char *)Tcl_Alloc(sizeof(ISC_TIMESTAMP));
-				string = Tcl_GetStringFromObj(objv[ipos],&len);
-				times.tm_year = 0;
-				times.tm_mon = 0;
-				times.tm_mday = 0;
-				times.tm_hour = 0;
-				times.tm_min = 0;
-				times.tm_sec = 0;
-				sscanf(string,"%d-%d-%d %d:%d:%d.%d",&times.tm_year,&times.tm_mon,&times.tm_mday,&times.tm_hour,&times.tm_min,&times.tm_sec,&ms);
-				times.tm_year -= 1900;
-				times.tm_mon -= 1;
-				isc_encode_timestamp(&times,(ISC_TIMESTAMP *) var->sqldata);
-				}
-				break;
-			case SQL_BLOB:
-				{
-				ISC_QUAD *blob_id;
-				blob_id = (ISC_QUAD *)Tcl_Alloc(sizeof(ISC_QUAD));
-				error = dbi_Interbase_Blob_Create(interp,dbdata,objv[ipos],blob_id);
-				var->sqldata = (char *)blob_id;
-/*                fprintf(stdout, "%08lx:%08lx\n", blob_id->isc_quad_high, blob_id->isc_quad_low);fflush(stdout);*/
-				if (error) {dbi_Interbase_Error(interp,dbdata);goto error;}
-				}
-				break;
-			case SQL_ARRAY:
-			case SQL_QUAD:
-				/*
-				 * Print the blob id on blobs or arrays 
-				 */
-				{
-				var->sqldata = (char *)Tcl_Alloc(sizeof(ISC_QUAD));
-				}
-				break;
-			case SQL_TYPE_TIME:
-				{
-				struct tm times;
-				var->sqldata = (char *)Tcl_Alloc(sizeof(ISC_TIME));
-				string = Tcl_GetStringFromObj(objv[ipos],&len);
-				times.tm_year = 0;
-				times.tm_mon = 0;
-				times.tm_mday = 0;
-				times.tm_hour = 0;
-				times.tm_min = 0;
-				times.tm_sec = 0;
-				sscanf(string,"%d:%d:%d.%d",&times.tm_hour,&times.tm_min,&times.tm_sec,&ms);
-				times.tm_year -= 1900;
-				isc_encode_sql_time(&times,(ISC_TIME *) var->sqldata);
-				}
-				break;
-			case SQL_TYPE_DATE:
-				{
-				struct tm times;
-				var->sqldata = (char *)Tcl_Alloc(sizeof(ISC_DATE));
-				string = Tcl_GetStringFromObj(objv[ipos],&len);
-				times.tm_year = 0;
-				times.tm_mon = 0;
-				times.tm_mday = 0;
-				times.tm_hour = 0;
-				times.tm_min = 0;
-				times.tm_sec = 0;
-				sscanf(string,"%d-%d-%d",&times.tm_year,&times.tm_mon,&times.tm_mday);
-				times.tm_year -= 1900;
-				times.tm_mon -= 1;
-				isc_encode_sql_date(&times,(ISC_DATE *) var->sqldata);
-				}
-				break;
-			default:
-				Tcl_AppendResult(interp,"unsupported type", NULL);
-				goto error;
-		}
-	}
-	/* Get information about output of cmd */
-	if (dbdata->out_sqlda->sqld == 0) {
-		/* What is the statement type of this statement? 
-		**
-		** stmt_info is a 1 byte info request.  info_buffer is a buffer
-		** large enough to hold the returned info packet
-		** The info_buffer returned contains a isc_info_sql_stmt_type in the first byte, 
-		** two bytes of length, and a statement_type token.
-		*/
-		long statement_type;
-		error = isc_dsql_sql_info(status_vector, stmt, sizeof(stmt_info), stmt_info, sizeof(info_buffer), info_buffer);
-		if (!error)	{
-			l = (short) isc_vax_integer((char ISC_FAR *)info_buffer + 1, 2);
-			statement_type = isc_vax_integer((char ISC_FAR *)info_buffer + 3, l);
-		} else {
-			statement_type = 0;
-		}
-		switch (statement_type) {
-			case isc_info_sql_stmt_start_trans:
-				error = dbi_Interbase_Transaction_Commit_Close(interp,dbdata);
-				if (error) {goto error;}
-				error = isc_dsql_execute_immediate(status_vector, &(dbdata->db), 
-					dbi_Interbase_trans(dbdata), 0, cmdstring, SQL_DIALECT_V6, dbdata->in_sqlda);
-				if (error) {dbi_Interbase_Error(interp,dbdata);goto error;}
-				dbi_Interbase_autocommit(dbdata,0);
-				goto clean;
-				break;
-			case isc_info_sql_stmt_commit:
-				error = isc_dsql_execute_immediate(status_vector, &(dbdata->db), 
-					dbi_Interbase_trans(dbdata), 0, cmdstring, SQL_DIALECT_V6, dbdata->in_sqlda);
-				dbi_Interbase_autocommit(dbdata,1);
-				if (error) {dbi_Interbase_Error(interp,dbdata);goto error;}
-				goto clean;
-				break;
-			case isc_info_sql_stmt_rollback:
-				error = isc_dsql_execute_immediate(status_vector, &(dbdata->db), 
-					dbi_Interbase_trans(dbdata), 0, cmdstring, SQL_DIALECT_V6, dbdata->in_sqlda);
-				dbi_Interbase_autocommit(dbdata,1);
-				if (error) {dbi_Interbase_Error(interp,dbdata);goto error;}
-				goto clean;
-				break;
-		}
-	} else {
-		/* expand out_sqlda as necessary */
-		if (dbdata->out_sqlda->sqld > dbdata->out_sqlda->sqln) {
-			n = dbdata->out_sqlda->sqld;
-			Tcl_Free((char *)dbdata->out_sqlda);
-			dbdata->out_sqlda = (XSQLDA *)Tcl_Alloc(XSQLDA_LENGTH(n));
-			if (dbdata->out_sqlda == NULL) {
-				Tcl_AppendResult(interp,"memory allocation error", NULL);
-				goto error;
-			}
-			dbdata->out_sqlda->sqln = n;
-			dbdata->out_sqlda->sqld = 0;
-			dbdata->out_sqlda->version = SQLDA_VERSION1;
-			error = isc_dsql_describe(status_vector, stmt, SQL_DIALECT_V6, dbdata->out_sqlda);
-			if (error) {
-				Tcl_AppendResult(interp,"database error in describe\n", NULL);
-				goto error;
-			}
-		}
-		error = dbi_Interbase_Prepare_out_sqlda(interp,dbdata->out_sqlda);
-		if (error) {
-			Tcl_AppendResult(interp,"database error in prepare\n", NULL);
-			goto error;
-		}
-		dbdata->out_sqlda_filled = 1;
-		dbdata->cursor_open = 1;
-	}
-	/* Execute prepared stmt */
-	error = isc_dsql_execute(status_vector, dbi_Interbase_trans(dbdata), stmt, SQL_DIALECT_V6, dbdata->in_sqlda);
-	if (error) {
-		Tcl_AppendResult(interp,"database error in execute: ", NULL);
-		dbi_Interbase_Error(interp,dbdata);
-		goto error;
-	}
-	clean:
-	for(i = 0 ; i < ipos ; i++) {
-		dtype = (dbdata->in_sqlda->sqlvar[i].sqltype & ~1);
-		switch(dtype) {
-			case SQL_TEXT:
-			case SQL_VARYING:
-				break;
-			default:
-				Tcl_Free((char *)dbdata->in_sqlda->sqlvar[i].sqldata);
-		}
-		if (dbdata->in_sqlda->sqlvar[i].sqltype & 1) Tcl_Free((char *)dbdata->in_sqlda->sqlvar[i].sqlind);
-	}
-	return TCL_OK;
-	error:
-		{
-		Tcl_Obj *temp;
-		for(i = 0 ; i < ipos ; i++) {
-			dtype = (dbdata->in_sqlda->sqlvar[i].sqltype & ~1);
-			switch(dtype) {
-				case SQL_TEXT:
-				case SQL_VARYING:
-					break;
-				default:
-					Tcl_Free((char *)dbdata->in_sqlda->sqlvar[i].sqldata);
-			}
-			if (dbdata->in_sqlda->sqlvar[i].sqltype & 1) Tcl_Free((char *)dbdata->in_sqlda->sqlvar[i].sqlind);
-		}
-		temp = Tcl_NewStringObj(cmdstring,cmdlen);
-		Tcl_AppendResult(interp," while executing command: \"",	Tcl_GetStringFromObj(temp,NULL), "\"", NULL);
-		Tcl_DecrRefCount(temp);
-		}
-		return TCL_ERROR;		
-}
-
-int dbi_Interbase_Line_empty(
-	char *find,char *end)
-{
-	find += 3;
-	while (find < end) {
-		find++;
-		if ((*find != ' ')&&(*find != '\t')) {
-			break;
-		}
-	}
-	if (find == end) {
-		return 1;
-	} else {
-		return 0;
-	}
-}
-
-int dbi_Interbase_Find_Prev(
-	char *string,int pos,char *find)
-{
-	int len;
-	len = strlen(find)-1;
-	while (pos >= 0) {
-		pos--;
-		if ((string[pos] != ' ')&&(string[pos] != '\t')) {
-			break;
-		}
-	}
-	if (len > pos) {return 0;}
-	while (len >= 0) {
-		if (string[pos] != find[len]) {return 0;}
-		len--;
-		pos--;
-	}
-	return 1;
-}
-
-int dbi_Interbase_Exec(
-	Tcl_Interp *interp,
-	dbi_Interbase_Data *dbdata,
-	Tcl_Obj *cmd,
-	int usefetch,
-	int flat,
-	Tcl_Obj *nullvalue,
-	int objc,
-	Tcl_Obj **objv)
-{
-	ISC_STATUS *status_vector = dbdata->status;
-	isc_stmt_handle *stmt = &(dbdata->stmt);
-	char *cmdstring = NULL,*nextline;
-	int error,cmdlen,len;
-	if (dbdata->db == NULL) {
-		Tcl_AppendResult(interp,"dbi object has no open database, open a connection first", NULL);
-		return TCL_ERROR;
-	}
-	cmdstring = Tcl_GetStringFromObj(cmd,&cmdlen);
-	if (cmdlen == 0) {return TCL_OK;}
-	if (nullvalue == NULL) {
-		nullvalue = Tcl_NewObj();
-	}
-	Tcl_IncrRefCount(nullvalue);
-	if (dbdata->out_sqlda->sqld != 0) {
-		if (dbi_Interbase_Transaction_Commit(interp,dbdata) != TCL_OK) {goto error;}
-	}
-	if (dbi_Interbase_Transaction_Start(interp,dbdata) != TCL_OK) {goto error;}
-	nextline = strchr(cmdstring,';');
-	if (nextline == NULL) {
-		error = dbi_Interbase_Process_statement(interp,dbdata,cmdlen,cmdstring,nullvalue,objc,objv);
-		if (error) {/*dbi_Interbase_autocommit(dbdata,1);*/goto error;}
-	} else {
-		char *find;
-		int i,blevel,level,start,prevline;
-		if (objc != 0) {
-			Tcl_AppendResult(interp,"multiple commands cannot take arguments\n", NULL);
-			goto error;
-		}
-		i = 0;
-		blevel = 0;
-		level = 0;
-		while (i <= cmdlen) {
-			if ((cmdstring[i] != ' ')&&(cmdstring[i] != '\n')&&(cmdstring[i] != '\t')) break;
-			i++;
-		}
-		start = i;
-		prevline = i;
-		while (1) {
-			if (cmdstring[i] == '\n') {
-				/* fprintf(stdout,"# %d,%d %*.*s\n",blevel,level,i-prevline,i-prevline,cmdstring+prevline);fflush(stdout); */
-				if (dbi_Interbase_Find_Prev(cmdstring+prevline,i-prevline,"begin")) {
-					blevel++;
-				} else if (dbi_Interbase_Find_Prev(cmdstring+prevline,i-prevline,"BEGIN")) {
-					blevel++;
-				} else if (dbi_Interbase_Find_Prev(cmdstring+prevline,i-prevline,"end")) {
-					blevel--;
-				} else if (dbi_Interbase_Find_Prev(cmdstring+prevline,i-prevline,"END")) {
-					blevel--;
-				}
-				prevline = i+1;
-			} else if ((cmdstring[i] == ';')||(i == cmdlen)) {
-				len = i - start;
-				if (len == 0) break;
-				while (prevline <= i) {
-					if ((cmdstring[prevline] != ' ')&&(cmdstring[prevline] != '\n')&&(cmdstring[prevline] != '\t')) break;
-					prevline++;
-				}
-				if ((len > 7) && ((strncmp(cmdstring+prevline,"declare",7) == 0) || (strncmp(cmdstring+prevline,"DECLARE",7) == 0))) {
-					i++;continue;
-				}
-				if (dbi_Interbase_Find_Prev(cmdstring+prevline,i-prevline,"end")) {
-					blevel--;
-				} else if (dbi_Interbase_Find_Prev(cmdstring+prevline,i-prevline,"END")) {
-					blevel--;
-				}				find = strstr(cmdstring+prevline,"end");
-				if (((level != 0)||(blevel != 0))&&(i != cmdlen)) {
-					i++;
-					continue;
-				}
-				/* fprintf(stdout,"** %*.*s\n",i-start,i-start,cmdstring+start);fflush(stdout); */
-				error = dbi_Interbase_Process_statement(interp,dbdata,i-start,cmdstring+start,nullvalue,0,NULL);
-				if (error) {/*dbi_Interbase_autocommit(dbdata,1);*/ goto error;}
-				if (i == cmdlen) break;
-				while (i < cmdlen) {
-					i++;
-					if (i == cmdlen) break;
-					if ((cmdstring[i] != ' ')&&(cmdstring[i] != '\n')&&(cmdstring[i] != '\t')) break;
-				}
-				if (i == cmdlen) break;
-				start = i;
-				continue;
-			} else if (cmdstring[i] == '\'') {
-				if (level) {
-					if (((i+1) != cmdlen) && (cmdstring[i+1] != '\'')) {
-						level = 0;
-					} else {
-						i++;
-					}
-				} else {
-					level = 1;
-				}
-			}
-			i++;
-		}
-	}
-	if (dbdata->out_sqlda->sqld != 0) {
-		Tcl_Obj *dbcmd = Tcl_NewObj();
-		Tcl_GetCommandFullName(interp, dbdata->token, dbcmd);
-		error = isc_dsql_set_cursor_name(status_vector, stmt, Tcl_GetStringFromObj(dbcmd,NULL), (short)NULL);
-		Tcl_DecrRefCount(dbcmd);
-		if (error) {
-			Tcl_AppendResult(interp,"Interbase error:\n", NULL);
-			dbi_Interbase_Error(interp,dbdata);
-			goto error;
-		}
-		if (!usefetch) {
-			if (flat) {
-				error = dbi_Interbase_ToResult_flat(interp,dbdata,dbdata->out_sqlda,nullvalue);
-			} else {
-				error = dbi_Interbase_ToResult(interp,dbdata,dbdata->out_sqlda,nullvalue);
-			}
-			if (error) {goto error;}
-			if (dbi_Interbase_Transaction_Commit(interp,dbdata) != TCL_OK) {
-				Tcl_DecrRefCount(nullvalue);
-				return TCL_ERROR;
-			}
-		} else {
-			dbdata->tuple = -1;
-			dbdata->ntuples = -1;
-		}
-	} else {
-		if (dbi_Interbase_Transaction_Commit(interp,dbdata) != TCL_OK) {
-			Tcl_DecrRefCount(nullvalue);
-			return TCL_ERROR;
-		}
-	}
-	Tcl_DecrRefCount(nullvalue);
-	return TCL_OK;
-	error:
-		Tcl_DecrRefCount(nullvalue);
-		dbi_Interbase_Transaction_Rollback(interp,dbdata);
-		return TCL_ERROR;
-}
-
 int dbi_Interbase_Fetch(
 	Tcl_Interp *interp,
 	dbi_Interbase_Data *dbdata,
@@ -1286,16 +953,16 @@ int dbi_Interbase_Fetch(
 	Tcl_Obj *tuple = NULL, *field = NULL, *nullvalue = NULL;
 	int fetch_option;
     static char *subCmds[] = {
-		 "data", "lines", "pos", "fields", "clear", "isnull",
+		 "data", "lines", "pos", "fields", "isnull", "array",
 		(char *) NULL};
     enum ISubCmdIdx {
-		Data, Lines, Pos, Fields, Clear, Isnull
+		Data, Lines, Pos, Fields, Isnull, Array
     };
     static char *switches[] = {
-		"-nullvalue",
+		"-nullvalue", "-blobid",
 		(char *) NULL};
     enum switchesIdx {
-		Nullvalue
+		Nullvalue, Blobid
     };
 	int ituple = -1, ifield = -1;
 	ISC_STATUS *status_vector = dbdata->status;
@@ -1328,6 +995,7 @@ int dbi_Interbase_Fetch(
 			Tcl_ResetResult(interp);
 			i = 3;
 		}
+		dbdata->blobid = 0;
 		for (; i < objc; i++) {
 			if (Tcl_GetIndexFromObj(interp, objv[i], switches, "option", 0, &index)!= TCL_OK) {
 				Tcl_ResetResult(interp);
@@ -1341,6 +1009,9 @@ int dbi_Interbase_Fetch(
 					return TCL_ERROR;
 				}
 				nullvalue = objv[i];
+				break;
+			case Blobid:
+				dbdata->blobid = 1;
 				break;
 			}
 		}
@@ -1394,11 +1065,6 @@ int dbi_Interbase_Fetch(
 			if (error) {goto error;}
 			Tcl_SetObjResult(interp, line);
 			return TCL_OK;
-		case Clear:
-			dbi_Interbase_Free_out_sqlda(dbdata);
-			error = isc_dsql_free_statement(status_vector, stmt, DSQL_close);
-			dbdata->cursor_open = 0;
-			return TCL_OK;
 		case Pos:
 			Tcl_SetObjResult(interp,Tcl_NewIntObj(dbdata->tuple));
 			return TCL_OK;
@@ -1442,9 +1108,8 @@ int dbi_Interbase_Fetch(
 		}
 	}
 	if (nullvalue == NULL) {
-		nullvalue = Tcl_NewObj();
+		nullvalue = dbdata->defnullvalue;
 	}
-	Tcl_IncrRefCount(nullvalue);
 	switch (fetch_option) {
 		case Data:
 			if (ifield == -1) {
@@ -1460,7 +1125,6 @@ int dbi_Interbase_Fetch(
 					Tcl_SetObjResult(interp, element);
 				}
 			}
-			Tcl_DecrRefCount(nullvalue);
 			break;
 		case Isnull:
 			error = dbi_Interbase_Fetch_One(interp,dbdata,ifield,&element);
@@ -1471,10 +1135,14 @@ int dbi_Interbase_Fetch(
 				Tcl_SetObjResult(interp,Tcl_NewIntObj(0));
 			}
 			return TCL_OK;
+		case Array:
+			error = dbi_Interbase_Fetch_Array(interp,dbdata,dbdata->out_sqlda,nullvalue,&line);
+			if (error) {return error;}
+			Tcl_SetObjResult(interp, line);
+			break;
 	}
 	return TCL_OK;
 	error:
-		if (nullvalue != NULL) {Tcl_DecrRefCount(nullvalue);}
 		return TCL_ERROR;
 	out_of_position:
 		{
@@ -1486,6 +1154,848 @@ int dbi_Interbase_Fetch(
 		}
 }
 
+int dbi_Interbase_Blob(
+	Tcl_Interp *interp,
+	dbi_Interbase_Data *dbdata,
+	int objc,
+	Tcl_Obj *objv[])
+{
+	ISC_STATUS *status_vector = dbdata->status;
+	ISC_STATUS blob_stat = 0;
+	ISC_QUAD blob_id;
+	isc_blob_handle *blob_handle = &(dbdata->blob_handle);
+	Tcl_Obj *result = NULL;
+	char blob_segment[SEGM_SIZE];
+	int error;
+	unsigned short actual_seg_len;
+	int option,sizeasked;
+	long size;
+    static char *subCmds[] = {
+		 "open", "skip", "get", "close",
+		(char *) NULL};
+    enum ISubCmdIdx {
+		Open, Skip, Get, Close
+    };
+	/*
+	 * decode options
+	 * --------------
+	 */
+	if (objc < 2) {
+		Tcl_WrongNumArgs(interp, 2, objv, "option ?...?");
+		return TCL_ERROR;
+	}
+	error = Tcl_GetIndexFromObj(interp, objv[2], subCmds, "option", 0, (int *) &option);
+	if (error) {return error;}
+	switch (option) {
+	case Open:
+		if (objc != 4) {
+			Tcl_WrongNumArgs(interp, 3, objv, "blobid");
+			return TCL_ERROR;
+		}
+		error = sscanf(Tcl_GetStringFromObj(objv[3],NULL),"%lx:%lx", &(blob_id.isc_quad_high), &(blob_id.isc_quad_low));
+		if (error != 2) {
+			Tcl_AppendResult(interp, "error in format of blob id",NULL);
+			return TCL_ERROR;
+		}
+		if (*blob_handle != NULL) {
+			if (isc_close_blob(status_vector, blob_handle)) {
+				Tcl_AppendResult(interp, "error closing blob ",Tcl_GetStringFromObj(objv[2],NULL),": ",NULL);dbi_Interbase_Error(interp,dbdata,"");
+				return TCL_ERROR;
+			}
+			*blob_handle = NULL;
+		}
+		error = isc_open_blob2(status_vector, &(dbdata->db),  dbi_Interbase_trans(dbdata), blob_handle, &blob_id, 0, NULL);
+		if (error) {
+			Tcl_AppendResult(interp, "error opening blob ",Tcl_GetStringFromObj(objv[2],NULL),": ",NULL);dbi_Interbase_Error(interp,dbdata,"");return TCL_ERROR;
+		}
+		return TCL_OK;
+	case Skip:
+		if (objc != 4) {
+			Tcl_WrongNumArgs(interp, 3, objv, "size");
+			return TCL_ERROR;
+		}
+		error = Tcl_GetLongFromObj(interp,objv[3],&size);
+		if (error) {return error;}
+		actual_seg_len = SEGM_SIZE;
+		while (actual_seg_len) {
+			if (size < SEGM_SIZE) {
+				actual_seg_len = (int)size;
+				sizeasked = (int)size;
+			} else {
+				sizeasked = SEGM_SIZE;
+			}
+			blob_stat = isc_get_segment(status_vector, blob_handle,
+				&actual_seg_len,sizeasked,blob_segment);
+			size -= actual_seg_len;
+			if (size == 0) break;
+			if (blob_stat == isc_segstr_eof) break;
+			if (blob_stat) {dbi_Interbase_Error(interp,dbdata,"skipping blob");goto error;}
+		}
+		return TCL_OK;
+	case Get:
+		if ((objc != 3)&&(objc != 4)) {
+			Tcl_WrongNumArgs(interp, 3, objv, "?size?");
+			return TCL_ERROR;
+		}
+		if (objc == 4) {
+			error = Tcl_GetLongFromObj(interp,objv[3],&size);
+			if (error) {return error;}
+		} else {
+			size = -1;
+		}
+		result = Tcl_NewStringObj("",0);
+		actual_seg_len = SEGM_SIZE;
+		while (actual_seg_len) {
+			if ((size > 0) && (size < SEGM_SIZE)) {
+				actual_seg_len = (int)size;
+				sizeasked = (int)size;
+			} else {
+				sizeasked = SEGM_SIZE;
+			}
+			blob_stat = isc_get_segment(status_vector, blob_handle,
+				&actual_seg_len,sizeasked,blob_segment);
+			Tcl_AppendToObj(result,blob_segment,actual_seg_len);
+			size -= actual_seg_len;
+			if (size == 0) break;
+			if (blob_stat == isc_segstr_eof) break;
+			if (blob_stat) {dbi_Interbase_Error(interp,dbdata,"getting blob");goto error;}
+		}
+		Tcl_SetObjResult(interp,result);
+		return TCL_OK;
+	case Close:
+		if (objc != 3) {
+			Tcl_WrongNumArgs(interp, 3, objv, "");
+			return TCL_ERROR;
+		}
+		if (*blob_handle == NULL) {
+			return TCL_OK;
+		} else {
+			if (isc_close_blob(status_vector, blob_handle)) {
+				Tcl_AppendResult(interp, "error closing blob ",Tcl_GetStringFromObj(objv[2],NULL),": ",NULL);dbi_Interbase_Error(interp,dbdata,"");
+				return TCL_ERROR;
+			}
+			*blob_handle = NULL;
+		}
+		return TCL_OK;
+	}
+	return TCL_OK;
+	error:
+		if (result != NULL) {Tcl_DecrRefCount(result);}
+		return TCL_ERROR;
+}
+
+int dbi_Interbase_NewBlob(
+	Tcl_Interp *interp,
+	dbi_Interbase_Data *dbdata,
+	int objc,
+	Tcl_Obj *objv[])
+{
+	ISC_STATUS *status_vector = dbdata->status;
+	ISC_QUAD *blob_id = &(dbdata->newblob_id);
+	isc_blob_handle *blob_handle = &(dbdata->newblob_handle);
+	char *buffer = dbdata->newblob_buffer;
+	char idbuffer[18];
+	char *string;
+	int error;
+	int option,stringlen;
+    static char *subCmds[] = {
+		 "create", "put", "close",
+		(char *) NULL};
+    enum ISubCmdIdx {
+		Create, Put, Close
+    };
+	/*
+	 * decode options
+	 * --------------
+	 */
+	if (objc < 2) {
+		Tcl_WrongNumArgs(interp, 2, objv, "option ?...?");
+		return TCL_ERROR;
+	}
+	error = Tcl_GetIndexFromObj(interp, objv[2], subCmds, "option", 0, (int *) &option);
+	if (error) {return error;}
+	switch (option) {
+	case Create:
+		if (objc != 3) {
+			Tcl_WrongNumArgs(interp, 3, objv, "");
+			return TCL_ERROR;
+		}
+		if (*blob_handle != NULL) {
+			Tcl_AppendResult(interp,"blob still open", NULL);
+			goto error;
+		}
+		error = isc_create_blob2(status_vector, &(dbdata->db), dbi_Interbase_trans(dbdata), blob_handle, blob_id, 0, NULL);
+		if (error) {goto error;}
+		dbdata->newblob_buffer_free = SEGM_SIZE;
+		return TCL_OK;
+	case Put:
+		{
+		int bufferfree = dbdata->newblob_buffer_free;
+		if (objc != 4) {
+			Tcl_WrongNumArgs(interp, 3, objv, "data");
+			return TCL_ERROR;
+		}
+		string = Tcl_GetStringFromObj(objv[3],&stringlen);
+		while (stringlen > 0) {
+			if (stringlen > bufferfree) {
+				memcpy(buffer+SEGM_SIZE-bufferfree,string,bufferfree);
+				string += bufferfree;
+				stringlen -= bufferfree;
+				bufferfree = 0;
+			} else {
+				memcpy(buffer+SEGM_SIZE-bufferfree,string,stringlen);
+				bufferfree -= stringlen;
+				stringlen = 0;
+			}
+			if (!bufferfree) {
+				error = isc_put_segment(status_vector, blob_handle, SEGM_SIZE-bufferfree, buffer);
+				if (error) {goto error;}
+				bufferfree = SEGM_SIZE;
+			}
+		}
+		dbdata->newblob_buffer_free = bufferfree;
+		return TCL_OK;
+		}
+	case Close:
+		if (objc != 3) {
+			Tcl_WrongNumArgs(interp, 3, objv, "");
+			return TCL_ERROR;
+		}
+		if (*blob_handle == NULL) {
+			Tcl_AppendResult(interp,"no blob created", NULL);
+			goto error;
+		}
+		if (dbdata->newblob_buffer_free != SEGM_SIZE) {
+			error = isc_put_segment(status_vector, blob_handle, SEGM_SIZE-dbdata->newblob_buffer_free, buffer);
+			if (error) {goto error;}
+		}
+		error = isc_close_blob(status_vector, blob_handle);
+		if (error) {goto error;}
+		*blob_handle = NULL;
+		sprintf(idbuffer, "%lx:%lx", blob_id->isc_quad_high, blob_id->isc_quad_low);
+		Tcl_AppendResult(interp,idbuffer,NULL);
+		return TCL_OK;
+	}
+	return TCL_OK;
+	error:
+		return TCL_ERROR;
+}
+
+int dbi_Interbase_ToResult(
+	Tcl_Interp *interp,
+	dbi_Interbase_Data *dbdata,
+	XSQLDA *out_sqlda,
+	Tcl_Obj *nullvalue)
+{
+	ISC_STATUS *status_vector = dbdata->status;
+	isc_stmt_handle *stmt = &(dbdata->stmt);
+	Tcl_Obj *result = NULL, *line = NULL;
+    long fetch_stat;
+	int error;
+	if (nullvalue == NULL) {nullvalue = dbdata->defnullvalue;}
+	result = Tcl_NewListObj(0,NULL);
+	while (1) {
+		fetch_stat = isc_dsql_fetch(status_vector, stmt, SQL_DIALECT_V6, out_sqlda);
+		if (fetch_stat) break;
+		error = dbi_Interbase_Fetch_Row(interp,dbdata,out_sqlda,nullvalue,&line);
+		if (error) {goto error;}
+		error = Tcl_ListObjAppendElement(interp,result, line);
+		if (error) goto error;
+		line = NULL;
+	}
+	Tcl_SetObjResult(interp, result);
+	return TCL_OK;
+	error:
+		if (result != NULL) Tcl_DecrRefCount(result);
+		if (line != NULL) Tcl_DecrRefCount(line);
+		return TCL_ERROR;
+}
+
+int dbi_Interbase_ToResult_flat(
+	Tcl_Interp *interp,
+	dbi_Interbase_Data *dbdata,
+	XSQLDA *out_sqlda,
+	Tcl_Obj *nullvalue)
+{
+	ISC_STATUS *status_vector = dbdata->status;
+	isc_stmt_handle *stmt = &(dbdata->stmt);
+	Tcl_Obj *result = NULL, *element = NULL;
+    long fetch_stat;
+	int error,i;
+	if (nullvalue == NULL) {nullvalue = dbdata->defnullvalue;}
+	result = Tcl_NewListObj(0,NULL);
+	while (1) {
+		fetch_stat = isc_dsql_fetch(status_vector, stmt, SQL_DIALECT_V6, out_sqlda);
+		if (fetch_stat) break;
+		for (i = 0; i < out_sqlda->sqld; i++) {
+			error = dbi_Interbase_Fetch_One(interp,dbdata,i,&element);
+			if (error) {goto error;}
+			if (element == NULL) {element = nullvalue;}
+			error = Tcl_ListObjAppendElement(interp,result,element);
+			if (error) goto error;
+			element = NULL;
+		}
+	}
+	Tcl_SetObjResult(interp, result);
+	return TCL_OK;
+	error:
+		if (result != NULL) Tcl_DecrRefCount(result);
+		if (element != NULL) Tcl_DecrRefCount(element);
+		return TCL_ERROR;
+}
+
+int dbi_Interbase_Transaction_Commit(
+	Tcl_Interp *interp,
+	dbi_Interbase_Data *dbdata,
+	int noretain)
+{
+	isc_tr_handle *trans = dbi_Interbase_trans(dbdata);
+	int error;
+/*fprintf(stdout,"commit stmt=%X trans=%X\n",(uint)dbdata->stmt,(uint)trans);fflush(stdout);*/
+	if (((dbdata->parent == NULL) && (dbdata->clonesnum == 0)) || noretain) {
+		/* we can only do a full commit safely if there are no clones,
+		   or when asked to do so (explicit transactions) */
+		error = isc_commit_transaction(dbdata->status, trans);
+/*fprintf(stdout,"-> committed\n");fflush(stdout);*/
+	} else {
+		error = isc_commit_retaining(dbdata->status, trans);
+/*fprintf(stdout,"-> commit retaining\n");fflush(stdout);*/
+	}
+	if (error) {
+		dbi_Interbase_Error(interp,dbdata,"committing transaction");
+		return TCL_ERROR;
+	}
+	return TCL_OK;
+}
+
+int dbi_Interbase_Transaction_Rollback(
+	Tcl_Interp *interp,
+	dbi_Interbase_Data *dbdata)
+{
+	isc_tr_handle *trans = dbi_Interbase_trans(dbdata);
+	int error;
+	if (*trans == NULL) {return TCL_OK;}
+/* fprintf(stdout,"rollbc stmt=%X trans=%X\n",(uint)dbdata->stmt,(uint)trans);fflush(stdout);*/
+	error = isc_rollback_transaction(dbdata->status, trans);
+	if (error) {
+		dbi_Interbase_Error(interp,dbdata,"rolling back transaction");
+		return TCL_ERROR;
+	}
+	return TCL_OK;
+}
+
+int dbi_Interbase_Transaction_Start(
+	Tcl_Interp *interp,
+	dbi_Interbase_Data *dbdata)
+{
+	isc_tr_handle *trans = dbi_Interbase_trans(dbdata);
+	int error;
+	static char isc_tpb[] = {
+		isc_tpb_version3
+	};
+	if (*trans != NULL) {return TCL_OK;}
+/* fprintf(stdout,"start  stmt=%X trans=%X\n",(uint)dbdata->stmt,(uint)trans);fflush(stdout); */
+	error = isc_start_transaction(dbdata->status, trans,1,&(dbdata->db),(unsigned short) sizeof(isc_tpb),isc_tpb);
+	if (error) {
+		long SQLCODE;
+		SQLCODE = isc_sqlcode(dbdata->status);
+		if (SQLCODE == -902) {
+			error = dbi_Interbase_Reconnect(interp,dbdata);
+			if (error) {return TCL_ERROR;}
+			error = isc_start_transaction(dbdata->status, trans,1,&(dbdata->db), (unsigned short) sizeof(isc_tpb),isc_tpb);
+			if (!error) {return TCL_OK;}
+		}
+		dbi_Interbase_Error(interp,dbdata,"starting transaction");
+		return TCL_ERROR;
+	}
+	return TCL_OK;
+}
+
+int dbi_Interbase_Line_empty(
+	char *find,char *end)
+{
+	find += 3;
+	while (find < end) {
+		find++;
+		if ((*find != ' ')&&(*find != '\t')) {
+			break;
+		}
+	}
+	if (find == end) {
+		return 1;
+	} else {
+		return 0;
+	}
+}
+
+int dbi_Interbase_Find_Prev(
+	char *string,int pos,char *find)
+{
+	int len;
+	len = strlen(find)-1;
+	while (pos >= 0) {
+		pos--;
+		if ((string[pos] != ' ')&&(string[pos] != '\t')) {
+			break;
+		}
+	}
+	if (len > pos) {return 0;}
+	while (len >= 0) {
+		if (string[pos] != find[len]) {return 0;}
+		len--;
+		pos--;
+	}
+	return 1;
+}
+
+int dbi_Interbase_Cache_stmt(
+	dbi_Interbase_Data *dbdata)
+{
+	dbdata->out_sqlda_cache = dbdata->out_sqlda;
+	dbdata->in_sqlda_cache = dbdata->in_sqlda;
+	return TCL_OK;
+}
+
+int dbi_Interbase_Restore_stmt(
+	dbi_Interbase_Data *dbdata)
+{
+	dbdata->out_sqlda = dbdata->out_sqlda_cache;
+	dbdata->in_sqlda = dbdata->in_sqlda_cache;
+	dbdata->out_sqlda_cache = NULL;
+	dbdata->in_sqlda_cache = NULL;
+	return TCL_OK;
+}
+
+int dbi_Interbase_Prepare_Cache(
+	Tcl_Interp *interp,
+	dbi_Interbase_Data *dbdata,
+	int cmdlen,
+	char *cmdstring,
+	int *newPtr
+)
+{
+	Tcl_HashEntry *entry;
+	dbi_Interbase_Prepared *prepared;
+	int new = 0;
+	/* save current stmt if needed */
+	if (dbdata->out_sqlda_cache == NULL) {
+		dbi_Interbase_Cache_stmt(dbdata);
+	}
+	/* find cached entry, or create new */
+	entry = Tcl_CreateHashEntry(&(dbdata->preparedhash), cmdstring, &new);
+	/* create new stmt if needed */
+	if (new) {
+		/* create new stmt */
+		dbdata->out_sqlda = (XSQLDA ISC_FAR *) Tcl_Alloc(XSQLDA_LENGTH(20));
+		dbdata->out_sqlda->sqln = 20;
+		dbdata->out_sqlda->sqld = 0;
+		dbdata->out_sqlda->version = SQLDA_VERSION1;
+		dbdata->in_sqlda = (XSQLDA ISC_FAR *) Tcl_Alloc(XSQLDA_LENGTH(20));
+		dbdata->in_sqlda->sqln = 20;
+		dbdata->in_sqlda->sqld = 0;
+		dbdata->in_sqlda->version = SQLDA_VERSION1;
+		/* cache information for current query */
+		prepared = (dbi_Interbase_Prepared *)Tcl_Alloc(sizeof(dbi_Interbase_Prepared));
+		prepared->out_sqlda = dbdata->out_sqlda;
+		prepared->in_sqlda = dbdata->in_sqlda;
+		Tcl_SetHashValue(entry,(ClientData)prepared);
+	} else {
+		/* cache found: use prepared statement, cache current if needed */
+		prepared = (dbi_Interbase_Prepared *)Tcl_GetHashValue(entry);
+		dbdata->out_sqlda = prepared->out_sqlda;
+		dbdata->in_sqlda = prepared->in_sqlda;
+	}
+	*newPtr = new;
+	return TCL_OK;
+}
+
+int dbi_Interbase_Prepare_statement(
+	Tcl_Interp *interp,
+	dbi_Interbase_Data *dbdata,
+	int cmdlen,
+	char *cmdstring)
+{
+	ISC_STATUS *status_vector = dbdata->status;
+	int error,n = 0;
+	error = isc_dsql_prepare(status_vector, dbi_Interbase_trans(dbdata), &(dbdata->stmt), cmdlen, cmdstring, SQL_DIALECT_V6, dbdata->out_sqlda);
+	if (error) {
+		dbi_Interbase_Error(interp,dbdata,"preparing statement");
+		goto error;
+	}
+	/* ----- Get information about input of cmd ----- */
+	error = isc_dsql_describe_bind(status_vector, &(dbdata->stmt), SQL_DIALECT_V6, dbdata->in_sqlda);
+	if (dbdata->in_sqlda->sqld > dbdata->in_sqlda->sqln) {
+		n = dbdata->in_sqlda->sqld;
+		Tcl_Free((char *)dbdata->in_sqlda);
+		dbdata->in_sqlda = (XSQLDA *)Tcl_Alloc(XSQLDA_LENGTH(n));
+		dbdata->in_sqlda->sqln = n;
+		dbdata->in_sqlda->sqld = 0;
+		dbdata->in_sqlda->version = SQLDA_VERSION1;
+		isc_dsql_describe_bind(status_vector, &(dbdata->stmt), SQL_DIALECT_V6, dbdata->in_sqlda);
+	}
+	error = dbi_Interbase_Prepare_in_sqlda(interp,dbdata->in_sqlda);
+	if (error) {goto error;}
+	/* ----- expand out_sqlda as necessary ----- */
+	if (dbdata->out_sqlda->sqld > dbdata->out_sqlda->sqln) {
+		n = dbdata->out_sqlda->sqld;
+		Tcl_Free((char *)dbdata->out_sqlda);
+		dbdata->out_sqlda = (XSQLDA *)Tcl_Alloc(XSQLDA_LENGTH(n));
+		if (dbdata->out_sqlda == NULL) {
+			Tcl_AppendResult(interp,"memory allocation error", NULL);
+			goto error;
+		}
+		dbdata->out_sqlda->sqln = n;
+		dbdata->out_sqlda->sqld = 0;
+		dbdata->out_sqlda->version = SQLDA_VERSION1;
+		error = isc_dsql_describe(status_vector, &(dbdata->stmt), SQL_DIALECT_V6, dbdata->out_sqlda);
+		if (error) {
+			Tcl_AppendResult(interp,"database error in describe\n", NULL);
+			goto error;
+		}
+	}
+	error = dbi_Interbase_Prepare_out_sqlda(interp,dbdata->out_sqlda);
+	if (error) {
+		Tcl_AppendResult(interp,"database error in prepare\n", NULL);
+		goto error;
+	}
+	return TCL_OK;
+	error:
+		dbi_Interbase_Free_out_sqlda(dbdata->out_sqlda,dbdata->out_sqlda->sqld);
+		dbi_Interbase_Free_in_sqlda(dbdata->in_sqlda,dbdata->in_sqlda->sqld);
+		{
+		Tcl_Obj *temp;
+		temp = Tcl_NewStringObj(cmdstring,cmdlen);
+		Tcl_AppendResult(interp," while preparing command: \"",	Tcl_GetStringFromObj(temp,NULL), "\"", NULL);
+		Tcl_DecrRefCount(temp);
+		}
+		return TCL_ERROR;		
+}
+
+int dbi_Interbase_Process_statement(
+	Tcl_Interp *interp,
+	dbi_Interbase_Data *dbdata,
+	int cmdlen,
+	char *cmdstring)
+{
+	ISC_STATUS *status_vector = dbdata->status;
+	static char stmt_info[] = { isc_info_sql_stmt_type };
+	char info_buffer[20];
+	short l;
+	int error;
+	/* Get information about output of cmd */
+	if (dbdata->out_sqlda->sqld == 0) {
+		/* What is the statement type of this statement? 
+		**
+		** stmt_info is a 1 byte info request.  info_buffer is a buffer
+		** large enough to hold the returned info packet
+		** The info_buffer returned contains a isc_info_sql_stmt_type in the first byte, 
+		** two bytes of length, and a statement_type token.
+		*/
+		long statement_type;
+		error = isc_dsql_sql_info(status_vector, &(dbdata->stmt), sizeof(stmt_info), stmt_info, sizeof(info_buffer), info_buffer);
+		if (!error)	{
+			l = (short) isc_vax_integer((char ISC_FAR *)info_buffer + 1, 2);
+			statement_type = isc_vax_integer((char ISC_FAR *)info_buffer + 3, l);
+		} else {
+			statement_type = 0;
+		}
+		switch (statement_type) {
+			case isc_info_sql_stmt_start_trans:
+				if (dbi_Interbase_trans_state(dbdata)) {
+					if (dbdata->cursor_open != 0) {dbi_Interbase_Free_Stmt(dbdata,DSQL_close);}
+					error = dbi_Interbase_Transaction_Commit(interp,dbdata,1);
+				}
+				if (error) {goto error;}
+				error = isc_dsql_execute_immediate(status_vector, &(dbdata->db), 
+					dbi_Interbase_trans(dbdata), 0, cmdstring, SQL_DIALECT_V6, dbdata->in_sqlda);
+				if (error) {dbi_Interbase_Error(interp,dbdata,"executing start statement");goto error;}
+				dbi_Interbase_autocommit(dbdata,0);
+				goto clean;
+				break;
+			case isc_info_sql_stmt_commit:
+				error = isc_dsql_execute_immediate(status_vector, &(dbdata->db), 
+					dbi_Interbase_trans(dbdata), 0, cmdstring, SQL_DIALECT_V6, dbdata->in_sqlda);
+				dbi_Interbase_autocommit(dbdata,1);
+				if (error) {dbi_Interbase_Error(interp,dbdata,"executing commit statement");goto error;}
+				goto clean;
+				break;
+			case isc_info_sql_stmt_rollback:
+				error = isc_dsql_execute_immediate(status_vector, &(dbdata->db), 
+					dbi_Interbase_trans(dbdata), 0, cmdstring, SQL_DIALECT_V6, dbdata->in_sqlda);
+				dbi_Interbase_autocommit(dbdata,1);
+				if (error) {dbi_Interbase_Error(interp,dbdata,"executing rollback statement");goto error;}
+				goto clean;
+				break;
+		}
+	}
+	/* Execute prepared stmt */
+/*fprintf(stdout,"exec   stmt=%X trans=%X, in = %X, out = %X\n",(uint)dbdata->stmt,(uint)dbi_Interbase_trans(dbdata),(uint)dbdata->in_sqlda,(uint)dbdata->out_sqlda);fflush(stdout);*/
+	error = isc_dsql_execute(status_vector, dbi_Interbase_trans(dbdata), &(dbdata->stmt), SQL_DIALECT_V6, dbdata->in_sqlda);
+	if (error) {
+		dbi_Interbase_Error(interp,dbdata,"executing statement");
+		goto error;
+	}
+	if (dbdata->out_sqlda->sqld != 0) {
+/*		Tcl_Obj *dbcmd = Tcl_NewObj();
+		Tcl_GetCommandFullName(interp, dbdata->token, dbcmd);
+		error = isc_dsql_set_cursor_name(status_vector, &(dbdata->stmt), Tcl_GetStringFromObj(dbcmd,NULL), (short)NULL);
+		Tcl_DecrRefCount(dbcmd);
+		if (error) {
+			dbi_Interbase_Error(interp,dbdata,"setting cursor");
+			goto error;
+		}
+*/
+		dbdata->cursor_open = 1;
+	}
+	clean:
+	return TCL_OK;
+	error:
+		return TCL_ERROR;		
+}
+
+int dbi_Interbase_SplitSQL(
+	Tcl_Interp *interp,
+	char *cmdstring,
+	int cmdlen,
+	char ***linesPtr,
+	int **sizesPtr)
+{
+	char **lines;
+	char *nextline, *find;
+	int *sizes;
+	int i,blevel,level,start,prevline,num,len;
+	nextline = strchr(cmdstring,';');
+	if (nextline == NULL) {
+		*linesPtr = NULL;
+		*sizesPtr = NULL;
+		return TCL_OK;
+	}
+	lines = NULL;
+	sizes = NULL;
+	i = 0;
+	num = 0;
+	blevel = 0;
+	level = 0;
+	while (i <= cmdlen) {
+		if ((cmdstring[i] != ' ')&&(cmdstring[i] != '\n')&&(cmdstring[i] != '\t')) break;
+		i++;
+	}
+	start = i;
+	prevline = i;
+	while (1) {
+		if (cmdstring[i] == '\n') {
+			/* fprintf(stdout,"# %d,%d %*.*s\n",blevel,level,i-prevline,i-prevline,cmdstring+prevline);fflush(stdout); */
+			if (dbi_Interbase_Find_Prev(cmdstring+prevline,i-prevline,"begin")) {
+				blevel++;
+			} else if (dbi_Interbase_Find_Prev(cmdstring+prevline,i-prevline,"BEGIN")) {
+				blevel++;
+			} else if (dbi_Interbase_Find_Prev(cmdstring+prevline,i-prevline,"end")) {
+				blevel--;
+			} else if (dbi_Interbase_Find_Prev(cmdstring+prevline,i-prevline,"END")) {
+				blevel--;
+			}
+			prevline = i+1;
+		} else if ((cmdstring[i] == ';')||(i == cmdlen)) {
+			len = i - start;
+			if (len == 0) break;
+			while (prevline <= i) {
+				if ((cmdstring[prevline] != ' ')&&(cmdstring[prevline] != '\n')&&(cmdstring[prevline] != '\t')) break;
+				prevline++;
+			}
+			if ((len > 7) && ((strncmp(cmdstring+prevline,"declare",7) == 0) || (strncmp(cmdstring+prevline,"DECLARE",7) == 0))) {
+				i++;continue;
+			}
+			if (dbi_Interbase_Find_Prev(cmdstring+prevline,i-prevline,"end")) {
+				blevel--;
+			} else if (dbi_Interbase_Find_Prev(cmdstring+prevline,i-prevline,"END")) {
+				blevel--;
+			}				find = strstr(cmdstring+prevline,"end");
+			if (((level != 0)||(blevel != 0))&&(i != cmdlen)) {
+				i++;
+				continue;
+			}
+			if (i == cmdlen) break;
+			/* fprintf(stdout,"** %*.*s\n",i-start,i-start,cmdstring+start);fflush(stdout); */
+			lines = (char **)Tcl_Realloc((char *)lines,(num+2)*sizeof(char *));
+			sizes = (int *)Tcl_Realloc((char *)sizes,(num+2)*sizeof(int));
+			lines[num] = cmdstring+start;
+			sizes[num] = i-start;
+			num++;
+			while (i < cmdlen) {
+				i++;
+				if (i == cmdlen) break;
+				if ((cmdstring[i] != ' ')&&(cmdstring[i] != '\n')&&(cmdstring[i] != '\t')) break;
+			}
+			if (i == cmdlen) break;
+			start = i;
+			continue;
+		} else if (cmdstring[i] == '\'') {
+			if (level) {
+				if (((i+1) != cmdlen) && (cmdstring[i+1] != '\'')) {
+					level = 0;
+				} else {
+					i++;
+				}
+			} else {
+				level = 1;
+			}
+		}
+		i++;
+	}
+	if (num == 0) {
+		return TCL_OK;
+	}
+	lines[num] = NULL;
+	sizes[num] = -1;
+	*linesPtr = lines;
+	*sizesPtr = sizes;
+	return TCL_OK;
+}
+
+int dbi_Interbase_Exec(
+	Tcl_Interp *interp,
+	dbi_Interbase_Data *dbdata,
+	Tcl_Obj *cmd,
+	int flags,
+	Tcl_Obj *nullvalue,
+	int objc,
+	Tcl_Obj **objv)
+{
+	ISC_STATUS *status_vector = dbdata->status;
+	char *cmdstring = NULL, **lines = NULL;
+	int error,cmdlen,num,new;
+	int flat, usefetch, cache,*sizes = NULL;
+	int auto_commit = dbi_Interbase_autocommit_state(dbdata);
+	flat = flags & EXEC_FLAT;
+	usefetch = flags & EXEC_USEFETCH;
+	cache = flags & EXEC_CACHE;
+	dbdata->blobid = flags & EXEC_BLOBID;
+	if (dbdata->db == NULL) {
+		Tcl_AppendResult(interp,"dbi object has no open database, open a connection first", NULL);
+		return TCL_ERROR;
+	}
+	cmdstring = Tcl_GetStringFromObj(cmd,&cmdlen);
+/*
+fprintf(stdout," --------- %s ----------\n",cmdstring);fflush(stdout);
+fprintf(stdout,"autocommit=%d transaction_state=%d\n",auto_commit,dbi_Interbase_trans_state(dbdata));fflush(stdout);
+*/
+	if (cmdlen == 0) {return TCL_OK;}
+	if (dbdata->cursor_open) {
+		dbi_Interbase_Free_Stmt(dbdata,DSQL_close);
+	}
+	if (auto_commit) {
+		if (dbdata->cursor_open) {dbi_Interbase_Free_Stmt(dbdata,DSQL_close);}
+		if (dbi_Interbase_trans_state(dbdata)) {
+			if (dbi_Interbase_Transaction_Commit(interp,dbdata,0) != TCL_OK) {goto error;}
+		}
+		if (dbi_Interbase_Transaction_Start(interp,dbdata) != TCL_OK) {goto error;}
+	} else {
+		if (dbdata->cursor_open) {
+			dbi_Interbase_Free_Stmt(dbdata,DSQL_close);
+		}
+	}
+	error = dbi_Interbase_SplitSQL(interp,cmdstring,cmdlen,&lines,&sizes);
+	if (lines == NULL) {
+		if (cache) {
+			error = dbi_Interbase_Prepare_Cache(interp,dbdata,cmdlen,cmdstring,&new);
+			if (error) {goto error;}
+		} else	if (dbdata->out_sqlda_cache != NULL) {
+			dbi_Interbase_Restore_stmt(dbdata);
+		}
+		if (!cache || new) {
+			error = dbi_Interbase_Prepare_statement(interp,dbdata,cmdlen,cmdstring);
+			if (error) {/*dbi_Interbase_autocommit(dbdata,1);*/goto error;}
+		} else {
+			error = isc_dsql_prepare(status_vector, dbi_Interbase_trans(dbdata), &(dbdata->stmt), cmdlen, cmdstring, SQL_DIALECT_V6, dbdata->out_sqlda);
+			if (error) {
+				dbi_Interbase_Error(interp,dbdata,"preparing statement");
+				goto error;
+			}
+		}
+		if (objc != dbdata->in_sqlda->sqld) {
+			Tcl_AppendResult(interp,"wrong number of arguments given to exec",NULL);
+			goto error;
+		}
+		error = dbi_Interbase_Fill_in_sqlda(interp,dbdata,dbdata->in_sqlda,objc,objv,nullvalue);
+		if (error) {goto error;}
+		error = dbi_Interbase_Process_statement(interp,dbdata,cmdlen,cmdstring);
+		if (error) {/*dbi_Interbase_autocommit(dbdata,1);*/goto error;}
+		if (dbdata->out_sqlda_cache == NULL) {
+			dbi_Interbase_Free_in_sqlda(dbdata->in_sqlda,dbdata->in_sqlda->sqld);
+		}
+	} else {
+		if (objc != 0) {
+			Tcl_AppendResult(interp,"multiple commands cannot take arguments\n", NULL);
+			goto error;
+		}
+		if (cache) {
+			Tcl_AppendResult(interp,"multiple commands cannot be cached\n", NULL);
+			goto error;
+		}
+		if (dbdata->out_sqlda_cache != NULL) {
+			dbi_Interbase_Restore_stmt(dbdata);
+		}
+		num = 0;
+		while (lines[num] != NULL) {
+			error = dbi_Interbase_Prepare_statement(interp,dbdata,sizes[num],lines[num]);
+			if (error) {/*dbi_Interbase_autocommit(dbdata,1);*/goto error;}
+			if (objc != dbdata->in_sqlda->sqld) {
+				Tcl_AppendResult(interp,"wrong number of arguments given to exec",NULL);
+				goto error;
+			}
+			error = dbi_Interbase_Fill_in_sqlda(interp,dbdata,dbdata->in_sqlda,objc,objv,nullvalue);
+			if (error) {goto error;}
+			error = dbi_Interbase_Process_statement(interp,dbdata,sizes[num],lines[num]);
+			if (error) {/*dbi_Interbase_autocommit(dbdata,1);*/ goto error;}
+			if (dbdata->out_sqlda_cache == NULL) {
+				dbi_Interbase_Free_in_sqlda(dbdata->in_sqlda,dbdata->in_sqlda->sqld);
+			}
+			num++;
+		}
+		Tcl_Free((char *)lines);lines = NULL;
+		Tcl_Free((char *)sizes);sizes = NULL;
+	}
+	if (dbdata->out_sqlda->sqld != 0) {
+		if (!usefetch) {
+			if (flat) {
+				error = dbi_Interbase_ToResult_flat(interp,dbdata,dbdata->out_sqlda,nullvalue);
+			} else {
+				error = dbi_Interbase_ToResult(interp,dbdata,dbdata->out_sqlda,nullvalue);
+			}
+			if (error) {goto error;}
+			if (dbdata->cursor_open) {dbi_Interbase_Free_Stmt(dbdata,DSQL_close);}
+			if ((dbi_Interbase_autocommit_state(dbdata))&&(dbi_Interbase_trans_state(dbdata))) {
+				if (dbi_Interbase_Transaction_Commit(interp,dbdata,0) != TCL_OK) {
+					return TCL_ERROR;
+				}
+			}
+		} else {
+			dbdata->tuple = -1;
+			dbdata->ntuples = -1;
+		}
+	} else {
+		if ((dbi_Interbase_autocommit_state(dbdata))&&(dbi_Interbase_trans_state(dbdata))) {
+			if (dbi_Interbase_Transaction_Commit(interp,dbdata,0) != TCL_OK) {
+				return TCL_ERROR;
+			}
+		}
+	}
+	return TCL_OK;
+	error:
+		{
+		Tcl_Obj *temp;
+		temp = Tcl_NewStringObj(cmdstring,cmdlen);
+		Tcl_AppendResult(interp," while executing command: \"",	Tcl_GetStringFromObj(temp,NULL), "\"", NULL);
+		Tcl_DecrRefCount(temp);
+		}
+		if (lines != NULL) {Tcl_Free((char *)lines);}
+		if (sizes != NULL) {Tcl_Free((char *)sizes);}
+		if ((dbi_Interbase_autocommit_state(dbdata))&&(dbi_Interbase_trans_state(dbdata))) {
+			if (dbdata->cursor_open) {dbi_Interbase_Free_Stmt(dbdata,DSQL_close);}
+			dbi_Interbase_Transaction_Rollback(interp,dbdata);
+		}
+		return TCL_ERROR;
+}
 
 int dbi_Interbase_Supports(
 	Tcl_Interp *interp,
@@ -1493,10 +2003,10 @@ int dbi_Interbase_Supports(
 	Tcl_Obj *keyword)
 {
 	static char *keywords[] = {
-		"columnperm","blobparams","roles","domains","sharedtransactions",
+		"columnperm","roles","domains","blobparams","blobids","sharedtransactions",
 		(char *) NULL};
 	enum keywordsIdx {
-		Columnperm, Roles, Domains, Blobparams, Sharedtransactions
+		Columnperm, Roles, Domains, Blobparams, Blobids, Sharedtransactions
 	};
 	int error,index;
 	if (keyword == NULL) {
@@ -1554,7 +2064,7 @@ int dbi_Interbase_Tables(
 {
 	int error;
 	Tcl_Obj *cmd = Tcl_NewStringObj("select rdb$relation_name from rdb$relations where RDB$SYSTEM_FLAG = 0",-1);
-	error = dbi_Interbase_Exec(interp,dbdata,cmd,0,1,NULL,0,NULL);
+	error = dbi_Interbase_Exec(interp,dbdata,cmd,0,NULL,0,NULL);
 	Tcl_DecrRefCount(cmd);
 	return error;
 }
@@ -1712,7 +2222,7 @@ int dbi_Interbase_Createdb(
 	if (error) {
 		Tcl_AppendResult(interp,"creation of database \"",
 			Tcl_GetStringFromObj(objv[2],NULL) , "\" failed:\n", NULL);
-		dbi_Interbase_Error(interp,dbdata);
+		dbi_Interbase_Error(interp,dbdata,"");
 		goto error;
 	}
 	isc_detach_database(status_vector, &(dbdata->db));
@@ -1727,13 +2237,29 @@ int dbi_Interbase_Close(
 	dbi_Interbase_Data *dbdata)
 {
 	ISC_STATUS *status_vector = dbdata->status;
-	isc_stmt_handle *stmt = &(dbdata->stmt);
-	int error;
-	dbi_Interbase_Free_out_sqlda(dbdata);
+	dbi_Interbase_Prepared *prepared;
+	Tcl_HashSearch search;
+	Tcl_HashEntry *entry;
+	dbi_Interbase_Free_out_sqlda(dbdata->out_sqlda,dbdata->out_sqlda->sqld);
+	if (dbdata->cursor_open) {dbi_Interbase_Free_Stmt(dbdata,DSQL_close);}
+	if (dbdata->out_sqlda_cache != NULL) {
+		dbi_Interbase_Restore_stmt(dbdata);
+	}
+	/* delete statement */
 	if (dbdata->stmt != NULL) {
-		isc_dsql_free_statement(status_vector, stmt, DSQL_drop);
+		dbi_Interbase_Free_Stmt(dbdata,DSQL_drop);
 		dbdata->stmt = NULL;
 	}
+	/* delete all cached statements */
+	entry = Tcl_FirstHashEntry(&(dbdata->preparedhash),&search);
+	while (entry != NULL) {
+		prepared = (dbi_Interbase_Prepared *)Tcl_GetHashValue(entry);
+		dbi_Interbase_Free_out_sqlda(prepared->out_sqlda,prepared->out_sqlda->sqld);
+		dbi_Interbase_Free_in_sqlda(prepared->in_sqlda,prepared->in_sqlda->sqld);
+		entry = Tcl_NextHashEntry(&search);
+	}
+	Tcl_DeleteHashTable(&(dbdata->preparedhash));
+	/* delete all clones */
 	while (dbdata->clonesnum) {
 		Tcl_DeleteCommandFromToken(dbdata->interp,dbdata->clones[0]->token);
 	}
@@ -1752,8 +2278,7 @@ int dbi_Interbase_Close(
 		}
 		if (dbdata->db != NULL) {
 			if (isc_detach_database(dbdata->status, &(dbdata->db))) {
-				Tcl_AppendResult(dbdata->interp,"error closing connection:\n", NULL);
-				dbi_Interbase_Error(dbdata->interp,dbdata);
+				dbi_Interbase_Error(dbdata->interp,dbdata,"closing connection");
 				dbdata->db = NULL;
 				return TCL_ERROR;
 			}
@@ -1766,8 +2291,8 @@ int dbi_Interbase_Close(
 		}
 	} else {
 		/* this is a clone, so remove the clone from its parent */
-		dbi_Interbase_Data *parent = dbdata->parent;
 		int i;
+		dbi_Interbase_Data *parent = dbdata->parent;
 		for (i = 0 ; i < parent->clonesnum; i++) {
 			if (parent->clones[i] == dbdata) break;
 		}
@@ -1785,15 +2310,20 @@ int dbi_Interbase_Dropdb(
 	dbi_Interbase_Data *dbdata)
 {
 	int error;
+	if (dbdata->parent != NULL) {
+		Tcl_AppendResult(interp,"cannot drop database from a clone", NULL);
+		return TCL_ERROR;
+	}
 	if (dbdata->db == NULL) {
 		Tcl_AppendResult(interp,"dbi object has no open connection", NULL);
 		return TCL_ERROR;
 	}
 	error = isc_drop_database(dbdata->status,&(dbdata->db));
 	if (error) {
-		dbi_Interbase_Error(interp,dbdata);
+		dbi_Interbase_Error(interp,dbdata,"dropping database");
 		return TCL_ERROR;
 	}
+	dbdata->db = NULL;
 	error = dbi_Interbase_Close(dbdata);
 	if (error) {return TCL_ERROR;}
 	return TCL_OK;
@@ -1803,6 +2333,7 @@ int dbi_Interbase_Destroy(
 	ClientData clientdata)
 {
 	dbi_Interbase_Data *dbdata = (dbi_Interbase_Data *)clientdata;
+	Tcl_DecrRefCount(dbdata->defnullvalue);
 	dbi_Interbase_Close(dbdata);
 	Tcl_Free((char *)dbdata);
 	Tcl_DeleteExitHandler((Tcl_ExitProc *)dbi_Interbase_Destroy, clientdata);
@@ -1862,18 +2393,21 @@ int Dbi_interbase_DbObjCmd(
 		"begin", "commit", "rollback",
 		"destroy", "serial","supports",
 		"create", "drop","clone","clones","parent",
+		"blob", "newblob",
 		(char *) NULL};
     enum ISubCmdIdx {
 		Interface, Open, Exec, Fetch, Close,
 		Info, Tables, Fields,
 		Begin, Commit, Rollback,
 		Destroy, Serial, Supports,
-		Create, Drop, Clone, Clones, Parent
+		Create, Drop, Clone, Clones, Parent,
+		Blob, Newblob
     };
 	if (objc < 2) {
 		Tcl_WrongNumArgs(interp, 1, objv, "option ?...?");
 		return TCL_ERROR;
 	}
+/*{int i;for (i = 0; i < objc; i++) {fprintf(stdout,"%s ",Tcl_GetStringFromObj(objv[i],NULL));};fflush(stdout);}*/
 	error = Tcl_GetIndexFromObj(interp, objv[1], subCmds, "option", 0, (int *) &index);
 	if (error != TCL_OK) {
 		return error;
@@ -1943,12 +2477,11 @@ int Dbi_interbase_DbObjCmd(
     switch (index) {
 	case Exec:
 		{
-	    static char *switches[] = {"-usefetch", "-nullvalue", "-flat",(char *) NULL};
-	    enum switchesIdx {Usefetch, Nullvalue, Flat};
+	    static char *switches[] = {"-usefetch", "-nullvalue", "-flat", "-blobid","-cache", (char *) NULL};
+	    enum switchesIdx {Usefetch, Nullvalue, Flat, Blobid, Cache};
 		Tcl_Obj *nullvalue = NULL;
 		char *string;
-		int usefetch = 0,flat=0;
-		int stringlen;
+		int flags = 0;
 		if (objc < 3) {
 			Tcl_WrongNumArgs(interp, 2, objv, "?options? command ?argument? ?...?");
 			return TCL_ERROR;
@@ -1962,7 +2495,7 @@ int Dbi_interbase_DbObjCmd(
 			}
 			switch (index) {
 				case Usefetch:
-					usefetch = 1;
+					flags |= EXEC_USEFETCH;
 					break;
 				case Nullvalue:
 					i++;
@@ -1973,12 +2506,18 @@ int Dbi_interbase_DbObjCmd(
 					nullvalue = objv[i];
 					break;
 				case Flat:
-					flat = 1;
+					flags |= EXEC_FLAT;
+					break;
+				case Blobid:
+					flags |= EXEC_BLOBID;
+					break;
+				case Cache:
+					flags |= EXEC_CACHE;
 					break;
 			}
 			i++;
 		}
-		return dbi_Interbase_Exec(interp,dbdata,objv[i],usefetch,flat,nullvalue,objc-i-1,objv+i+1);
+		return dbi_Interbase_Exec(interp,dbdata,objv[i],flags,nullvalue,objc-i-1,objv+i+1);
 		}
 	case Fetch:
 		return dbi_Interbase_Fetch(interp,dbdata, objc, objv);
@@ -2017,8 +2556,12 @@ int Dbi_interbase_DbObjCmd(
 			Tcl_AppendResult(interp,"dbi object has no open database, open a connection first", NULL);
 			return error;
 		}
+		if (dbi_Interbase_trans_state(dbdata)) {
+			error = dbi_Interbase_Transaction_Commit(interp,dbdata,1);
+			if (error) {dbi_Interbase_Error(interp,dbdata,"committing transaction");return error;}
+		}
 		error = dbi_Interbase_Transaction_Start(interp,dbdata);
-		if (error) {dbi_Interbase_Error(interp,dbdata);return error;}
+		if (error) {dbi_Interbase_Error(interp,dbdata,"starting transaction");return error;}
 		dbi_Interbase_autocommit(dbdata,0);
 		return TCL_OK;
 	case Commit:
@@ -2031,8 +2574,11 @@ int Dbi_interbase_DbObjCmd(
 			return error;
 		}
 		dbi_Interbase_autocommit(dbdata,1);
-		error = dbi_Interbase_Transaction_Commit(interp,dbdata);
-		if (error) {dbi_Interbase_Error(interp,dbdata);return error;}
+		if (dbdata->cursor_open) {dbi_Interbase_Free_Stmt(dbdata,DSQL_close);}
+		if (dbi_Interbase_trans_state(dbdata)) {
+			error = dbi_Interbase_Transaction_Commit(interp,dbdata,1);
+			if (error) {dbi_Interbase_Error(interp,dbdata,"committing transaction");return error;}
+		}
 		return TCL_OK;
 	case Rollback:
 		if (objc != 2) {
@@ -2044,8 +2590,11 @@ int Dbi_interbase_DbObjCmd(
 			return error;
 		}
 		dbi_Interbase_autocommit(dbdata,1);
-		error = dbi_Interbase_Transaction_Rollback(interp,dbdata);
-		if (error) {dbi_Interbase_Error(interp,dbdata);return error;}
+		if (dbdata->cursor_open != 0) {dbi_Interbase_Free_Stmt(dbdata,DSQL_close);}
+		if (dbi_Interbase_trans_state(dbdata)) {
+			error = dbi_Interbase_Transaction_Rollback(interp,dbdata);
+			if (error) {dbi_Interbase_Error(interp,dbdata,"rolling back transaction");return error;}
+		}
 		return TCL_OK;
 	case Serial:
 		if (objc < 5) {
@@ -2082,6 +2631,10 @@ int Dbi_interbase_DbObjCmd(
 			Tcl_WrongNumArgs(interp, 2, objv, "?keyword?");
 			return TCL_ERROR;
 		}
+	case Blob:
+		return dbi_Interbase_Blob(interp,dbdata, objc, objv);
+	case Newblob:
+		return dbi_Interbase_NewBlob(interp,dbdata, objc, objv);
 	}
 	return error;
 }
@@ -2101,11 +2654,17 @@ int Dbi_interbase_DoNewDbObjCmd(
 	dbdata->autocommit = 1;
 	dbdata->dpblen = 0;
 	dbdata->database=NULL;
+	dbdata->defnullvalue = Tcl_NewObj();
+	Tcl_IncrRefCount(dbdata->defnullvalue);
 	dbdata->dpb = NULL;
 	dbdata->cursor_open = 0;
 	dbdata->clones = NULL;
 	dbdata->clonesnum = 0;
 	dbdata->parent = NULL;
+	dbdata->newblob_handle = NULL;
+	memset(dbdata->newblob_buffer,0,SEGM_SIZE);
+	dbdata->newblob_buffer_free = SEGM_SIZE;
+	dbdata->blob_handle = NULL;
 	/* 
 	 * Allocate enough space for 20 fields.  
 	 * If more fields get selected, re-allocate SQLDA later.
@@ -2114,7 +2673,6 @@ int Dbi_interbase_DoNewDbObjCmd(
 	dbdata->out_sqlda->sqln = 20;
 	dbdata->out_sqlda->sqld = 0;
 	dbdata->out_sqlda->version = SQLDA_VERSION1;
-	dbdata->out_sqlda_filled = 0;
 	dbdata->in_sqlda = (XSQLDA ISC_FAR *) Tcl_Alloc(XSQLDA_LENGTH(20));
 	dbdata->in_sqlda->sqln = 20;
 	dbdata->in_sqlda->sqld = 0;
@@ -2179,10 +2737,11 @@ int Dbi_interbase_Clone(
 	clone_dbdata->database = parent->database;
 	clone_dbdata->dpbpos = parent->dpbpos;
 	clone_dbdata->db = parent->db;
+	clone_dbdata->out_sqlda_cache = NULL;
+	Tcl_InitHashTable(&(clone_dbdata->preparedhash),TCL_STRING_KEYS);
 	error = isc_dsql_allocate_statement(clone_dbdata->status, &(clone_dbdata->db), &(clone_dbdata->stmt));
 	if (error) {
-		Tcl_AppendResult(interp,"Interbase error on statement allocation:\n", NULL);
-		dbi_Interbase_Error(interp,dbdata);
+		dbi_Interbase_Error(interp,dbdata,"allocating statement");
 		goto error;
 	}
 	return TCL_OK;

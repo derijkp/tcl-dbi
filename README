@@ -12,8 +12,7 @@ The dbi package contains the definition of the dbi interface, and some tools.
 Installation
 ------------
 You should be able to obtain the latest version of dbi via www on url
-http://rrna.uia.ac.be/dbi/ or via anonymous ftp
-on rrna.uia.ac.be. in the directory /pub/tcl
+http://rrna.uia.ac.be/dbi/
 
 Usually you can build the binaries and install the package using the following steps:
 cd to the dbi directory
@@ -45,7 +44,7 @@ web: http://rrna.uia.ac.be/~peter/personal/peter.html
 Legalities
 ----------
 
-dbi is Copyright Peter De Rijk, University of Antwerp (UIA), 2001
+dbi is Copyright Peter De Rijk, University of Antwerp (UIA), 2000
 The following terms apply to all files associated with the software unless 
 explicitly disclaimed in individual files.
 

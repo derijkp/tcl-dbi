@@ -6,7 +6,7 @@ What is dbi_interbase
 ---------------------
 
 dbi is a generic SQL database interface for Tcl.
-dbi_interbase is an implementation of the dbi interface.
+dbi_interbase is an implementation of the dbi interface for connecting to interbase.
 Invoking "package require dbi_interbase" will make the command dbi_interbase available.
 With this command, objects can be created that can connect to an interbase database and
 that support the dbi interface.
@@ -49,7 +49,7 @@ web: http://rrna.uia.ac.be/~peter/personal/peter.html
 Legalities
 ----------
 
-dbi_interbase is Copyright Peter De Rijk, University of Antwerp (UIA), 2001
+dbi_interbase is Copyright Peter De Rijk, University of Antwerp (UIA), 2000
 The following terms apply to all files associated with the software unless 
 explicitly disclaimed in individual files.
 

@@ -19,6 +19,13 @@ typedef struct dbi_Postgresql_Data {
 	struct dbi_Postgresql_Data *parent;
 	struct dbi_Postgresql_Data **clones;
 	int clonesnum;
+	Tcl_Obj *defnullvalue;
+	int blobid;
 } dbi_Postgresql_Data;
 
 EXTERN int dbi_Postgresql_Init(Tcl_Interp *interp);
+
+#define EXEC_USEFETCH 1
+#define EXEC_FLAT 2
+#define EXEC_BLOBID 4
+#define EXEC_CACHE 4

@@ -53,6 +53,8 @@ proc ::dbi::cleandb {} {
 	append fresult $result\n
 	catch {$object exec {drop table "person"}} result
 	append fresult $result\n
+	catch {$object exec {drop table bl}} result
+	append fresult $result\n
 	return $fresult
 }
 
@@ -208,6 +210,32 @@ interface::test {select with -flat} {
 interface::test {select with -nullvalue} {
 	$object exec -nullvalue NULL {select * from "person"}
 } {{pdr Peter {De Rijk} 20.0} {jd John Do 17.5} {o Oog NULL NULL}}
+
+interface::test {non select query with -nullvalue parameter} {
+	catch {$object exec {delete from "person" where "id" = 'nul'}}
+	$object exec -nullvalue {} {insert into "person" values (?,?,?,?)} nul hasnull {} {}
+	set result [$object exec -nullvalue NULL {select * from "person" where "id" = 'nul'}]
+	$object exec {delete from "person" where "id" = 'nul'}
+	set result	
+} {{nul hasnull NULL NULL}}
+
+interface::test {non select query without -nullvalue parameter} {
+	catch {$object exec {delete from "person" where "id" = 'nul'}}
+	$object exec {insert into "person" values (?,?,?,?)} nul hasnull {} 10
+	set result [$object exec -nullvalue NULL {select * from "person" where "id" = 'nul'}]
+	$object exec {delete from "person" where "id" = 'nul'}
+	set result	
+} {{nul hasnull {} 10.0}}
+
+interface::test {non select query with -nullvalue update to NULL} {
+	catch {$object exec {delete from "person" where "id" = 'nul'}}
+	$object exec -nullvalue {} {insert into "person" values (?,?,?,?)} nul hasnull {} 10
+	lappend result [lindex [$object exec -nullvalue NULL {select * from "person" where "id" = 'nul'}] 0]
+	$object exec -nullvalue {} {update "person" set "score" = ? where "id" = 'nul'} {}
+	lappend result [lindex [$object exec -nullvalue NULL {select * from "person" where "id" = 'nul'}] 0]
+	$object exec {delete from "person" where "id" = 'nul'}
+	set result	
+} {{nul hasnull NULL 10.0} {nul hasnull NULL NULL}}
 
 interface::test {error} {
 	$object exec {select "try" from "person"}
@@ -377,7 +405,6 @@ interface::test {fetch fields limited select} {
 } {id score}
 
 interface::test {fetch with no fetch result available} {
-	catch {$object fetch clear}
 	$object exec {select * from "person"}
 	$object fetch
 } {no result available: invoke exec method with -usefetch option first} error
@@ -404,6 +431,11 @@ interface::test {fetch and begin/rollback} {
 	$object exec {
 		insert into "person"("id","first_name","name") values(10,'Try','It');
 	}
+	$object fetch
+} {no result available: invoke exec method with -usefetch option first} error
+
+interface::test {fetch after select error} {
+	catch {$object exec -usefetch {select * from "Idonotexist"}}
 	$object fetch
 } {no result available: invoke exec method with -usefetch option first} error
 
@@ -438,6 +470,7 @@ interface::test {parameters with comments and literals} {
 # ------
 
 dbi::initdb
+
 interface::test {serial basic} {
 	$object exec {delete from "location";}
 	$object exec {delete from "types"}
@@ -592,6 +625,74 @@ interface::test {error when info on closed object} {
 } {dbi object has no open database, open a connection first} error
 catch {::dbi::opendb}
 
+# caching
+# -------
+
+interface::test {drop table not after -cache} {
+	$object exec {create table "t" (i integer)}
+	$object exec {insert into "t" values(1)}
+	$object exec {select * from "t"}
+	$object exec {drop table "t"}
+	lsearch [$object tables] t
+} -1
+
+interface::test {drop table after -cache} {
+	$object exec {create table "t" (i integer)}
+	$object exec {insert into "t" values(1)}
+	$object exec -cache {select * from "t"}
+	$object exec {drop table "t"}
+	lsearch [$object tables] t
+} -1
+
+interface::test {-cache simple} {
+	puts 1:[time {$object exec {select * from "person" where "name" = 'De Rijk'}}]
+	puts 2:[time {$object exec {select * from "person" where "name" = 'De Rijk'}}]
+	puts cache1:[time {$object exec -cache {select * from "person" where "name" = 'De Rijk'}}]
+	puts cache2:[time {$object exec -cache {select * from "person" where "name" = 'De Rijk'}}]
+	$object exec -cache {select * from "person" where "name" = 'De Rijk'}
+} {{pdr Peter {De Rijk} 20.0}}
+
+interface::test {-cache parameter} {
+	puts 1:[time {$object exec {select * from "person" where "name" = ?} {De Rijk}}]
+	puts 2:[time {$object exec {select * from "person" where "name" = ?} {De Rijk}}]
+	puts cache1:[time {$object exec -cache {select * from "person" where "name" = ?} {De Rijk}}]
+	puts cache2:[time {$object exec -cache {select * from "person" where "name" = ?} {De Rijk}}]
+	$object exec -cache {select * from "person" where "name" = ?} {De Rijk}
+} {{pdr Peter {De Rijk} 20.0}}
+
+interface::test {-cache parameter mix} {
+	$object exec -cache {select * from "person" where "name" = ?} {De Rijk}
+	$object exec -cache {select * from "address" where "number" = ?} 0
+	$object exec -cache {select * from "person" where "name" = ?} Do
+	$object exec -cache {select * from "address" where "number" = ?} 1
+} {{1 Universiteitsplein 1 2610 Wilrijk}}
+
+interface::test {-cache parameter mix 2} {
+	$object exec -cache {select * from "person" where "name" = ?} {De Rijk}
+	$object exec -cache {select * from "address" where "number" = ?} 0
+	$object exec -cache {select * from "person" where "name" = ?} Do
+	$object exec -cache {select * from "address" where "number" = ?} 1
+	$object exec -cache {select * from "person" where "name" = ?} {De Rijk}
+} {{pdr Peter {De Rijk} 20.0}}
+
+interface::test {-cache parameter mix with plain} {
+	$object exec -cache {select * from "person" where "name" = ?} {De Rijk}
+	$object exec -cache {select * from "address" where "number" = ?} 0
+	$object exec -cache {select * from "person" where "name" = ?} Do
+	$object exec {select * from "person" where "name" = ?} {De Rijk}
+	$object exec {select * from "address" where "number" = ?} 1
+	$object exec -cache {select * from "address" where "number" = ?} 1
+	$object exec -cache {select * from "person" where "name" = ?} {De Rijk}
+} {{pdr Peter {De Rijk} 20.0}}
+
+interface::test {-cache parameter mix with plain 2} {
+	$object exec {select * from "person" where "name" = ?} {De Rijk}
+	$object exec {select * from "person" where "name" = ?} {De Rijk}
+	$object exec -cache {select * from "person" where "name" = ?} {De Rijk}
+	$object exec -cache {select * from "person" where "name" = ?} {De Rijk}
+	$object exec -cache {select * from "person" where "name" = ?} {De Rijk}
+} {{pdr Peter {De Rijk} 20.0}}
+
 # clones
 # ------
  ::dbi::initdb
@@ -650,7 +751,29 @@ interface::test {clone and object give same tables information} {
 	string equal $clist $olist
 } 1
 
- ::dbi::initdb
+interface::test {-cache parameter in clone} {
+	set clone [$object clone]
+	$clone exec {select * from "person" where "name" = ?} {De Rijk}
+	$clone exec {select * from "person" where "name" = ?} {De Rijk}
+	$clone exec -cache {select * from "person" where "name" = ?} {De Rijk}
+	$clone exec -cache {select * from "person" where "name" = ?} {De Rijk}
+	set result [$clone exec -cache {select * from "person" where "name" = ?} {De Rijk}]
+	$clone close
+	set result
+} {{pdr Peter {De Rijk} 20.0}}
+
+interface::test {-cache parameter in clone, mix} {
+	set clone [$object clone]
+	$clone exec {select * from "person" where "name" = ?} {De Rijk}
+	$clone exec {select * from "person" where "name" = ?} {De Rijk}
+	$clone exec -cache {select * from "person" where "name" = ?} {De Rijk}
+	$object exec {select * from "person" where "name" = ?} {De Rijk}
+	set result [$clone exec -cache {select * from "person" where "name" = ?} {De Rijk}]
+	$clone close
+	set result
+} {{pdr Peter {De Rijk} 20.0}}
+
+::dbi::initdb
 interface::test {clone with some fetching} {
 	foreach clone [$object clones] {$clone close}
 	set clone [$object clone]

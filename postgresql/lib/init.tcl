@@ -10,7 +10,7 @@ namespace eval dbi::postgresql {}
 # $Format: "set ::dbi::postgresql::version 0.$ProjectMajorVersion$"$
 set ::dbi::postgresql::version 0.8
 # $Format: "set ::dbi::postgresql::patchlevel $ProjectMinorVersion$"$
-set ::dbi::postgresql::patchlevel 2
+set ::dbi::postgresql::patchlevel 3
 package provide dbi_postgresql $::dbi::postgresql::version
 
 proc ::dbi::postgresql::string_split {string splitstring} {
@@ -221,6 +221,9 @@ proc ::dbi::postgresql::serial_add {db table field args} {
 	}]
 	if [llength $args] {
 		set current [lindex $args 0]
+		if {$current < 1} {
+			error "cannot set serial to value < 1"
+		}
 		$db exec [subst -nobackslashes -nocommands {
 			select setval('$name',$current)
 		}]
@@ -247,7 +250,7 @@ proc ::dbi::postgresql::serial_set {db table field args} {
 		}]
 	} else {
 		$db exec [subst -nobackslashes {
-			select last_value from $name;
+			select currval('$name') from $name;
 		}]
 	}
 }

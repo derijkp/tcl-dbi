@@ -12,16 +12,14 @@ make distclean
 
 cd /home/peter/dev
 tar cvzf /usr/src/RPM/SOURCES/dbi-0.8.1.src.tar.gz dbi
+tar cvzf /usr/src/RPM/SOURCES/interface-0.8.1.src.tar.gz interface
 cp -f /home/peter/dev/dbi/build/dbi.spec /usr/src/RPM/SPECS
-rpm -ba /usr/src/RPM/SPECS/dbi.spec
 cp -f /home/peter/dev/dbi/*/build/*.spec /usr/src/RPM/SPECS
+cp -f /home/peter/dev/interface/build/*.spec /usr/src/RPM/SPECS
+rpm -ba /usr/src/RPM/SPECS/dbi.spec
 rpm -ba /usr/src/RPM/SPECS/dbi_postgresql.spec
 rpm -ba /usr/src/RPM/SPECS/dbi_odbc.spec
 rpm -ba /usr/src/RPM/SPECS/dbi_interbase.spec
-
-cd /home/peter/dev
-tar cvzf /usr/src/RPM/SOURCES/interface-0.8.1.src.tar.gz interface
-cp -f /home/peter/dev/interface/build/*.spec /usr/src/RPM/SPECS
 rpm -ba /usr/src/RPM/SPECS/interface.spec
 
 
