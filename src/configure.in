@@ -1,0 +1,77 @@
+dnl	This file is an input file used by the GNU "autoconf" program to
+dnl	generate the file "configure", which is run to configure the
+dnl	Makefile in this directory.
+AC_INIT(dbi.c)
+# SCCS: @(#) configure.in 1.9 96/04/15 09:50:20
+
+if test "${prefix}" = "NONE"; then
+    prefix=/usr/local
+    echo "setting prefix to: ${prefix}"
+fi
+if test "${exec_prefix}" = "NONE"; then
+    exec_prefix=$prefix
+    echo "setting exec-prefix to: ${exec_prefix}"
+fi
+
+AC_ARG_WITH(tclconfigdir, [  --with-tclconfigdir=DIR		Use tclConfig.sh from
+DIR],
+        TCL_CONFIG_DIR=$withval, TCL_CONFIG_DIR=`cd ${exec_prefix}/lib; pwd`)
+
+if test ! -f $TCL_CONFIG_DIR/tclConfig.sh; then
+	AC_MSG_ERROR($TCL_CONFIG_DIR/tclConfig.sh not found)
+fi
+echo "Using $TCL_CONFIG_DIR/tclConfig.sh"
+file=$TCL_CONFIG_DIR/tclConfig.sh
+. $file
+
+AC_ARG_WITH(installdir, [  --with-installdir=DIR		directory in which to install RnaViz
+DIR], INSTALL_DIR=$withval, INSTALL_DIR=`cd ${exec_prefix}/lib; pwd`)
+
+AC_ARG_WITH(bindir, [  --with-bindir=DIR		directory in which to put links to the RnaViz binary
+DIR], BIN_DIR=$withval, BIN_DIR=`cd ${exec_prefix}/bin; pwd`)
+
+AC_ARG_ENABLE(stubs, [  --enable-stubs         enable stub support],
+    [USE_STUBS=$enableval], [USE_STUBS=no])
+
+CC=$TCL_CC
+
+AC_SUBST(USE_STUBS)
+AC_SUBST(CC)
+AC_SUBST(TCL_CC)
+AC_SUBST(TCL_SHLIB_CFLAGS)
+AC_SUBST(SHLIB_LD)
+AC_SUBST(SHLIB_LD_LIBS)
+AC_SUBST(SHLIB_SUFFIX)
+AC_SUBST(SHLIB_VERSION)
+AC_SUBST(TCL_BUILD_LIB_SPEC)
+AC_SUBST(TCL_LIB_SPEC)
+AC_SUBST(TCL_LIBS)
+AC_SUBST(TCL_VERSION)
+AC_SUBST(TCL_SRC_DIR)
+AC_SUBST(TCL_DEFS)
+AC_SUBST(TCL_DBGX)
+AC_SUBST(TCL_CFLAGS_DEBUG)
+AC_SUBST(TCL_CFLAGS_WARNING)
+AC_SUBST(TCL_CFLAGS_OPTIMIZE)
+AC_SUBST(TCL_LDFLAGS_DEBUG)
+AC_SUBST(TCL_LDFLAGS_OPTIMIZE)
+AC_SUBST(TCL_SHLIB_LD_LIBS)
+AC_SUBST(TCL_SHLIB_LD)
+AC_SUBST(TCL_SHLIB_SUFFIX)
+AC_SUBST(TCL_STUB_LIB_SPEC)
+AC_SUBST(LDFLAGS_DEBUG)
+AC_SUBST(LDFLAGS_OPTIMIZE)
+AC_SUBST(TCL_PREFIX)
+AC_SUBST(TCL_EXEC_PREFIX)
+
+AC_SUBST(TK_DEFS)
+AC_SUBST(TK_LIBS)
+AC_SUBST(TK_XINCLUDES)
+AC_SUBST(TK_XLIBSW)
+AC_SUBST(TK_BUILD_LIB_SPEC)
+AC_SUBST(TK_LIB_SPEC)
+AC_SUBST(TK_SRC_DIR)
+AC_SUBST(INSTALL_DIR)
+AC_SUBST(BIN_DIR)
+
+AC_OUTPUT(Makefile)
