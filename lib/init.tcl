@@ -42,7 +42,3 @@ proc dbi::info {item} {
 # in some situations, modules like dbi_interbase hang if an env variable has not been
 # accessed. I have not found out why, but until then just protect against it
 catch {set env(HOME)}
-
-
-
-

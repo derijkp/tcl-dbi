@@ -9,16 +9,3 @@ namespace eval ::dbi::sqlite {}
 set ::dbi::sqlite::dir $dir
 source [file join $dir lib init.tcl]
 extension provide dbi_sqlite 0.8.9
-
-
-
-
-
-
-
-
-
-
-
-
-

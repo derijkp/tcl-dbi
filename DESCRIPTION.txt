@@ -1,0 +1,10 @@
+Identifier: dbi
+Version: 0.8.9
+Title: database access interface
+Creator: Peter De Rijk <Peter.DeRijk@ua.ac.be>
+Description: generic interface descrition for SQL database access
+Rights: BSD
+URL: http://tcl-dbi.sourceforge.net/
+Subject: interface
+Subject: database
+Subject: SQL

@@ -8,8 +8,3 @@ namespace eval ::dbi {}
 set ::dbi::dir $dir
 source [file join $dir lib init.tcl]
 extension provide dbi 0.8.9
-
-
-
-
-

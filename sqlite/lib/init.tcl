@@ -289,17 +289,3 @@ proc ::dbi::sqlite::open_test {db file} {
 	}
 	return $file
 }
-
-
-
-
-
-
-
-
-
-
-
-
-
-

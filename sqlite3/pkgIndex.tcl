@@ -15,21 +15,3 @@ package ifneeded dbi_sqlite3 3.0 \
 	set ::dbi::sqlite3::dir [list $dir]
 	source [file join [list $dir] lib init.tcl]
 }]
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-

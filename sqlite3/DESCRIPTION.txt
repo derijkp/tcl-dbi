@@ -1,0 +1,10 @@
+Identifier: dbi_sqlite3
+Version: 0.8.9
+Title: sqlite3 database access
+Creator: Peter De Rijk <Peter.DeRijk@ua.ac.be>
+Description: sqlite3 database access using the dbi interface
+Rights: BSD
+URL: http://tcl-dbi.sourceforge.net/
+Subject: database
+Subject: interface
+Subject: sqlite3

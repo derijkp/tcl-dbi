@@ -15,29 +15,3 @@ package ifneeded dbi_sqlite 0.8 \
 	set ::dbi::sqlite::dir [list $dir]
 	source [file join [list $dir] lib init.tcl]
 }]
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-

@@ -177,7 +177,7 @@ proc file_read {file} {
 
 proc file_write {file data} {
 	set f [open $file w]
-	puts $f $data
+	puts -nonewline $f $data
 	close $f
 }
 
@@ -205,13 +205,15 @@ proc version {{argv {}}} {
 		set patchlevel 0
 	}
 	if {[file exists $srcdir/DESCRIPTION.txt]} {
+		puts "Changing version in $srcdir/DESCRIPTION.txt"
 		set c [file_read $srcdir/DESCRIPTION.txt]
 		regsub {Version: [0-9.]+} $c "Version: $version" c
 		file copy -force $srcdir/DESCRIPTION.txt $srcdir/DESCRIPTION.txt~
-		file_write [open $srcdir/DESCRIPTION.txt w] $c
+		file_write $srcdir/DESCRIPTION.txt $c
 		file delete $srcdir/DESCRIPTION.txt~
 	}
 	if {[file exists $srcdir/lib/init.tcl]} {
+		puts "Changing version in $srcdir/lib/init.tcl"
 		set c [file_read $srcdir/lib/init.tcl]
 		regsub {::version [0-9.]+} $c "::version $majorversion.$minorversion" c
 		regsub {::patchlevel [0-9.]+} $c "::patchlevel $patchlevel" c
@@ -220,6 +222,7 @@ proc version {{argv {}}} {
 		file delete $srcdir/lib/init.tcl~
 	}
 	if {[file exists $srcdir/pkgIndex.tcl]} {
+		puts "Changing version in $srcdir/pkgIndex.tcl"
 		set c [file_read $srcdir/pkgIndex.tcl]
 		regsub {package ifneeded ([^ ]+) [0-9.]+} $c "package ifneeded \\1 $majorversion.$minorversion" c
 		file copy -force $srcdir/pkgIndex.tcl $srcdir/pkgIndex.tcl~
@@ -227,6 +230,8 @@ proc version {{argv {}}} {
 		file delete $srcdir/pkgIndex.tcl~
 	}
 	foreach file [glob $srcdir/*.tcl] {
+		if {[lsearch [list $srcdir/lib/init.tcl $srcdir/pkgIndex.tcl] $file] != -1} continue
+		puts "Changing version in $file"
 		set c [file_read $file]
 		regsub {set Classy::appversion [0-9.]+} $c "set Classy::appversion $majorversion.$minorversion" c
 		regsub {extension provide ([^ ]+) [0-9.]+} $c "extension provide \\1 $version" c

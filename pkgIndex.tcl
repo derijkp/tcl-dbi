@@ -14,11 +14,3 @@ package ifneeded dbi 0.8 \
 	set ::dbi::dir [list $dir]
 	source [file join [list $dir] lib init.tcl]
 }]
-
-
-
-
-
-
-
-

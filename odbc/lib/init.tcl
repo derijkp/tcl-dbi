@@ -35,4 +35,3 @@ proc ::dbi::odbc::privatedb {db} {
 	$parent clone $privatedb($parent)
 	return $privatedb($parent)
 }
-
