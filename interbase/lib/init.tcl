@@ -10,7 +10,7 @@ namespace eval dbi::interbase {}
 # $Format: "set ::dbi::interbase::version 0.$ProjectMajorVersion$"$
 set ::dbi::interbase::version 0.0
 # $Format: "set ::dbi::interbase::patchlevel $ProjectMinorVersion$"$
-set ::dbi::interbase::patchlevel 9
+set ::dbi::interbase::patchlevel 10
 package provide dbi_interbase $::dbi::interbase::version
 
 proc ::dbi::interbase::init {name testcmd} {
@@ -227,7 +227,7 @@ proc ::dbi::interbase_info {db args} {
 				insert {set char I}
 				delete {set char D}
 				update {set char U}
-				reference {set char R}
+				references {set char R}
 				default {error "wrong option \"$option\": must be one of select, insert, delete, update or reference"}
 			}
 			if {$len == 3} {

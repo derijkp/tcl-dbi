@@ -10,7 +10,7 @@ namespace eval ::dbi {}
 # $Format: "set ::dbi::version 0.$ProjectMajorVersion$"$
 set ::dbi::version 0.0
 # $Format: "set ::dbi::patchlevel $ProjectMinorVersion$"$
-set ::dbi::patchlevel 9
+set ::dbi::patchlevel 10
 package provide dbi $::dbi::version
 
 proc ::dbi::init {name testcmd} {

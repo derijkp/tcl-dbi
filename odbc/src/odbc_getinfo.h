@@ -18,8 +18,6 @@ typedef struct Getinfo_cor {
 	Getinfo_values *values;
 } Getinfo_cor;
 
-
-
 Getinfo_values getinfo_values_aggregate_functions[] = {
 	{(unsigned int)SQL_AF_ALL,"all"},
 	{(unsigned int)SQL_AF_AVG,"avg"},

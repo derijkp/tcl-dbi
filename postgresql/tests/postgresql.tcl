@@ -6,31 +6,27 @@ puts "source [info script]"
 package require dbi
 package require dbi_postgresql
 
-set db [dbi_postgresql]
-set db2 [dbi_postgresql]
+set interface dbi
+set version 0.1
+set object [dbi_postgresql]
+set object2 [dbi_postgresql]
+
+array set opt [subst {
+	-testdb testdbi
+	-user2 pdr
+	-lines 0
+	-columnperm 0
+	-object2 $object2
+}]
 
 if 0 {
-	set ::interface::interface dbi
-	set ::interface::version 0.1
-	set ::interface::testleak 0
-	set ::interface::name dbi-01
-	set ::interface::object $db
-	set ::interface::object2 $db2
-	array set ::interface::options {-testdb testdbi}
-	set object $db
-	set object2 $db2
-	set user2 pdr
-interface::opendb
-interface::initdb
+	dbi::opendb
+	dbi::initdb
 }
 
-interface test dbi 0.1 $db \
-	-testdb testdbi -user2 pdr \
-	-lines 0 \
-	-columnperm 0 \
-	-object2 $db2
+eval interface test dbi-0.1 $object [array get opt]
 
-$db destroy
-$db2 destroy
+$object destroy
+$object2 destroy
 
 interface::testsummarize

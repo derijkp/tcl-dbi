@@ -1,0 +1,267 @@
+<manpage package="dbi" title="interface_dbi" id="interface_dbi" cat="interface">
+<namesection>
+<name>interface_dbi</name>
+<desc>interface for SQL database access</desc>
+</namesection>
+
+<section>
+<title>DESCRIPTION</title>
+<p>
+The dbi <ref>interface</ref> is designed for creating access to different SQL databases.
+It presents a generic api to open, query, and change databases.
+</p>
+</section>
+
+<section>
+<title>THE DBI INTERFACE</title>
+<commandlist>
+
+<commanddef>
+<command><cmd>objectName</cmd> <method>open</method> <m>database</m> ?<m>arg</m> ...?</command>
+<desc>open the given 'database'. Extra arguments can (must) be given, depending on the backend
+used. <m>database</m> is an identifier of the database. What this is exactly, can depend on 
+the implementation
+</desc>
+</commanddef>
+
+<commanddef>
+<command><cmd>objectName</cmd> <method>exec</method> ?<m>options</m>? <m>sql</m> ?<m>param</m> ...?</command>
+<desc>execute arbitrary SQL commands in the currently open database. when a select 
+query has been processed, and the -usefetch option is not used, the command returns a list 
+of lists: each element of this list contains the selected values of one record (in a list).
+Otherwise nothing is returned
+<p>
+<m>sql</m> contains the commands to be executed. When <m>sql</m> contains
+placeholders (indicated by ?), extra parameters must be given (<m>param</m>, that will 
+be used to fill in the gaps. If an sql error occurs, all changes made in the current 
+transaction will be rolled back. If no explicit has been explicitly started by the user  
+using "objectName begin", this means all changes made in the current exec.
+</p>
+<p>
+The following <m>options</m> can be present:
+<optlist>
+<optdef>
+<optname>-usefetch</optname>
+<desc>if present, the command does not return the resultset of a select query as a list.
+The fetch method will be used to get the results instead.</desc>
+</optdef>
+<optdef>
+<optname>-nullvalue</optname><optarg>nullval</optarg>
+<desc>nullval will be returned for each NULL value in the result instead of an empty string</desc>
+</optdef>
+</optlist>
+</p>
+<p>
+example:
+<example>db exec {select "value" from "test_table" where "id" = ?} 100
+</example>
+</p>
+</desc>
+</commanddef>
+
+<commanddef>
+<command><cmd>objectName</cmd> <method>fetch</method> ?<m>options</m>? ?<m>option</m>? ?<m>line</m>? ?<m>field</m>?</command>
+<desc>Fetch one line of data of the result of a previous query. This will only work after 
+the exec method has been invoked with the -usefetch option. Normally, the next line in
+the result will be fetched. The optional arguments	can be used to fetch a specific 
+line and/or field. by specifying <m>option</m>, other information about the result may 
+be obtained.
+<p>
+If present, <m>line</m> is an an integer &gt;= 0 indicating which line of the result to fetch.
+If <m>line</m> is "current", the current line will be fetched. Not all databases allow 
+backward positioning in a result set, so not all objects that support the dbi interface 
+will be able to fetch lines earlier than the current line. <m>field</m> is also an integer 
+&gt;= 0 indicating the field of the result to fetch.
+</p>
+<p>
+If <m>option</m> is present, 
+information about the result is returned instead of the result data itself. It can have 
+any of the following values:
+<dle>
+<dl><dt>pos</dt><dd>return the current position in the result. The first line is position 0</dd></dl>
+<dl><dt>fields</dt><dd>return the fields present in the resultset</dd></dl>
+<dl><dt>clear</dt><dd>clear the current resultset, do not return anything</dd></dl>
+<dl><dt>isnull</dt><dd>returns 1 if the result contains a NULL value at the given line and field</dd></dl>
+<dl><dt>lines</dt><dd>returns the number of lines in the result. This function cannot always be supported by a dbi object</dd></dl>
+</dle>
+</p>
+<p>
+The following <m>options</m> can be present:
+<optlist>
+<optdef>
+<optname>-nullvalue</optname><optarg>nullval</optarg>
+<desc>nullval will be returned for each NULL value in the result instead of an empty string</desc>
+</optdef>
+</optlist>
+</p>
+<p>
+examples:
+<example>db fetch</example>
+<example>db fetch isnull current 1</example>
+</p>
+</desc>
+</commanddef>
+
+<commanddef>
+<command><cmd>objectName</cmd> <method>tables</method></command>
+<desc>returns a list with tables present in the current database
+</desc>
+</commanddef>
+
+<commanddef>
+<command><cmd>objectName</cmd> <method>fields</method> <m>tableName</m></command>
+<desc>returns a list with the fields present in the <m>tableName</m>
+</desc>
+</commanddef>
+
+<commanddef>
+<command><cmd>objectName</cmd> <method>close</method></command>
+<desc>close the current database connection
+</desc>
+</commanddef>
+
+<commanddef>
+<command><cmd>objectName</cmd> <method>begin</method></command>
+<desc>Start a transaction
+</desc>
+</commanddef>
+
+<commanddef>
+<command><cmd>objectName</cmd> <method>commit</method></command>
+<desc>Commit the current transaction
+</desc>
+</commanddef>
+
+<commanddef>
+<command><cmd>objectName</cmd> <method>rollback</method></command>
+<desc>rollback the current transaction
+</desc>
+</commanddef>
+
+<commanddef>
+<command><cmd>objectName</cmd> <method>destroy</method></command>
+<desc>destroy the dbi object
+</desc>
+</commanddef>
+
+<commanddef>
+<command><cmd>objectName</cmd> <method>serial</method> <m>option</m> args ...</command>
+<desc>create or manage a serial field
+	<commandlist>
+	<commanddef>
+	<command><cmd>objectName</cmd> <method>serial</method> add <m>table</m> <m>field</m> ?<m>value</m>?</command>
+	<desc>convert the integer field <m>field</m> in the given <m>table</m> into a serial 
+	field (using generators, triggers, ...) and optionally initialise it with <m>value</m>
+	</desc>
+	</commanddef>
+	
+	<commanddef>
+	<command><cmd>objectName</cmd> <method>serial</method> delete <m>table</m> <m>field</m></command>
+	<desc>return the given serial field in the given table into a normal integer field
+	</desc>
+	</commanddef>
+	
+	<commanddef>
+	<command><cmd>objectName</cmd> <method>serial</method> set <m>table</m> <m>field</m> ?<m>value</m>?</command>
+	<desc>Returns the current value for given serial field. If the argument <m>value</m> 
+		is present, the given serial field will be set to this value first.
+	</desc>
+	</commanddef>
+	
+	<commanddef>
+	<command><cmd>objectName</cmd> <method>serial</method> next <m>table</m> <m>field</m></command>
+	<desc>Increment the current value of the given serial field by 1, and return the new value
+	</desc>
+	</commanddef>
+	
+	</commandlist>
+</desc>
+</commanddef>
+
+<commanddef>
+<command><cmd>objectName</cmd> <method>info</method> <m>option</m> args ...</command>
+<desc>Return information about the database, database tables, etc.
+Which information is returned depends on <m>option</m>. Some options require further
+arguments. The options and information available can depend on the database and on the 
+implementation of the interface. eg. some databases do not support roles, so you cannot 
+get information about them. Some options that should be avaiable are:
+	<commandlist>
+	<commanddef>
+	<command><cmd>objectName</cmd> <method>info</method> <method>user</method></command>
+	<desc>Returns the current user for the database connection</desc>
+	</commanddef>
+	<commanddef>
+	<command><cmd>objectName</cmd> <method>info</method> <method>systemtables</method></command>
+	<desc>the systemtables are not included in the list returned by "objectName tables". 
+	You can get them using this command</desc>
+	</commanddef>
+	<commanddef>
+	<command><cmd>objectName</cmd> <method>info</method> <method>views</method></command>
+	<desc>Returns a list of all views in the current database</desc>
+	</commanddef>
+	<commanddef>
+	<command><cmd>objectName</cmd> <method>info</method> <method>access</method> <m>accesstype</m> <m>user</m> ?<m>table</m>?</command>
+	<desc>Returns information about the accessibility of tables, ....
+	<m>accesstype</m> determines the type of access that is queried and can be one of:
+	<sl>
+	<li>select</li>
+	<li>insert</li>
+	<li>delete</li>
+	<li>update</li>
+	<li>reference</li>
+	</sl>
+	If the <m>table</m> argument is not given, the command returns a list of
+	all tables <m>user</m> has access to; If the <m>table</m> argument is not provided, 
+	a list of all fields in the given table <m>user</m> has access to is returned
+	</desc>
+	</commanddef>
+	<commanddef>
+	<command><cmd>objectName</cmd> <method>info</method> <method>table</method> <m>table</m></command>
+	<desc>Returns information about the table <m>table</m>. This information is returned 
+	in the form of a list	containing pairs of elements (a map). The first element in each pair 
+	is a keyword and the second  element  of  each pair  is the value for that keyword.	Possible 
+	pairs are:<dl><dle><dt>fields         </dt><dd>list containing all fields in the table</dd></dle>
+		<dle><dt>type,<m>field</m>        </dt><dd>type of field <m>field</m></dd></dle>
+		<dle><dt>length,<m>field</m>      </dt><dd>size of field <m>field</m></dd></dle>
+		<dle><dt>notnull,<m>field</m>     </dt><dd>1 if field <m>field</m> has a not null constraint, otherwise not present</dd></dle>
+		<dle><dt>primary,<m>field</m>     </dt><dd>present if field <m>field</m> is a primary key, may contain the index</dd></dle>
+		<dle><dt>unique,<m>field</m>      </dt><dd>present if field <m>field</m> has a unique constraint, may contain the index</dd></dle>
+		<dle><dt>foreign,<m>field</m>     </dt><dd>list with table and field referenced by the field <m>field</m>. Is only present if the field <m>field</m> has a foreign key constraint</dd></dle>
+		<dle><dt>constraint,constraint    </dt><dd>'constraint' is a constraint defined for the table, may contain the index enforcingg the constraint as a value</dd></dle>
+		</dl>
+	</desc> 
+	</commanddef>
+	<commanddef>
+	<command><cmd>objectName</cmd> <method>info</method> <method>domains</method></command>
+	<desc>Returns a list of all domains in the current database</desc>
+	</commanddef>
+	<commanddef>
+	<command><cmd>objectName</cmd> <method>info</method> <method>domain</method></command>
+	<desc>Returns the definition of the domain provided as an argument</desc>
+	</commanddef>
+	<commanddef>
+	<command><cmd>objectName</cmd> <method>info</method> <method>roles</method></command>
+	<desc>Returns all roles in the database. If the optional argument username is 
+	provided, only roles accessible by the given user are returned</desc> 
+	</commanddef>
+	</commandlist>
+</desc>
+</commanddef>
+
+</commandlist>
+</section>
+
+<seealso>
+<ref>interface</ref>
+<ref>interface_dbi_admin</ref>
+</seealso>
+
+<keywords>
+<keyword>interface</keyword>
+<keyword>database</keyword>
+<keyword>sql</keyword>
+<keyword>dbi</keyword>
+</keywords>
+
+</manpage>
+

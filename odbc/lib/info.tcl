@@ -4,22 +4,7 @@ proc ::dbi::odbc_info {db args} {
 	set type [lindex $args 0]
 	switch -exact $type {
 		user {
-			set result [string toupper [$db exec {select user from rdb$database}]]
-		}
-		roles {
-			if {$len == 1} {
-				set result [$db exec {select RDB$ROLE_NAME from RDB$ROLES order by RDB$ROLE_NAME}]
-			} elseif {$len == 2} {
-				#set user [string toupper [lindex $args 1]]
-				set user [lindex $args 1]
-				set result [$db exec {
-					select RDB$RELATION_NAME from RDB$USER_PRIVILEGES 
-					where RDB$USER = ? and RDB$PRIVILEGE = 'M'
-					order by RDB$RELATION_NAME
-				} $user]
-			} else {
-				error "wrong # args: should be \"$db info roles ?username?\""
-			}
+			set result [$db sqlgetinfo user_name]
 		}
 		fields {
 			if {$len == 2} {
@@ -37,90 +22,71 @@ proc ::dbi::odbc_info {db args} {
 			}
 		}
 		tables {
-			set result [$db exec {select rdb$relation_name from rdb$relations where RDB$SYSTEM_FLAG = 0}]
+			set data [$db sqltables {} {} {} TABLE]
+			set result {}
+			foreach line $data {
+				lappend result [lindex $line 2]
+			}
 		}
 		systemtables {
-			set result ""
-			foreach line [$db exec {select rdb$relation_name from rdb$relations where RDB$SYSTEM_FLAG = 1}] {
-				lappend result [lindex $line 0]
+			set data [$db sqltables {} {} {} {SYSTEM TABLE}]
+			set result {}
+			foreach line $data {
+				lappend result [lindex $line 2]
 			}
 		}
 		views {
-			set result ""
-			foreach line [$db exec {select rdb$relation_name from rdb$relations where RDB$VIEW_BLR is not null}] {
-				lappend result [lindex $line 0]
-			}
-		}
-		domains {
-			set list [$db exec {
-				select RDB$FIELD_NAME from rdb$fields 
-				where RDB$FIELD_NAME NOT LIKE 'RDB$%'
-				AND RDB$SYSTEM_FLAG <> 1
-	   			order BY RDB$FIELD_NAME
-				}]
-			set result ""
-			foreach line $list {lappend result [lindex $line 0]}
-		}
-		domain {
-			if {$len == 2} {
-				set domain [lindex $args 1]
-				set temp [lindex [$db exec {
-					select RDB$FIELD_TYPE,RDB$FIELD_LENGTH,RDB$NULL_FLAG
-					from RDB$FIELDS where RDB$FIELD_NAME = ?} $domain] 0]
-				set result $typetrans([lindex $temp 0])
-				switch $result {
-					char - varchar {
-						append result ([lindex $temp 1])
-					}
-				}
-				if {![string length [lindex $temp end]]} {
-					lappend result nullable
-				} else {
-					lappend result {not null}
-				}
-			} else {
-				error "wrong # args: should be \"$db info domain ?domain?\""
+			set data [$db sqltables {} {} {} VIEW]
+			set result {}
+			foreach line $data {
+				lappend result [lindex $line 2]
 			}
 		}
 		access {
 			set option [lindex $args 1]
-			switch $option {
-				select {set char S}
-				insert {set char I}
-				delete {set char D}
-				update {set char U}
-				reference {set char R}
-				default {error "wrong option \"$option\": must be one of select, insert, delete, update or reference"}
-			}
+			set option [string toupper $option]
 			if {$len == 3} {
-				#set user [string toupper [lindex $args 2]]
+				foreach table [$db info systemtables] {
+					set excl($table) 1
+				}
 				set user [lindex $args 2]
-				set temp [$db exec {
-					select distinct RDB$RELATION_NAME
-					from RDB$USER_PRIVILEGES where RDB$USER = ? and RDB$PRIVILEGE = ?
-					order by RDB$RELATION_NAME} $user $char]
+				set temp [$db sqltableprivileges {} {} {}]
 				set result {}
-				foreach table [eval concat $temp] {
-					if {![string match RDB$* $table]} {
-						lappend result $table
+				foreach line $temp {
+					set table [lindex $line 2]
+					if {[::info exists excl($table)]} continue
+					set grantee [lindex $line 4]
+					if {[string equal $grantee $user]} {
+						set privilege [lindex $line 5]
+						if {[string equal $privilege $option]} {
+							lappend result $table
+						}
 					}
 				}
 			} elseif {$len == 4} {
-				#set user [string toupper [lindex $args 2]]
 				set user [lindex $args 2]
 				set table [lindex $args 3]
-				set temp [$db exec {
-					select RDB$FIELD_NAME
-					from RDB$USER_PRIVILEGES where RDB$USER = ? and RDB$RELATION_NAME = ? and RDB$PRIVILEGE = ?} $user $table $char]
-				if {([llength $temp] != 0) && ("[lindex $temp 0]" == "{}")} {
-					set result [$db info fields $table]
+				set result {}
+				set temp [$db sqlcolumnprivileges {} {} $table {}]
+				if {![llength $temp]} {
+					set temp [$db sqltableprivileges {} {} $table]
+					foreach line $temp {
+						set grantee [lindex $line 4]
+						if {[string equal $grantee $user]} {
+							set privilege [lindex $line 5]
+							if {[string equal $privilege $option]} {
+								set result [$db fields $table]
+							}
+						}
+					}
 				} else {
-					set result {}
-					set a() 1
-					foreach field [eval concat $temp] {
-						if {![::info exists a($field)]} {
-							lappend result $field
-							set a($field) 1
+					foreach line $temp {
+						set grantee [lindex $line 5]
+						if {[string equal $grantee $user]} {
+							set privilege [lindex $line 6]
+							if {[string equal $privilege $option]} {
+								lappend result [lindex $line 3]
+							}
 						}
 					}
 				}
@@ -129,87 +95,57 @@ proc ::dbi::odbc_info {db args} {
 			}
 		}
 		table {
-			if {$len == 2} {
-				set table [lindex $args 1]
-				set result ""
-				set temp [$db exec {
-					select rf.RDB$FIELD_NAME, f.RDB$FIELD_NAME, f.RDB$FIELD_TYPE, f.RDB$DIMENSIONS, 
-						f.RDB$COMPUTED_BLR, f.RDB$COMPUTED_SOURCE,
-						f.RDB$FIELD_LENGTH, rf.RDB$NULL_FLAG,
-						rf.RDB$DEFAULT_SOURCE, f.RDB$DEFAULT_SOURCE, f.RDB$VALIDATION_SOURCE
-					from RDB$RELATION_FIELDS rf, RDB$FIELDS f
-					where rf.RDB$FIELD_SOURCE = f.RDB$FIELD_NAME and rf.RDB$RELATION_NAME = ?
-					order by rf.RDB$FIELD_POSITION, rf.RDB$FIELD_NAME
-				} $table]
-				if {[llength $temp] == 0} {error "table \"$table\" does not exist"}
-				set sresult ""
-				set fields ""
-				foreach line $temp {
-					set field [lindex $line 0]
-					lappend fields $field
-					set type $typetrans([lindex $line 2])
-					lappend result type,$field $type
-					set dom [lindex $line 1]
-					if {![string match {RDB$*} $dom]} {
-						lappend result domain,$field $dom
-					}
-					foreach key {
-						dim computed computed_src
-						length notnull default fdefault validation
-					} value [lrange $line 3 end] {
-						if {[string length $value]} {
-							lappend result $key,$field $value
-						}
-					}
-				}
-				set result [linsert $result 0 fields $fields]
-				set temp [$db exec {
-					select RDB$CONSTRAINT_TYPE, RDB$CONSTRAINT_NAME, RDB$INDEX_NAME
-					from RDB$RELATION_CONSTRAINTS
-					where RDB$RELATION_NAME = ?
-				} $table]
-				foreach line $temp {
-					foreach {type name index} $line break
-					switch $type {
-						"PRIMARY KEY" {
-							set field [::dbi::interbase_indexsegments $db $index]
-							lappend result primary,$field $name
-						}
-						"UNIQUE" {
-							set field [::dbi::interbase_indexsegments $db $index]
-							lappend result unique,$field $name
-						}
-						"FOREIGN KEY" {
-							set field [::dbi::interbase_indexsegments $db $index]
-							set temp2 [lindex [$db exec {
-								select rel.RDB$RELATION_NAME, rel.RDB$INDEX_NAME,
-								ref.RDB$UPDATE_RULE, ref.RDB$DELETE_RULE
-								from RDB$RELATION_CONSTRAINTS rel, RDB$REF_CONSTRAINTS ref
-								where rel.RDB$CONSTRAINT_NAME = ref. RDB$CONST_NAME_UQ
-									and ref.RDB$CONSTRAINT_NAME = ?
-							} $name] 0]
-							set reffield [::dbi::interbase_indexsegments $db [lindex $temp2 1]]
-							set reftable [lindex $temp2 0]
-							set rule [lindex $temp2 2]
-							if {"$rule" != "RESTRICT"} {lappend sub update_rule $rule}
-							set rule [lindex $temp2 3]
-							if {"$rule" != "RESTRICT"} {lappend sub delete_rule $rule}
-							lappend result foreign,$field [list $reftable $reffield]
-						}
-						"CHECK" {
-							set ctemp [$db exec {
-								select RDB$TRIGGER_SOURCE
-								from RDB$TRIGGERS trg, RDB$CHECK_CONSTRAINTS chk
-								where trg.RDB$TRIGGER_TYPE = 1
-									and trg.RDB$TRIGGER_NAME = chk.RDB$TRIGGER_NAME
-									and chk.RDB$CONSTRAINT_NAME = ?} $name]
-							lappend result constraint,[lindex [lindex $ctemp 0] 0] $name
-						}
-					}
-				}
-			} else {
+			if {$len != 2} {
 				error "wrong # args: should be \"$db info table tablename\""
 			}
+			set table [lindex $args 1]
+			set result ""
+			set fields {}
+			set temp [$db sqlcolumns {} {} $table {}]
+			foreach line $temp {
+				foreach {
+					temp temp temp field typenum typename size bufferlength 
+					digits radix nullable remarks default datatype
+					datetimesub octetlength ordinal isnullable
+				} $line break
+				lappend fields $field
+				switch -exact $typename {
+					{CHARACTER VARYING} {
+						set type varchar
+						set length $size
+					}
+					{DOUBLE PRECISION} {
+						set type double
+						set length $size
+					}
+					CHAR {
+						set type char
+						set length $size
+					}
+					default {
+						set type [string tolower $typename]
+						set length $bufferlength
+					}
+				}
+				lappend result type,$field $type
+				lappend result length,$field $length
+				if {![string equal $default {}]} {
+					lappend result default,$field $default
+				}
+				if {[string equal $isnullable NO]} {
+					lappend result notnull,$field 1
+				}
+			}
+			lappend result fields $fields
+			set temp [$db sqlprimarykeys {} {} $table]
+			foreach line $temp {
+				lappend result primary,[lindex $line 3] 1
+			}
+			set temp [$db sqlforeignkeys {} {} {} {} {} $table]
+			foreach line $temp {
+				lappend result foreign,[lindex $line 7] [lrange $line 2 3]
+			}
+			# still have to find check and unique constraints
 		}
 		default {
 			error "error: info about $type not supported"

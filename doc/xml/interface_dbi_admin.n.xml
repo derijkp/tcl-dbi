@@ -1,0 +1,54 @@
+<manpage package="dbi" title="interface_dbi_admin" id="interface_dbi_admin" cat="interface">
+<namesection>
+<name>interface_dbi_admin</name>
+<desc>interface for SQL database administration</desc>
+</namesection>
+
+<section>
+<title>DESCRIPTION</title>
+<p>
+The dbi_admin <ref>interface</ref> is designed for administrating SQL databases.
+It presents a generic api to create and drop databases.
+</p>
+</section>
+
+<section>
+<title>THE DBI_ADMIN INTERFACE</title>
+<commandlist>
+
+<commanddef>
+<command><cmd>objectName</cmd> <method>open</method> <m>database</m> ?<m>arg</m> ...?</command>
+<desc>open the given 'database'. Extra arguments can (must) be given, depending on the backend
+used. <m>database</m> is an identifier of the database. What this is exactly, can depend on 
+the implementation This is method the same as the one defined by dbi interface.
+</desc>
+</commanddef>
+
+<commanddef>
+<command><cmd>objectName</cmd> <method>create</method> <m>database</m></command>
+<desc>create a database identified by <m>database</m>
+</desc>
+</commanddef>
+
+<commanddef>
+<command><cmd>objectName</cmd> <method>drop</method></command>
+<desc>Drop the database currently open.</desc>
+</commanddef>
+</commandlist>
+</section>
+
+<seealso>
+<ref>interface</ref>
+<ref>interface_dbi</ref>
+</seealso>
+
+<keywords>
+<keyword>interface</keyword>
+<keyword>database</keyword>
+<keyword>sql</keyword>
+<keyword>dbi</keyword>
+</keywords>
+
+</manpage>
+
+

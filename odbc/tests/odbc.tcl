@@ -6,20 +6,24 @@ puts "source [info script]"
 package require dbi
 package require dbi_odbc
 
-set db [dbi_odbc]
-set db2 [dbi_odbc]
+set object [dbi_odbc]
+set object2 [dbi_odbc]
+array set opt [subst {
+	-columnperm 0
+	-testdb testdbi
+	-user2 PDR
+	-object2 $object2
+}]
 
-interface test dbi 0.1 $db \
-	-testdb testdbi -user2 PDR \
-	-object2 $db2
+eval interface test dbi-0.1 $object [array get opt]
 
-interface::opendb
-interface::initdb
+dbi::opendb
+dbi::initdb
 
-set interface::interface dbi_odbc
-set interface::version 0.1
+set interface dbi_odbc
+set version 0.1
 
-$db destroy
-$db2 destroy
+$object destroy
+$object2 destroy
 
 interface::testsummarize

@@ -1198,68 +1198,6 @@ int dbi_odbc_SQLGetInfo(
 		return TCL_ERROR;
 }
 
-#ifdef never
-int dbi_odbc_Info(
-	Tcl_Interp *interp,
-	dbi_odbc_Data *dbdata,
-	int objc,
-	Tcl_Obj **objv)
-{
-	static char *subCmds[] = {
-		"user", "fields", "tables", "systemtables", "views","access","table",
-		(char *) NULL};
-	enum ISubCmdIdx {
-		User, Fields, Tables, Systemtables, Views, Access, Table
-	};
-	char *right_args;
-	int fetch_option,error;
-	if (objc < 1) {
-		Tcl_AppendResult(interp,"wrong # args: should be \"",Tcl_GetCommandName(interp,dbdata->token)," info option ?...?\"",NULL);
-		return TCL_ERROR;
-	}
-	if (!DB_OPENCONN(dbdata)) {
-		Tcl_AppendResult(interp,"dbi object has no open database, open a connection first", NULL);
-		return TCL_ERROR;
-	}
-	error = Tcl_GetIndexFromObj(interp, objv[0], subCmds, "option", 0, (int *) &fetch_option);
-	if (error != TCL_OK) {return error;}
-	switch (fetch_option) {
-	case User:
-		if (objc != 1) {right_args = "user"; goto wrong_args;}
-		if (dbdata->user_name == NULL) {
-			Tcl_AppendResult(interp,"user name not found",NULL);
-			return TCL_ERROR;
-		}
-		Tcl_SetObjResult(interp,dbdata->user_name);
-		break;
-	case Fields:
-		if (objc != 2) {right_args = "tablesfields tableName"; goto wrong_args;}
-		return dbi_odbc_Fields(interp,dbdata,objv[0]);
-		break;
-	case Tables:
-		if (objc != 1) {right_args = "tables"; goto wrong_args;}
-		return dbi_odbc_Tables(interp,dbdata,TABLES_TABLES);
-		break;
-	case Systemtables:
-		if (objc != 1) {right_args = "systemtables"; goto wrong_args;}
-		return dbi_odbc_Tables(interp,dbdata,TABLES_SYSTEM);
-		break;
-	case Views:
-		if (objc != 1) {right_args = "views"; goto wrong_args;}
-		return dbi_odbc_Tables(interp,dbdata,TABLES_VIEWS);
-		break;
-	case Table:
-		if (objc != 2) {right_args = "table tableName"; goto wrong_args;}
-		break;
-	}
-	return TCL_OK;
-	wrong_args:
-		Tcl_AppendResult(interp,"wrong # args: should be \"",Tcl_GetCommandName(interp,dbdata->token)," info ",right_args,"\"",NULL);
-		return TCL_ERROR;
-		
-}
-#endif
-
 int dbi_odbc_getcmdname(
 	Tcl_Interp *interp,
 	dbi_odbc_Data *dbdata,

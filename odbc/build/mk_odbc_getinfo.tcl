@@ -27,7 +27,6 @@ typedef struct Getinfo_cor {
 	int type;
 	Getinfo_values *values;
 } Getinfo_cor;
-
 }
 
 proc skipto {f string} {

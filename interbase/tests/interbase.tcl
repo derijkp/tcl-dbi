@@ -3,28 +3,32 @@
 exec tclsh "$0" "$@"
 puts "source [info script]"
 
+set interface dbi
+set version 0.1
+
 package require dbi
 package require dbi_interbase
 
-set db [dbi_interbase]
-set db2 [dbi_interbase]
+set object [dbi_interbase]
+set object2 [dbi_interbase]
 
-interface test dbi/admin 0.1 $db \
+interface test dbi/admin-0.1 $object \
 	-testdb /home/ib/testdbi.gdb
 
-interface test dbi/blob 0.1 $db \
+interface test dbi/blob-0.1 $object \
 	-testdb /home/ib/testdbi.gdb
 
-interface test dbi 0.1 $db \
-	-testdb /home/ib/testdbi.gdb -user2 PDR \
-	-lines 0 \
-	-object2 $db2
+array set opt [subst {
+	-testdb /home/ib/testdbi.gdb
+	-user2 PDR
+	-lines 0
+	-object2 $object2
+}]
 
-interface::opendb
-interface::initdb
+eval interface test dbi-0.1 $object [array get opt]
 
-set interface::interface dbi_interbase
-set interface::version 0.1
+::dbi::opendb
+::dbi::initdb
 
 interface::test {transactions via exec} {
 	$object exec {delete from "location";}
@@ -69,28 +73,28 @@ interface::test {trigger with declare} {
 	$object exec {update "person" set "first_name" = 'test' where "id" = 3}
 } {}
 
-catch {$interface::object exec {create role "test"}}
-catch {$interface::object exec {create role "try"}}
+catch {$object exec {create role "test"}}
+catch {$object exec {create role "try"}}
 
 interface::test {info roles} {
 	$object info roles
 } {test try}
 
-catch {$interface::object exec "grant \"test\" to [$interface::object info user]"}
-catch {$interface::object exec "grant \"try\" to [$interface::object info user]"}
+catch {$object exec "grant \"test\" to [$object info user]"}
+catch {$object exec "grant \"try\" to [$object info user]"}
 
 interface::test {info roles user} {
 	$object info roles [$object info user]
 } {test try}
 
-$interface::object exec "revoke \"try\" from [$interface::object info user]"
+$object exec "revoke \"try\" from [$object info user]"
 
 interface::test {info roles user: one revoked} {
-	$object info roles [$interface::object info user]
+	$object info roles [$object info user]
 } {test}
 
-catch {$interface::object exec "create domain \"tdom\" as varchar(6)"}
-catch {$interface::object exec "create domain \"idom\" as integer"}
+catch {$object exec "create domain \"tdom\" as varchar(6)"}
+catch {$object exec "create domain \"idom\" as integer"}
 
 interface::test {info domains} {
 	$object info domains
@@ -100,7 +104,7 @@ interface::test {info domain} {
 	$object info domain tdom
 } {varchar(6) nullable}
 
-$db destroy
-$db2 destroy
+$object destroy
+$object2 destroy
 
 interface::testsummarize

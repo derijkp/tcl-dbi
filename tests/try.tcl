@@ -152,22 +152,39 @@ proc ::interface::opendb {} {
 
 puts "open"
 interface::opendb
-#interface::initdb
+interface::initdb
 puts "start test"
 
-set options [$object sqlgetinfo options]
-puts [llength $options]
-foreach option $options {
-puts $option
-	catch {$object sqlgetinfo $option} result
-#	puts "$option: [string range $result 0 20]"
-	puts "$option: $result"
-}
-puts [$object sqlgetinfo dbms_name]
-puts [$object sqlgetinfo order_by_columns_in_select]
-puts param_array_selects:[$object sqlgetinfo param_array_selects]
-puts ddl_index:[$object sqlgetinfo ddl_index]
-puts user_name:[$object sqlgetinfo user_name]
+interface::test {info access select} {
+	variable user2
+	$object exec "grant select on \"person\" to \"$user2\""
+	list [$object info access select $user2] [lsort [$object info access select [$object info user]]]
+} {person {address location person types use v_test}}
+
+interface::test {info access select table} {
+	variable user2
+	$object exec "grant select on \"person\" to \"$user2\""
+	list [$object info access select $user2 person] [$object info access select [$object info user] person]
+} {{id first_name name score} {id first_name name score}}
+
+interface::test {info access insert} {
+	variable user2
+	$object exec "grant insert on \"person\" to \"$user2\""
+	list [$object info access insert $user2] [$object info access insert [$object info user]]
+} {person {address location person types use v_test}}
+
+
+interface::test {info access update} {
+	variable user2
+	$object exec "revoke update on \"person\" from $user2"
+	$object exec "grant update on \"person\" to $user2"
+	list [$object info access update $user2] [$object info access update [$object info user]]
+} {person {address location person types use v_test}}
+
+interface::test {info access select table} {
+	variable user2
+	list [$object info access select $user2 use] [$object info access select $user2 person] [$object info access select [$object info user] person]
+} {{} {id first_name name score} {id first_name name score}}
 
 puts "tests done"
 #$object close
