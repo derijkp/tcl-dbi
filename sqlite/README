@@ -15,7 +15,7 @@ that support the dbi interface.
 Installation
 ------------
 You should be able to obtain the latest version of dbi via www on url
-http://rrna.uia.ac.be/dbi/.
+http://tcl-dbi.sourceforge.net/.
 
 Compiled packages should be created using the following steps in the package directory:
 (You can also build in any other directory, if you change the path to the configure command)
@@ -36,20 +36,19 @@ which is why my response might not be always as fast as you would
 like.
 
 Peter De Rijk
-University of Antwerp (UIA)
+University of Antwerp (UA)
 Department of Biochemistry
 Universiteitsplein 1
 B-2610 Antwerp
 
 tel.: 32-03-820.23.16
 fax: 32-03-820.22.48
-E-mail: derijkp@uia.ua.ac.be
-web: http://rrna.uia.ac.be/~peter/personal/peter.html
+E-mail: Peter.DeRijk@ua.ac.be
 
 Legalities
 ----------
 
-dbi_sqlite is Copyright Peter De Rijk, University of Antwerp (UIA), 2000
+dbi_sqlite is Copyright Peter De Rijk, University of Antwerp (UA), 2000
 The following terms apply to all files associated with the software unless 
 explicitly disclaimed in individual files.
 

@@ -5,8 +5,8 @@ Release:	1
 Copyright:	BSD
 Group:	Development/Languages/Tcl
 Source:	dbi-0.8.8.src.tar.gz
-URL: http://rrna.uia.ac.be/dbi
-Packager: Peter De Rijk <derijkp@uia.ua.ac.be>
+URL: http://tcl-dbi.sourceforge.net/
+Packager: Peter De Rijk <Peter.DeRijk@ua.ac.be>
 Requires: tcl >= 8.3.2 interface >= 0.8
 Prefix: /usr
 %description
