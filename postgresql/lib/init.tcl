@@ -304,11 +304,11 @@ proc ::dbi::postgresql::table_info_new {db table} {
 }
 
 proc ::dbi::postgresql::tables {db} {
-	set result [$db exec {
+	set result [$db exec -flat {
 		select relname from pg_class 
 		where (relkind = 'r' or relkind = 'v')
-		and relname !~ '^pg_' and relname !~ '^pga_'
-		and relname not in ('table_constraints','table_privileges','tables','triggered_update_columns','triggers','usage_privileges','view_column_usage','view_table_usage','views','data_type_privileges','element_types','routine_privileges','routines','schemata','sql_features','sql_implementation_info','sql_languages','sql_packages','sql_sizing','sql_sizing_profiles','column_privileges','column_udt_usage','columns','constraint_column_usage','constraint_table_usage','domain_constraints','domain_udt_usage','domains','enabled_roles','key_column_usage','parameters','referential_constraints','role_column_grants','role_routine_grants','role_table_grants','role_usage_grants','information_schema_catalog_name','applicable_roles','check_constraints','column_domain_usage')
+		and relname !~ '^pg_' and relname !~ '^pga_' and relname !~ '^sql_'
+		and relname not in ('table_constraints','table_privileges','tables','triggered_update_columns','triggers','usage_privileges','view_column_usage','view_table_usage','views','data_type_privileges','element_types','routine_privileges','routines','schemata','column_privileges','column_udt_usage','columns','constraint_column_usage','constraint_table_usage','domain_constraints','domain_udt_usage','domains','enabled_roles','key_column_usage','parameters','referential_constraints','role_column_grants','role_routine_grants','role_table_grants','role_usage_grants','information_schema_catalog_name','applicable_roles','check_constraints','column_domain_usage')
 	}]
 	return $result
 }
@@ -330,10 +330,14 @@ proc ::dbi::postgresql::info {db args} {
 			}
 		}
 		tables {
-			return [::dbi::postgresql::tables]
+			return [$db exec -flat {
+				select relname from pg_class 
+				where relkind = 'r'
+				and relname !~ '^pg_' and relname !~ '^pga_' and relname !~ '^sql_'
+			}]
 		}
 		systemtables {
-			set result [$db exec {select relname from pg_class where (relkind = 'r' or relkind = 'v') and relname like 'pg\\_%'}]
+			set result [$db exec -flat {select relname from pg_class where (relkind = 'r' or relkind = 'v') and relname like 'pg\\_%'}]
 			lappend result table_constraints table_privileges tables triggered_update_columns triggers usage_privileges view_column_usage view_table_usage views data_type_privileges element_types routine_privileges routines schemata sql_features sql_implementation_info sql_languages sql_packages sql_sizing sql_sizing_profiles column_privileges column_udt_usage columns constraint_column_usage constraint_table_usage domain_constraints domain_udt_usage domains enabled_roles key_column_usage parameters referential_constraints role_column_grants role_routine_grants role_table_grants role_usage_grants information_schema_catalog_name applicable_roles check_constraints column_domain_usage
 		}
 		views {

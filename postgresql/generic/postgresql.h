@@ -8,7 +8,7 @@
 #define FLOAT4OID 700
 #define FLOAT8OID 701
 #define TIMEOID			1083
-#define TIMESTAMPOID	1184
+#define TIMESTAMPOID	1114
 
 typedef struct dbi_Postgresql_Data {
 	Tcl_Command token;

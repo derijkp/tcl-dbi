@@ -19,11 +19,17 @@ array set opt [subst {
 
 catch {interfaces::dbi-1.0}
 dbi::setup
+set interface dbi
+set version 1.0
 
 $object close
-dbi::open
+::dbi::open
 ::dbi::cleandb
 ::dbi::createdb
 ::dbi::filldb
 
- $object exec {select * from "person"}
+set field t
+set value "2000-11-18 10:40:30.000"
+$object exec {delete from "types"}
+$object exec "insert into \"types\"(\"$field\") values(?)" $value
+set rvalue [lindex [lindex [$object exec "select \"$field\" from \"types\" where \"$field\" = ?" $value] 0] 0]

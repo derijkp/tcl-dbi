@@ -93,6 +93,7 @@ int dbi_Postgresql_GetOne(
 		string = PQgetvalue(res,ituple,ifield);
 		len = strlen(string);
 		type = PQftype(res,ifield);
+/*fprintf(stdout,"type=%d\n",type);fflush(stdout);*/
 		if (type == BPCHAROID) {
 			while (string[len-1] == ' ') {if (len <= 0) break;len--;}
 		} else if ((type == TIMEOID) || (type == TIMESTAMPOID)) {
@@ -380,13 +381,13 @@ int dbi_Postgresql_Fetch(
 {
 	Tcl_Obj *tuple = NULL, *field = NULL, *nullvalue = NULL;
 	int fetch_option;
-    static char *subCmds[] = {
+    const char *subCmds[] = {
 		 "data", "lines", "pos", "fields", "clear", "isnull",
 		(char *) NULL};
     enum ISubCmdIdx {
 		Data, Lines, Pos, Fields, Clear, Isnull
     };
-    static char *switches[] = {
+    const char *switches[] = {
 		"-nullvalue",
 		(char *) NULL};
     enum switchesIdx {
@@ -599,7 +600,7 @@ int dbi_Postgresql_Serial(
 {
 	Tcl_Obj *cmd,*dbcmd;
 	int error,index;
-    static char *subCmds[] = {
+    const char *subCmds[] = {
 		"add", "delete", "set", "next",
 		(char *) NULL};
     enum ISubCmdIdx {
@@ -647,7 +648,7 @@ int dbi_Postgresql_Supports(
 	dbi_Postgresql_Data *dbdata,
 	Tcl_Obj *keyword)
 {
-	static char *keywords[] = {
+	const char *keywords[] = {
 		"lines","backfetch","serials","sharedserials","blobparams","blobids",
 		"transactions","sharedtransactions","foreignkeys","checks","views",
 		"columnperm","roles","domains","permissions",
@@ -663,7 +664,7 @@ int dbi_Postgresql_Supports(
 	};
 	int error,index;
 	if (keyword == NULL) {
-		char **keyword = keywords;
+		char **keyword = (char **)keywords;
 		int *value = supports;
 		int index = 0;
 		while (1) {
@@ -749,7 +750,7 @@ int dbi_Postgresql_Interface(
 	Tcl_Obj *objv[])
 {
 	int i;
-    static char *interfaces[] = {
+    const char *interfaces[] = {
 		"dbi", DBI_VERSION,
 		(char *) NULL};
 	if ((objc < 2)||(objc > 3)) {
@@ -830,7 +831,7 @@ int Dbi_Postgresql_DbObjCmd(
 {
 	dbi_Postgresql_Data *dbdata = (dbi_Postgresql_Data *)clientdata;
 	int error=TCL_OK,i,index;
-    static char *subCmds[] = {
+    const char *subCmds[] = {
 		"interface","open", "exec", "fetch", "close",
 		"info", "tables","fields",
 		"begin", "commit", "rollback",
@@ -928,7 +929,7 @@ int Dbi_Postgresql_DbObjCmd(
     switch (index) {
 	case Exec:
 		{
-	    static char *switches[] = {"-usefetch", "-nullvalue", "-flat", "-cache",(char *) NULL};
+	    const char *switches[] = {"-usefetch", "-nullvalue", "-flat", "-cache",(char *) NULL};
 	    enum switchesIdx {Usefetch, Nullvalue, Flat, Cache};
 		Tcl_Obj *nullvalue = NULL;
 		char *string;
