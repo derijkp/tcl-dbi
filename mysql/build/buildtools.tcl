@@ -28,30 +28,40 @@ proc package::architecture {} {
 }
 
 proc install {argv} {
-	global tcl_platform libfiles shareddatafiles headers libbinaries binaries
+	global tcl_platform libfiles shareddatafiles headers libbinaries binaries extname
+	version
 	set len [llength $argv]
 	if {$len == 0} {
 		error "use either:\ninstall.tcl installdir\nor\ninstall.tcl pkglibdir <pkglibdir> pkgtcllibdir <pkgtcllibdir> pkgdatadir <pkgdatadir> pkgincludedir <pkgincludedir> bindir <bindir> mandir <mandir>"
 	} elseif {$len == 1} {
 		set config(srcdir) [file normalize [file join [file dir [info script]] ..]]
 		set pkglibdir [file normalize [lindex $argv 0]]
-		if {![regexp {[0-9]$} $pkglibdir]} {
-			if {[file exists $config(srcdir)/configure.in]} {
-				set f [open $config(srcdir)/configure.in]
+		if {[file isdir $pkglibdir]} {
+			if {[info exists extname]} {
+				set pkglibdir [file join $pkglibdir $extname]
+			} else {
+				set pkglibdir [file join $pkglibdir [string trimright [file tail $config(srcdir)] 012345678.]]
+			}
+		}
+		if {[file exists $config(srcdir)/configure.in]} {
+			set f [open $config(srcdir)/configure.in]
+			set c [read $f]
+			close $f
+			# regexp {\npackage ifneeded [^ ]+ ([^ ]+)} $c temp version
+			regexp {MAJOR_VERSION=([^ \n]+)} $c temp majorversion
+			regexp {MINOR_VERSION=([^ \n]+)} $c temp minorversion
+			regexp {PATCHLEVEL=([^ \n]*)} $c temp patchlevel
+			if {[file exists $config(srcdir)/lib/init.tcl]} {
+				set f [open $config(srcdir)/lib/init.tcl]
 				set c [read $f]
 				close $f
-				# regexp {\npackage ifneeded [^ ]+ ([^ ]+)} $c temp version
-				regexp {MAJOR_VERSION=([^ \n]+)} $c temp majorversion
-				regexp {MINOR_VERSION=([^ \n]+)} $c temp minorversion
-				regexp {PATCHLEVEL=([^ \n]*)} $c temp patchlevel
-				if {[file exists $config(srcdir)/lib/init.tcl]} {
-					set f [open $config(srcdir)/lib/init.tcl]
-					set c [read $f]
-					close $f
-					if {[regexp {patchlevel ([0-9]+)} $c temp temp]} {
-						set patchlevel $temp
-					}
+				if {[regexp {patchlevel ([0-9]+)} $c temp temp]} {
+					set patchlevel $temp
 				}
+			}
+			if {[regexp {[0-9]$} $pkglibdir]} {
+				append pkglibdir -$majorversion.$minorversion.$patchlevel
+			} else {
 				append pkglibdir $majorversion.$minorversion.$patchlevel
 			}
 		}
@@ -157,3 +167,73 @@ proc uninstall {argv} {
 		del $config(bindir)/$binary
 	}
 }
+
+proc file_read {file} {
+	set f [open $file]
+	set c [read $f]
+	close $f
+	return $c
+}
+
+proc file_write {file data} {
+	set f [open $file w]
+	puts $f $data
+	close $f
+}
+
+proc version {{argv {}}} {
+	global tcl_platform libfiles shareddatafiles headers libbinaries binaries
+	set len [llength $argv]
+	if {$len != 0} {
+		error "use:\nversion.tcl"
+	}
+	set srcdir [file normalize [file join [file dir [info script]] ..]]
+	if {![file exists $srcdir/configure.in]} {
+		error "configure.in not found in $srcdir"
+	}
+	set f [open $srcdir/configure.in]
+	set c [read $f]
+	close $f
+	# regexp {\npackage ifneeded [^ ]+ ([^ ]+)} $c temp version
+	regexp {MAJOR_VERSION=([^ \n]+)} $c temp majorversion
+	regexp {MINOR_VERSION=([^ \n]+)} $c temp minorversion
+	regexp {PATCHLEVEL=([^ \n]*)} $c temp patchlevel
+	if {$patchlevel ne ""} {
+		set version $majorversion.$minorversion.$patchlevel
+	} else {
+		set version $majorversion.$minorversion
+		set patchlevel 0
+	}
+	if {[file exists $srcdir/DESCRIPTION.txt]} {
+		set c [file_read $srcdir/DESCRIPTION.txt]
+		regsub {Version: [0-9.]+} $c "Version: $version" c
+		file copy -force $srcdir/DESCRIPTION.txt $srcdir/DESCRIPTION.txt~
+		file_write [open $srcdir/DESCRIPTION.txt w] $c
+		file delete $srcdir/DESCRIPTION.txt~
+	}
+	if {[file exists $srcdir/lib/init.tcl]} {
+		set c [file_read $srcdir/lib/init.tcl]
+		regsub {::version [0-9.]+} $c "::version $majorversion.$minorversion" c
+		regsub {::patchlevel [0-9.]+} $c "::patchlevel $patchlevel" c
+		file copy -force $srcdir/lib/init.tcl $srcdir/lib/init.tcl~
+		file_write $srcdir/lib/init.tcl $c
+		file delete $srcdir/lib/init.tcl~
+	}
+	if {[file exists $srcdir/pkgIndex.tcl]} {
+		set c [file_read $srcdir/pkgIndex.tcl]
+		regsub {package ifneeded ([^ ]+) [0-9.]+} $c "package ifneeded \\1 $majorversion.$minorversion" c
+		file copy -force $srcdir/pkgIndex.tcl $srcdir/pkgIndex.tcl~
+		file_write $srcdir/pkgIndex.tcl $c
+		file delete $srcdir/pkgIndex.tcl~
+	}
+	foreach file [glob $srcdir/*.tcl] {
+		set c [file_read $file]
+		regsub {set Classy::appversion [0-9.]+} $c "set Classy::appversion $majorversion.$minorversion" c
+		regsub {extension provide ([^ ]+) [0-9.]+} $c "extension provide \\1 $version" c
+		file copy -force $file $file~
+		file_write $file $c
+		file delete $file~
+	}
+}	
+
+

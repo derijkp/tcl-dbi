@@ -7,7 +7,7 @@ package require dbi
 
 namespace eval dbi::sqlite {}
 
-# $Format: "set ::dbi::sqlite::version 0.$ProjectMajorVersion$"$
+# $Format: "set ::dbi::sqlite::version 0.8$ProjectMajorVersion$"$
 set ::dbi::sqlite::version 0.8
 # $Format: "set ::dbi::sqlite::patchlevel $ProjectMinorVersion$"$
 set ::dbi::sqlite::patchlevel 9
@@ -289,4 +289,17 @@ proc ::dbi::sqlite::open_test {db file} {
 	}
 	return $file
 }
+
+
+
+
+
+
+
+
+
+
+
+
+
 

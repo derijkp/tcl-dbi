@@ -5,11 +5,12 @@ exec tclsh "$0" "$@"
 # settings
 # --------
 
-set libfiles {lib README pkgIndex.tcl}
+set libfiles {lib README pkgIndex.tcl init.tcl DESCRIPTION.txt}
 set shareddatafiles README
 set headers {}
 set libbinaries [glob *[info sharedlibextension]]
 set binaries {}
+set extname dbi_odbc
 
 # standard
 # --------

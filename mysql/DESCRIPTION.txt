@@ -1,0 +1,10 @@
+Identifier: dbi_mysql
+Version: 0.8.9
+Title: mysql database access
+Creator: Peter De Rijk <Peter.DeRijk@ua.ac.be>
+Description: mysql database access using the dbi interface
+Rights: BSD
+URL: http://tcl-dbi.sourceforge.net/
+Subject: database
+Subject: interface
+Subject: mysql

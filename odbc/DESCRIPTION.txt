@@ -1,0 +1,10 @@
+Identifier: dbi_odbc
+Version: 0.8.9
+Title: odbc database access
+Creator: Peter De Rijk <Peter.DeRijk@ua.ac.be>
+Description: odbc database access using the dbi interface
+Rights: BSD
+URL: http://tcl-dbi.sourceforge.net/
+Subject: database
+Subject: interface
+Subject: odbc

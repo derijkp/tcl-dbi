@@ -1,5 +1,5 @@
 
-#define VERSION "0.8"
+#define VERSION "0.89"
 #define _LARGEFILE64_SOURCE 1
 #define TCL_WIDE_INT_TYPE long long
 #define HAVE_STRUCT_STAT64 1

@@ -2678,10 +2678,10 @@ AC_DEFUN(TEA_MAKE_LIB, [
 	    if test x"${TK_BIN_DIR}" != x ; then
 		SHLIB_LD_LIBS="${SHLIB_LD_LIBS} \"`${CYGPATH} ${TK_BIN_DIR}/${TK_STUB_LIB_FILE}`\""
 	    fi
-	    eval eval "${PACKAGE}_LIB_FILE=${PACKAGE}-${SHARED_LIB_SUFFIX}"
+	    eval eval "${PACKAGE}_LIB_FILE=${PACKAGE}${SHARED_LIB_SUFFIX}"
 	    RANLIB=:
 	else
-	    eval eval "${PACKAGE}_LIB_FILE=${PACKAGE}-${UNSHARED_LIB_SUFFIX}"
+	    eval eval "${PACKAGE}_LIB_FILE=${PACKAGE}${UNSHARED_LIB_SUFFIX}"
 	fi
 	# Some packages build there own stubs libraries
 	eval eval "${PACKAGE}stub_LIB_FILE=${PACKAGE}stub${UNSHARED_LIB_SUFFIX}"
@@ -2691,10 +2691,10 @@ AC_DEFUN(TEA_MAKE_LIB, [
 	    if test x"${TK_BIN_DIR}" != x ; then
 		SHLIB_LD_LIBS="${SHLIB_LD_LIBS} ${TK_STUB_LIB_SPEC}"
 	    fi
-	    eval eval "${PACKAGE}_LIB_FILE=lib${PACKAGE}-${SHARED_LIB_SUFFIX}"
+	    eval eval "${PACKAGE}_LIB_FILE=lib${PACKAGE}${SHARED_LIB_SUFFIX}"
 	    RANLIB=:
 	else
-	    eval eval "${PACKAGE}_LIB_FILE=lib${PACKAGE}-${UNSHARED_LIB_SUFFIX}"
+	    eval eval "${PACKAGE}_LIB_FILE=lib${PACKAGE}${UNSHARED_LIB_SUFFIX}"
 	fi
 	# Some packages build there own stubs libraries
 	eval eval "${PACKAGE}stub_LIB_FILE=lib${PACKAGE}stub${UNSHARED_LIB_SUFFIX}"
@@ -3355,4 +3355,3 @@ AC_DEFUN(TEA_PATH_CELIB, [
 	fi
     fi
 ])
-

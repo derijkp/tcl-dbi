@@ -7,7 +7,7 @@
 # script is sourced, the variable $dir must contain the
 # full path name of this file's directory.
 
-# $Format: "package ifneeded dbi_sqlite 0.$ProjectMajorVersion$ \\"$
+# $Format: "package ifneeded dbi_sqlite 0.8$ProjectMajorVersion$ \\"$
 package ifneeded dbi_sqlite3 3.0 \
 [subst -nocommands {
 	namespace eval ::dbi {}
@@ -15,3 +15,21 @@ package ifneeded dbi_sqlite3 3.0 \
 	set ::dbi::sqlite3::dir [list $dir]
 	source [file join [list $dir] lib init.tcl]
 }]
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+

@@ -5,7 +5,7 @@ exec tclsh "$0" "$@"
 # settings
 # --------
 
-set libfiles {lib README pkgIndex.tcl}
+set libfiles {lib README pkgIndex.tcl init.tcl DESCRIPTION.txt}
 set shareddatafiles README
 set headers {}
 set libbinaries {}

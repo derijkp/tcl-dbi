@@ -7,10 +7,10 @@ package require dbi
 
 namespace eval dbi::sqlite3 {}
 
-# $Format: "set ::dbi::sqlite3::version 0.$ProjectMajorVersion$"$
+# $Format: "set ::dbi::sqlite3::version 0.8$ProjectMajorVersion$"$
 set ::dbi::sqlite3::version 0.8
 # $Format: "set ::dbi::sqlite3::patchlevel $ProjectMinorVersion$"$
-set ::dbi::sqlite3::patchlevel 0
+set ::dbi::sqlite3::patchlevel 9
 package provide dbi_sqlite3 $::dbi::sqlite3::version
 
 source $dbi::sqlite3::dir/lib/package.tcl
@@ -289,4 +289,13 @@ proc ::dbi::sqlite3::open_test {db file} {
 	}
 	return $file
 }
+
+
+
+
+
+
+
+
+
 

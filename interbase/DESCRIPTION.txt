@@ -1,0 +1,11 @@
+Identifier: dbi_interbase
+Version: 0.8.9
+Title: interbase and firebird database access
+Creator: Peter De Rijk <Peter.DeRijk@ua.ac.be>
+Description: interbase and firebird database access using the dbi interface
+Rights: BSD
+URL: http://tcl-dbi.sourceforge.net/
+Subject: database
+Subject: interface
+Subject: interbase
+Subject: firebird

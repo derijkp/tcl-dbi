@@ -7,7 +7,7 @@
 #
 # =============================================================
 namespace eval ::dbi {}
-# $Format: "set ::dbi::version 0.$ProjectMajorVersion$"$
+# $Format: "set ::dbi::version 0.8$ProjectMajorVersion$"$
 set ::dbi::version 0.8
 # $Format: "set ::dbi::patchlevel $ProjectMinorVersion$"$
 set ::dbi::patchlevel 9
@@ -42,3 +42,7 @@ proc dbi::info {item} {
 # in some situations, modules like dbi_interbase hang if an env variable has not been
 # accessed. I have not found out why, but until then just protect against it
 catch {set env(HOME)}
+
+
+
+
