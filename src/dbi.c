@@ -40,31 +40,112 @@ int dbi_DbObjCmd(
 		if (error) {return TCL_ERROR;}
 		return TCL_OK;
 	} else	if ((cmdlen == 4)&&(strncmp(cmd,"exec",4) == 0)) {
-		Tcl_Obj *temp;
+		Tcl_Obj *temp, *nullvalue = NULL;
+		char *string;
+		int usefetch = 0;
+		int objn,stringlen;
 		if (objc < 3) {
 			Tcl_WrongNumArgs(interp, 2, objv, "?options? command");
 			return TCL_ERROR;
 		}
-		error = db->exec(interp,db,objv[objc-1]);
-		if (error) {return TCL_ERROR;}
-		return TCL_OK;
-	} else if ((cmdlen == 4)&&(strncmp(cmd,"fetch",4) == 0)) {
-		if ((objc < 3)&&(objc > 5)) {
-			Tcl_WrongNumArgs(interp, 2, objv, "resultid ?tuple? ?field?");
+		i = 2;
+		while (i < objc) {
+			string = Tcl_GetStringFromObj(objv[i],&stringlen);
+			if (string[0] != '-') break;
+			if ((stringlen==9)&&(strncmp(string,"-usefetch",9)==0)) {
+				if (db->fetch == NULL) {
+					Tcl_AppendResult(interp,db->type, " backend does not support fetch",NULL);
+					return TCL_ERROR;
+				}
+				usefetch = 1;
+				db->respos = 0;
+			} else if ((stringlen==10)&&(strncmp(string,"-nullvalue",10)==0)) {
+				i++;
+				if (i == objc) {
+					Tcl_AppendResult(interp,"no value given for option \"-nullvalue\"",NULL);
+					return TCL_ERROR;
+				}
+				nullvalue = objv[i];
+			} else {
+				Tcl_AppendResult(interp,"unknown option \"",string,"\", must be one of: -usefetch, -nullvalue",NULL);
+				return TCL_ERROR;
+			}
+			i++;
+		}
+		if (i != (objc-1)) {
+			Tcl_WrongNumArgs(interp, 2, objv, "?options? command");
 			return TCL_ERROR;
 		}
-		if (objc == 3) {
-			error = db->fetch(interp,db,objv[2],NULL,NULL);
-		} else if (objc == 4) {
-			error = db->fetch(interp,db,objv[2],objv[3],NULL);
-		} else {
-			error = db->fetch(interp,db,objv[2],objv[3],objv[4]);
+		error = db->exec(interp,db,objv[objc-1],usefetch,nullvalue);
+		if (error) {return TCL_ERROR;}
+		return TCL_OK;
+	} else if ((cmdlen == 5)&&(strncmp(cmd,"fetch",5) == 0)) {
+		Tcl_Obj *tuple = NULL, *field = NULL, *nullvalue = NULL;
+		char *string;
+		int i,stringlen,fetch_option = DBI_FETCH_DATA,t,f;
+		if (db->fetch == NULL) {
+			Tcl_AppendResult(interp,db->type, " backend does not support fetch",NULL);
+			return TCL_ERROR;
 		}
+		if (objc < 2) {
+			Tcl_WrongNumArgs(interp, 2, objv, "?options? ?line? ?field?");
+			return TCL_ERROR;
+		}
+		i = 2;
+		while (i < objc) {
+			string = Tcl_GetStringFromObj(objv[i],&stringlen);
+			if (string[0] != '-') break;
+			if ((stringlen==10)&&(strncmp(string,"-nullvalue",10)==0)) {
+				i++;
+				if (i == objc) {
+					Tcl_AppendResult(interp,"no value given for option \"-nullvalue\"",NULL);
+					return TCL_ERROR;
+				}
+				nullvalue = objv[i];
+			} else if ((stringlen==6)&&(strncmp(string,"-lines",6)==0)) {
+				fetch_option = DBI_FETCH_LINES;
+			} else if ((stringlen==7)&&(strncmp(string,"-fields",7)==0)) {
+				fetch_option = DBI_FETCH_FIELDS;
+			} else if ((stringlen==6)&&(strncmp(string,"-clear",6)==0)) {
+				fetch_option = DBI_FETCH_CLEAR;
+			} else if ((stringlen==7)&&(strncmp(string,"-isnull",7)==0)) {
+				fetch_option = DBI_FETCH_ISNULL;
+			} else {
+				Tcl_AppendResult(interp,"unknown option \"",string,"\", must be one of: -nullvalue, -lines, -fields, -clear, -isnull",NULL);
+				return TCL_ERROR;
+			}
+			i++;
+		}
+		if (i == objc) {
+		} else if (i == (objc-1)) {
+			tuple = objv[i];
+		} else if (i == (objc-2)) {
+			tuple = objv[i];
+			field = objv[i+1];
+		} else {
+			Tcl_WrongNumArgs(interp, 2, objv, "?options? ?line? ?field?");
+			return TCL_ERROR;
+		}
+		if (tuple != NULL) {
+			error = Tcl_GetIntFromObj(interp,tuple,&t);
+			if (error) {return TCL_ERROR;}
+			db->respos = t;
+		} else {
+			t = db->respos;
+		}
+		db->respos++;
+		if (field != NULL) {
+			error = Tcl_GetIntFromObj(interp,field,&f);
+			if (error) {return TCL_ERROR;}
+		} else {
+			f = -1;
+		}
+		error = db->fetch(interp,db,fetch_option,t,f,nullvalue);
 		if (error) {return TCL_ERROR;}
 		return TCL_OK;
 	} else if ((cmdlen == 5)&&(strncmp(cmd,"admin",5) == 0)) {
 		if (db->admin == NULL) {
-			Tcl_AppendResult(interp,"current backend does not support admin functions",NULL);
+			Tcl_AppendResult(interp,db->type, " backend does not support admin functions",NULL);
 			return TCL_ERROR;
 		}
 		error = db->admin(interp,db,objc,objv);
@@ -72,7 +153,7 @@ int dbi_DbObjCmd(
 		return TCL_OK;
 	} else if ((cmdlen == 9)&&(strncmp(cmd,"configure",9) == 0)) {
 		if (db->admin == NULL) {
-			Tcl_AppendResult(interp,"current backend does not support configuration options",NULL);
+			Tcl_AppendResult(interp,db->type, " backend does not support configuration options",NULL);
 			return TCL_ERROR;
 		}
 		if (objc == 2) {
@@ -156,7 +237,8 @@ int dbi_NewDbObjCmd(
 	Dbi *db;
 	Tcl_HashSearch search;
 	Tcl_HashEntry *entry;
-	char dbi_name_def[15];
+	Tcl_Obj *dbi_nameObj = NULL;
+	char buffer[20];
 	char *dbi_name;
 	char *type;
 	int typelen, error,start;
@@ -177,15 +259,6 @@ int dbi_NewDbObjCmd(
 		}
 		return TCL_OK;
 	} else {
-		if (objc == 3) {
-			dbi_name = Tcl_GetStringFromObj(objv[2],NULL);
-			start = 3;
-		} else {
-			dbi_name = dbi_name_def;
-			dbi_num++;
-			sprintf(dbi_name,"dbi::dbi%d",dbi_num);
-			start = 2;
-		}
 		type = Tcl_GetStringFromObj(objv[1],&typelen);
 		entry = Tcl_FindHashEntry(dstypesTable,type);
 		if (entry == NULL) {
@@ -195,6 +268,7 @@ int dbi_NewDbObjCmd(
 		}
 		createf = Tcl_GetHashValue(entry);
 		db = (Dbi *)Tcl_Alloc(sizeof(Dbi));
+		db->type = Tcl_GetHashKey(dstypesTable,entry);
 		db->dbdata = NULL;
 		db->open = NULL;
 		db->configure = NULL;
@@ -204,10 +278,20 @@ int dbi_NewDbObjCmd(
 		db->admin = NULL;
 		error = createf(interp,db);
 		if (error) {return error;}
+		if (objc == 3) {
+			dbi_nameObj = objv[2];
+			start = 3;
+		} else {
+			dbi_num++;
+			sprintf(buffer,"dbi::dbi%d",dbi_num);
+			dbi_nameObj = Tcl_NewStringObj(buffer,strlen(buffer));
+			start = 2;
+		}
+		dbi_name = Tcl_GetStringFromObj(dbi_nameObj,NULL);
 		db->token = Tcl_CreateObjCommand(interp,dbi_name,(Tcl_ObjCmdProc *)dbi_DbObjCmd,
 			(ClientData)db,(Tcl_CmdDeleteProc *)dbi_DbDestroy);
 		Tcl_CreateExitHandler((Tcl_ExitProc *)dbi_DbDestroy, (ClientData)db);
-		Tcl_SetObjResult(interp,Tcl_NewStringObj(dbi_name,strlen(dbi_name)));
+		Tcl_SetObjResult(interp,dbi_nameObj);
 		return TCL_OK;
 	}
 }

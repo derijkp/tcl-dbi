@@ -10,7 +10,7 @@
  * See the file "license.terms" for information on usage and redistribution
  * of this file, and for a DISCLAIMER OF ALL WARRANTIES.
  *
- * RCS: @(#) $Id: tclAppInit.c 1.1 Wed, 12 Apr 2000 10:17:15 +0200 peter $
+ * RCS: @(#) $Id: tclAppInit.c 1.2 Thu, 13 Apr 2000 18:19:52 +0200 peter $
  */
 
 #ifdef TCL_XT_TEST
@@ -126,7 +126,7 @@ Tcl_AppInit(interp)
      *
      * where "Mod" is the name of the module.
      */
-    if (dbi_Init(interp) == TCL_ERROR) {
+    if (Dbi_Init(interp) == TCL_ERROR) {
     	return TCL_ERROR;
     }
     		    

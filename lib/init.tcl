@@ -9,7 +9,7 @@
 # $Format: "set ::dbi::version 0.$ProjectMajorVersion$"$
 set ::dbi::version 0.0
 # $Format: "set ::dbi::patchlevel $ProjectMinorVersion$"$
-set ::dbi::patchlevel 1
+set ::dbi::patchlevel 2
 package provide dbi $::dbi::version
 
 # Load the compiled code

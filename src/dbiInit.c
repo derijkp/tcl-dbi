@@ -10,7 +10,7 @@ int dbi_NewDbObjCmd(ClientData clientdata,Tcl_Interp *interp,int objc,Tcl_Obj *o
 dbi_TypeCreate dbi_Postgresql_Create;
 
 int
-dbi_Init(interp)
+Dbi_Init(interp)
 	Tcl_Interp *interp;		/* Interpreter to add extra commands */
 {
 	Tcl_CreateObjCommand(interp,"dbi",(Tcl_ObjCmdProc *)dbi_NewDbObjCmd,

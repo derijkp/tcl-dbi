@@ -8,7 +8,7 @@
 #
 
 # set to yes to compile with debugging information
-DEBUG=yes
+DEBUG=no
 # set to no to compile without stubs support
 USE_STUBS=no
 

@@ -4,6 +4,8 @@ catch {tk appname test}
 #set testleak 50
 set what test
 
+set testdatabase testdbi
+
 proc cleandb {} {
 	catch {db exec "drop table test"}
 	catch {db exec "drop sequence test_id_seq"}
@@ -42,6 +44,8 @@ proc filldb {} {
 			values ('Peter', 'De Rijk');
 		insert into person (first_name, name)
 			values ('John', 'Do');
+		insert into person (first_name)
+			values ('Oog');
 		insert into address (street, number, code, city)
 			values ('Universiteitsplein', '1', '2610', 'Wilrijk');
 		insert into address (street, number, code, city)
