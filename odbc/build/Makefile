@@ -12,7 +12,7 @@
 # See the file "license.terms" for information on usage and redistribution
 # of this file, and for a DISCLAIMER OF ALL WARRANTIES.
 #
-# RCS: @(#) $Id: Makefile 1.5 Thu, 06 Sep 2001 15:36:24 +0200 peter $
+# RCS: @(#) $Id: Makefile 1.6 Mon, 01 Oct 2001 16:27:53 +0200 peter $
 
 #========================================================================
 # Edit the following few lines when writing a new extension
@@ -56,7 +56,7 @@ OBJECTS = $(dbi_odbc_OBJECTS)
 # objects and the library itself in a platform-independent manner.
 #========================================================================
 
-dbi_odbc_LIB_FILE = libdbi_odbc0.0.so
+dbi_odbc_LIB_FILE = libdbi_odbc0.8.so
 $(dbi_odbc_LIB_FILE)_OBJECTS = $(dbi_odbc_OBJECTS)
 
 #========================================================================
@@ -71,7 +71,6 @@ GENERIC_HDRS=
 #========================================================================
 
 SAMPLE_NEW_VAR=@SAMPLE_NEW_VAR@
-DBI_INCLUDE=-I"../../src"
 ODBC_INCLUDE=-I"/usr//include"
 ODBC_LIB=-L"/usr/lib" -lodbc
 
@@ -104,10 +103,10 @@ tcllibdir = ${prefix}/lib
 
 DESTDIR =
 
-pkgdatadir = $(datadir)/dbi_odbc0.0
-pkglibdir = $(libdir)/dbi_odbc0.0
-pkgtcllibdir = $(tcllibdir)/dbi_odbc0.0
-pkgincludedir = $(includedir)/dbi_odbc0.0
+pkgdatadir = $(datadir)/dbi_odbc0.8
+pkglibdir = $(libdir)/dbi_odbc0.8
+pkgtcllibdir = $(tcllibdir)/dbi_odbc0.8
+pkgincludedir = $(includedir)/dbi_odbc0.8
 
 top_builddir = .
 
@@ -126,7 +125,7 @@ PRE_UNINSTALL = :
 POST_UNINSTALL = :
 
 PACKAGE = dbi_odbc
-VERSION = 0.0
+VERSION = 0.8
 CC = cc
 CFLAGS_DEBUG = -g
 CFLAGS_DEFAULT = -O -D__NO_STRING_INLINES -D__NO_MATH_INLINES
@@ -172,11 +171,11 @@ AUTOCONF = autoconf
 
 LDFLAGS = $(LDFLAGS_DEFAULT)
 
-INCLUDES = -I"/usr//include" $(ODBC_INCLUDE) $(DBI_INCLUDE)
+INCLUDES = -I"/usr//include" $(ODBC_INCLUDE)
 
 EXTRA_CFLAGS = $(TCL_DEFS) $(PROTO_FLAGS) $(SECURITY_FLAGS) $(MEM_DEBUG_FLAGS) $(KEYSYM_FLAGS) $(NO_DEPRECATED_FLAGS) $(TCL_EXTRA_CFLAGS)
 
-DEFS =  -DVERSION=\"0.0\" -DUSE_TCL_STUBS=1  $(EXTRA_CFLAGS)
+DEFS =  -DVERSION=\"0.8\" -DUSE_TCL_STUBS=1  $(EXTRA_CFLAGS)
 
 ACLOCAL_M4 = $(top_srcdir)/aclocal.m4
 CONFIGDIR = $(top_srcdir)
@@ -233,16 +232,20 @@ install-libraries: libraries
 #	    echo "Installing $$i" ; \
 #	    $(INSTALL_DATA) $$i $(includedir) ; \
 #	done;
+	$(mkinstalldirs)  $(DESTDIR)$(pkgtcllibdir)/lib
+	$(INSTALL_DATA) $(srcdir)/../lib/*.tcl $(DESTDIR)$(pkgtcllibdir)/lib
+	$(INSTALL_DATA) $(srcdir)/../lib/tclIndex $(DESTDIR)$(pkgtcllibdir)/lib
+	$(INSTALL_DATA) $(srcdir)/../README $(DESTDIR)$(pkgtcllibdir)
 	echo "Adapting pkgIndex.tcl"
 	$(TCLSH_PROG) $(srcdir)/install-replace.tcl \
 		$(srcdir)/../pkgIndex.tcl $(DESTDIR)$(pkglibdir)/pkgIndex.tcl \
-		@TCLLIBDIR@ "$(DESTDIR)$(tcllibdir)/dbi_odbc0.0" \
+		@TCLLIBDIR@ "$(DESTDIR)$(tcllibdir)/dbi_odbc0.8" \
 	echo "Adapting init.tcl"
 	$(TCLSH_PROG) $(srcdir)/install-replace.tcl \
-		$(srcdir)/../init.tcl $(DESTDIR)$(pkgtcllibdir)/init.tcl \
-		@LIB_LIBRARY@ "$(dbi_LIB_FILE)" \
+		$(srcdir)/../lib/init.tcl $(DESTDIR)$(pkgtcllibdir)/lib/init.tcl \
+		@LIB_LIBRARY@ "$(dbi_odbc_LIB_FILE)" \
 		@LIBDIR@ "$(DESTDIR)$(libdir)" \
-		@TCLLIBDIR@ "$(DESTDIR)$(tcllibdir)/dbi_odbc0.0" \
+		@TCLLIBDIR@ "$(DESTDIR)$(tcllibdir)/dbi_odbc0.8" \
 		@DATADIR@ "$(DESTDIR)$(datadir)" \
 		@BINDIR@ "$(DESTDIR)$(bindir)"
 
@@ -254,14 +257,14 @@ install-libraries: libraries
 install-doc: doc
 #	$(mkinstalldirs) $(mandir)/man1
 #	$(mkinstalldirs) $(mandir)/man3
-#	$(mkinstalldirs) $(mandir)/mann
-#	@echo "Installing documentation in $(mandir)"
-#	@for i in $(srcdir)/*.n; \
-#	    do \
-#	    echo "Installing $$i"; \
-#	    rm -f $(mandir)/mann/$$i; \
-#	    $(INSTALL_DATA) $$i $(mandir)/mann ; \
-#	    done
+	$(mkinstalldirs) $(mandir)/mann
+	@echo "Installing documentation in $(mandir)"
+	@for i in $(srcdir)/../doc/man/*.n; \
+	    do \
+	    echo "Installing $$i"; \
+	    rm -f $(mandir)/mann/$$i; \
+	    $(INSTALL_DATA) $$i $(mandir)/mann ; \
+	    done
 #	TCLLIBPATH="$(srcdir)/.." \
 #	$(TCLSH_PROG) $(srcdir)/makedoc.tcl
 #	$(mkinstalldirs) $(DESTDIR)$(pkgtcllibdir)/docs

@@ -1,0 +1,44 @@
+<manpage package="dbi" title="dbi" id="dbi" cat="package">
+<namesection>
+<name>dbi</name>
+<desc>package with interface for SQL database access in Tcl</desc>
+</namesection>
+
+<section>
+<title>DESCRIPTION</title>
+<p>
+The dbi package contains the definition of the dbi interface and some associated tools.
+The dbi interface is further described in <ref>interface_dbi</ref>. The package can be 
+loaded using the commands "package require dbi".
+</p>
+</section>
+
+<section>
+<title>TOOLS</title>
+<commandlist>
+
+<commanddef>
+<command><cmd>dbi::info</cmd> <method>types</method></command>
+<desc>Returns a list of all packages loaded or available that start with dbi_ (and should 
+provide a dbi backend)
+</desc>
+</commanddef>
+
+</commandlist>
+</section>
+
+<seealso>
+<ref>interface_dbi</ref>
+<ref>interface_dbi_admin</ref>
+</seealso>
+
+<keywords>
+<keyword>interface</keyword>
+<keyword>database</keyword>
+<keyword>sql</keyword>
+<keyword>dbi</keyword>
+</keywords>
+
+</manpage>
+
+

@@ -63,6 +63,13 @@ using "objectName begin", this means all changes made in the current exec.
 The following <m>options</m> can be present:
 <optlist>
 <optdef>
+<optname>-flat</optname>
+<desc>if present, the result will be returned as a flat list instead of a list of lists.
+Each element in the list will contain the value of one column. eg. If a query returns
+2 rows of each 2 elements, a list of 4 elements is returned</desc>
+</optdef>
+<optdef>
+<optdef>
 <optname>-usefetch</optname>
 <desc>if present, the command does not return the resultset of a select query as a list.
 The fetch method will be used to get the results instead.</desc>

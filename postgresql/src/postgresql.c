@@ -119,7 +119,8 @@ int dbi_Postgresql_ToResult(
 	Tcl_Interp *interp,
 	dbi_Postgresql_Data *dbdata,
 	PGresult *res,
-	Tcl_Obj *nullvalue)
+	Tcl_Obj *nullvalue,
+	int flat)
 {
 	Tcl_Obj *result = NULL, *line = NULL, *element = NULL;
 	int t,f,error;
@@ -131,16 +132,22 @@ int dbi_Postgresql_ToResult(
 	Tcl_IncrRefCount(nullvalue);
 	result = Tcl_NewListObj(0,NULL);
 	for (t = 0 ; t < ntuples ; t++) {
-		line = Tcl_NewListObj(0,NULL);
+		if (!flat) {line = Tcl_NewListObj(0,NULL);}
 		for (f = 0 ; f < nfields ; f++) {
 			dbi_Postgresql_GetOne(interp,res,t,f,nullvalue,&element);
-			error = Tcl_ListObjAppendElement(interp,line, element);
+			if (flat) {
+				error = Tcl_ListObjAppendElement(interp,result,element);
+			} else {
+				error = Tcl_ListObjAppendElement(interp,line,element);
+			}
 			if (error) goto error;
 			element = NULL;
 		}
-		error = Tcl_ListObjAppendElement(interp,result, line);
-		if (error) goto error;
-		line = NULL;
+		if (!flat) {
+			error = Tcl_ListObjAppendElement(interp,result, line);
+			if (error) goto error;
+			line = NULL;
+		}
 	}
 	Tcl_SetObjResult(interp, result);
 	Tcl_DecrRefCount(nullvalue);
@@ -220,6 +227,7 @@ int dbi_Postgresql_Exec(
 	dbi_Postgresql_Data *dbdata,
 	Tcl_Obj *cmd,
 	int usefetch,
+	int flat,
 	Tcl_Obj *nullvalue,
 	int objc,
 	Tcl_Obj **objv)
@@ -292,7 +300,7 @@ int dbi_Postgresql_Exec(
 		case PGRES_TUPLES_OK: 
 			Tcl_ResetResult(interp);
 			if (!usefetch) {
-				error = dbi_Postgresql_ToResult(interp,dbdata,res,nullvalue);
+				error = dbi_Postgresql_ToResult(interp,dbdata,res,nullvalue,flat);
 				if (error) {goto error;}
 			}
 			break;
@@ -509,7 +517,7 @@ int dbi_Postgresql_Tables(
 {
 	int error;
 	Tcl_Obj *cmd = Tcl_NewStringObj("select relname from pg_class where (relkind = 'r' or relkind = 'v') and relname !~ '^pg_' and relname !~ '^pga_'",-1);
-	error = dbi_Postgresql_Exec(interp,dbdata,cmd,0,NULL,0,(Tcl_Obj **)NULL);
+	error = dbi_Postgresql_Exec(interp,dbdata,cmd,0,1,NULL,0,(Tcl_Obj **)NULL);
 	Tcl_DecrRefCount(cmd);
 	return error;
 }
@@ -520,7 +528,7 @@ int dbi_Postgresql_Transaction_Start(
 {
 	int error;
 	Tcl_Obj *cmd = Tcl_NewStringObj("begin",5);
-	error = dbi_Postgresql_Exec(interp,dbdata,cmd,0,NULL,0,(Tcl_Obj **)NULL);
+	error = dbi_Postgresql_Exec(interp,dbdata,cmd,0,1,NULL,0,(Tcl_Obj **)NULL);
 	Tcl_DecrRefCount(cmd);
 	return error;
 }
@@ -531,7 +539,7 @@ int dbi_Postgresql_Transaction_Commit(
 {
 	int error;
 	Tcl_Obj *cmd = Tcl_NewStringObj("commit",6);
-	error = dbi_Postgresql_Exec(interp,dbdata,cmd,0,NULL,0,(Tcl_Obj **)NULL);
+	error = dbi_Postgresql_Exec(interp,dbdata,cmd,0,1,NULL,0,(Tcl_Obj **)NULL);
 	Tcl_DecrRefCount(cmd);
 	return error;
 }
@@ -542,7 +550,7 @@ int dbi_Postgresql_Transaction_Rollback(
 {
 	int error;
 	Tcl_Obj *cmd = Tcl_NewStringObj("rollback",8);
-	error = dbi_Postgresql_Exec(interp,dbdata,cmd,0,NULL,0,(Tcl_Obj **)NULL);
+	error = dbi_Postgresql_Exec(interp,dbdata,cmd,0,1,NULL,0,(Tcl_Obj **)NULL);
 	Tcl_DecrRefCount(cmd);
 	return error;
 }
@@ -694,7 +702,7 @@ int dbi_Postgresql_Interface(
 {
 	int i;
     static char *interfaces[] = {
-		"dbi", "0.1",
+		"dbi", DBI_VERSION,
 		(char *) NULL};
 	if ((objc < 2)||(objc > 3)) {
 		Tcl_WrongNumArgs(interp,2,objv,"?pattern?");
@@ -871,9 +879,11 @@ int Dbi_Postgresql_DbObjCmd(
     switch (index) {
 	case Exec:
 		{
-		Tcl_Obj *nullvalue = NULL, *command = NULL;
+	    static char *switches[] = {"-usefetch", "-nullvalue", "-flat",(char *) NULL};
+	    enum switchesIdx {Usefetch, Nullvalue, Flat};
+		Tcl_Obj *nullvalue = NULL;
 		char *string;
-		int usefetch = 0;
+		int usefetch = 0, flat = 0;
 		int stringlen;
 		if (objc < 3) {
 			Tcl_WrongNumArgs(interp, 2, objv, "?options? command ?argument? ?...?");
@@ -881,36 +891,30 @@ int Dbi_Postgresql_DbObjCmd(
 		}
 		i = 2;
 		while (i < objc) {
-			string = Tcl_GetStringFromObj(objv[i],&stringlen);
+			string = Tcl_GetStringFromObj(objv[i],NULL);
 			if (string[0] != '-') break;
-			if ((stringlen==9)&&(strncmp(string,"-usefetch",9)==0)) {
-				usefetch = 1;
-			} else if ((stringlen==8)&&(strncmp(string,"-command",8)==0)) {
-				i++;
-				if (i == objc) {
-					Tcl_AppendResult(interp,"no value given for option \"-command\"",NULL);
-					return TCL_ERROR;
-				}
-				Tcl_AppendResult(interp,"dbi_postgresql: -command not supported",NULL);
+			if (Tcl_GetIndexFromObj(interp, objv[i], switches, "option", 0, &index)!= TCL_OK) {
 				return TCL_ERROR;
-				command = objv[i];
-			} else if ((stringlen==10)&&(strncmp(string,"-nullvalue",10)==0)) {
-				i++;
-				if (i == objc) {
-					Tcl_AppendResult(interp,"no value given for option \"-nullvalue\"",NULL);
-					return TCL_ERROR;
-				}
-				nullvalue = objv[i];
-			} else {
-				Tcl_AppendResult(interp,"unknown option \"",string,"\", must be one of: -usefetch, -nullvalue",NULL);
-				return TCL_ERROR;
+			}
+			switch (index) {
+				case Usefetch:
+					usefetch = 1;
+					break;
+				case Nullvalue:
+					i++;
+					if (i == objc) {
+						Tcl_AppendResult(interp,"\"-nullvalue\" option must be followed by the value returned for NULL columns",NULL);
+						return TCL_ERROR;
+					}
+					nullvalue = objv[i];
+					break;
+				case Flat:
+					flat = 1;
+					break;
 			}
 			i++;
 		}
-		if (command != NULL) {
-			usefetch = 1;
-		}
-		return dbi_Postgresql_Exec(interp,dbdata,objv[i],usefetch,nullvalue,objc-i-1,objv+i+1);
+		return dbi_Postgresql_Exec(interp,dbdata,objv[i],usefetch,flat,nullvalue,objc-i-1,objv+i+1);
 		}
 	case Fetch:
 		return dbi_Postgresql_Fetch(interp,dbdata, objc, objv);

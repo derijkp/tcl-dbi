@@ -4,7 +4,8 @@ exec tclsh "$0" "$@"
 puts "source [info script]"
 
 set interface dbi
-set version 0.1
+# $Format: "set version 0.$ProjectMajorVersion$"$
+set version 0.8
 
 package require dbi
 package require dbi_interbase
@@ -12,7 +13,7 @@ package require dbi_interbase
 set object [dbi_interbase]
 set object2 [dbi_interbase]
 
-interface test dbi_admin-0.1 $object \
+interface test dbi_admin-$version $object \
 	-testdb /home/ib/testdbi.gdb
 
 array set opt [subst {
@@ -21,14 +22,15 @@ array set opt [subst {
 	-object2 $object2
 }]
 
-eval interface test dbi-0.1 $object [array get opt]
+# $Format: "eval interface test dbi-0.$ProjectMajorVersion$ $object [array get opt]"$
+eval interface test dbi-0.8 $object [array get opt]
 
 ::dbi::opendb
 ::dbi::initdb
 
 interface::test {interface match} {
 	$object supports
-} {columnperm blobparams roles domains}
+} {columnperm blobparams roles domains sharedtransactions}
 
 interface::test {transactions via exec} {
 	$object exec {delete from "location";}

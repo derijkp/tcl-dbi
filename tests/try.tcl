@@ -160,28 +160,39 @@ proc ::dbi::opendb {} {
 #	::dbi::filldb
 ::dbi::initdb
 
-# -------------------------------------------------------
-# 							Tests
-# -------------------------------------------------------
-# serial
-# ------
+interface::test {transactions: sql error in exec within transaction} {
+	$object exec {delete from "location";}
+	$object exec {delete from "person";}
+	set r1 [$object exec {select "first_name" from "person";}]
+	$object begin
+	catch {$object exec {
+		insert into "person" values(1,'Peter','De Rijk',20);
+		insert into "person" values(2,'John','Doe','error');
+		insert into "person" ("id","first_name") values(3,'Jane');
+	}} error
+	set r2 [$object exec {select "first_name" from "person";}]
+	$object rollback
+	set r3 [$object exec {select "first_name" from "person";}]
+	list $r1 $r2 $r3
+} {{} Peter {}}
 
-	set clone [$object clone]
-	$clone exec -usefetch {select * from "location"}
-	$clone close
-
-	set views [$object info views]
-	$object close
-	$object open $opt(-testdb)
-	$object info views
-
-
-interface::test {info may be implemented using a clone, see if it is respawned ok} {
-	set views [$object info views]
-	$object close
-	::dbi::opendb
-	$object info views
-} v_test
+interface::test {transactions: sql error in exec within transaction, seperate calls} {
+	$object exec {delete from "location";}
+	$object exec {delete from "person";}
+	set r1 [$object exec {select "first_name" from "person";}]
+	$object begin
+	catch {$object exec {
+		insert into "person" values(1,'Peter','De Rijk',20);
+	}} error
+	catch {$object exec {
+		insert into "person" values(2,'John','Doe','error');
+		insert into "person" ("id","first_name") values(3,'Jane');
+	}} error
+	set r2 [$object exec {select "first_name" from "person";}]
+	$object rollback
+	set r3 [$object exec {select "first_name" from "person";}]
+	list $r1 $r2 $r3
+} {{} Peter {}}
 
 #puts "tests done"
 #$object close

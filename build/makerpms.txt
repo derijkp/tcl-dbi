@@ -1,0 +1,44 @@
+cd ~/dev/dbi/build
+make distclean
+cd ~/dev/dbi/postgresql/build
+make distclean
+cd ~/dev/dbi/odbc/build
+make distclean
+cd ~/dev/dbi/interbase/build
+make distclean
+cd ~/dev/interface/build
+make distclean
+
+
+cd /home/peter/dev
+tar cvzf /usr/src/RPM/SOURCES/dbi-0.8.1.src.tar.gz dbi
+cp -f /home/peter/dev/dbi/build/dbi.spec /usr/src/RPM/SPECS
+rpm -ba /usr/src/RPM/SPECS/dbi.spec
+cp -f /home/peter/dev/dbi/*/build/*.spec /usr/src/RPM/SPECS
+rpm -ba /usr/src/RPM/SPECS/dbi_postgresql.spec
+rpm -ba /usr/src/RPM/SPECS/dbi_odbc.spec
+rpm -ba /usr/src/RPM/SPECS/dbi_interbase.spec
+
+cd /home/peter/dev
+tar cvzf /usr/src/RPM/SOURCES/interface-0.8.1.src.tar.gz interface
+cp -f /home/peter/dev/interface/build/*.spec /usr/src/RPM/SPECS
+rpm -ba /usr/src/RPM/SPECS/interface.spec
+
+
+cd ~/dev/dbi/build
+./configure --prefix=/usr/
+make
+cd ~/dev/dbi/postgresql/build
+./configure --prefix=/usr/
+make
+cd ~/dev/dbi/odbc/build
+./configure --prefix=/usr/
+make
+cd ~/dev/dbi/interbase/build
+./configure --prefix=/usr/
+make
+cd ~/dev/interface/build
+./configure --prefix=/usr/
+make
+
+

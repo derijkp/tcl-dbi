@@ -1,3 +1,6 @@
+/* $Format: "#define DBI_VERSION \"0.$ProjectMajorVersion: 8 $\""$ */
+#define DBI_VERSION "0.8"
+
 #include <ibase.h>
 #include "tcl.h"
 /*#include "dbi.h"*/

@@ -11,7 +11,7 @@
 # See the file "license.terms" for information on usage and redistribution
 # of this file, and for a DISCLAIMER OF ALL WARRANTIES.
 #
-# RCS: @(#) $Id: Makefile.in 1.1 Tue, 27 Jun 2000 10:01:26 +0200 peter $
+# RCS: @(#) $Id: Makefile.in 1.2 Mon, 01 Oct 2001 16:27:53 +0200 peter $
 
 #========================================================================
 # Edit the following few lines when writing a new extension
@@ -70,8 +70,6 @@ GENERIC_HDRS=$(SOURCE_DIR)/postgresql.h
 #========================================================================
 
 SAMPLE_NEW_VAR=@SAMPLE_NEW_VAR@
-DBI_INCLUDE=@DBI_INCLUDE@
-DBI_LIB=@DBI_LIB@
 POSTGRESQL_INCLUDE=@POSTGRESQL_INCLUDE@
 POSTGRESQL_LIB=@POSTGRESQL_LIB@
 
@@ -172,7 +170,7 @@ AUTOCONF = autoconf
 
 LDFLAGS = $(LDFLAGS_DEFAULT)
 
-INCLUDES = @TCL_INCLUDES@ $(POSTGRESQL_INCLUDE) $(DBI_INCLUDE)
+INCLUDES = @TCL_INCLUDES@ $(POSTGRESQL_INCLUDE)
 
 EXTRA_CFLAGS = $(TCL_DEFS) $(PROTO_FLAGS) $(SECURITY_FLAGS) $(MEM_DEBUG_FLAGS) $(KEYSYM_FLAGS) $(NO_DEPRECATED_FLAGS) $(TCL_EXTRA_CFLAGS)
 
@@ -233,13 +231,17 @@ install-libraries: libraries
 #	    echo "Installing $$i" ; \
 #	    $(INSTALL_DATA) $$i $(includedir) ; \
 #	done;
+	$(mkinstalldirs)  $(DESTDIR)$(pkgtcllibdir)/lib
+	$(INSTALL_DATA) $(srcdir)/../lib/*.tcl $(DESTDIR)$(pkgtcllibdir)/lib
+	$(INSTALL_DATA) $(srcdir)/../lib/tclIndex $(DESTDIR)$(pkgtcllibdir)/lib
+	$(INSTALL_DATA) $(srcdir)/../README $(DESTDIR)$(pkgtcllibdir)
 	echo "Adapting pkgIndex.tcl"
 	$(TCLSH_PROG) $(srcdir)/install-replace.tcl \
 		$(srcdir)/../pkgIndex.tcl $(DESTDIR)$(pkglibdir)/pkgIndex.tcl \
 		@TCLLIBDIR@ "$(DESTDIR)$(tcllibdir)/@PACKAGE@@VERSION@" \
 	echo "Adapting init.tcl"
 	$(TCLSH_PROG) $(srcdir)/install-replace.tcl \
-		$(srcdir)/../init.tcl $(DESTDIR)$(pkgtcllibdir)/init.tcl \
+		$(srcdir)/../lib/init.tcl $(DESTDIR)$(pkgtcllibdir)/lib/init.tcl \
 		@LIB_LIBRARY@ "$(dbi_postgresql_LIB_FILE)" \
 		@LIBDIR@ "$(DESTDIR)$(libdir)" \
 		@TCLLIBDIR@ "$(DESTDIR)$(tcllibdir)/@PACKAGE@@VERSION@" \
@@ -254,14 +256,14 @@ install-libraries: libraries
 install-doc: doc
 #	$(mkinstalldirs) $(mandir)/man1
 #	$(mkinstalldirs) $(mandir)/man3
-#	$(mkinstalldirs) $(mandir)/mann
-#	@echo "Installing documentation in $(mandir)"
-#	@for i in $(srcdir)/*.n; \
-#	    do \
-#	    echo "Installing $$i"; \
-#	    rm -f $(mandir)/mann/$$i; \
-#	    $(INSTALL_DATA) $$i $(mandir)/mann ; \
-#	    done
+	$(mkinstalldirs) $(mandir)/mann
+	@echo "Installing documentation in $(mandir)"
+	@for i in $(srcdir)/../doc/man/*.n; \
+	    do \
+	    echo "Installing $$i"; \
+	    rm -f $(mandir)/mann/$$i; \
+	    $(INSTALL_DATA) $$i $(mandir)/mann ; \
+	    done
 #	TCLLIBPATH="$(srcdir)/.." \
 #	$(TCLSH_PROG) $(srcdir)/makedoc.tcl
 #	$(mkinstalldirs) $(DESTDIR)$(pkgtcllibdir)/docs

@@ -1,7 +1,8 @@
 package require interface
 
-proc ::interfaces::dbi_admin-0.1 {option args} {
-	interface::implement dbi_admin 0.1 [file join $::dbi::dir doc xml interface_dbi.n.xml] {
+# $Format: "proc ::interfaces::dbi_admin-0.$ProjectMajorVersion$ {option args} {"$
+proc ::interfaces::dbi_admin-0.8 {option args} {
+	interface::implement dbi_admin $::dbi::version [file join $::dbi::dir doc xml interface_dbi.n.xml] {
 		-testdb testdbi
 	} $option $args
 	
@@ -10,7 +11,7 @@ proc ::interfaces::dbi_admin-0.1 {option args} {
 	
 	interface::test {interface match} {
 		$object interface dbi_admin
-	} {0.1}
+	} $::dbi::version
 	
 	interface::test {interface error} {
 		$object interface test12134
@@ -20,7 +21,7 @@ proc ::interfaces::dbi_admin-0.1 {option args} {
 		set list [$object interface]
 		set pos [lsearch $list dbi_admin]
 		lrange $list $pos [expr {$pos+1}]
-	} {dbi_admin 0.1}
+	} [list dbi_admin $::dbi::version]
 	
 	# -------------------------------------------------------
 	# 							Tests

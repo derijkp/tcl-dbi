@@ -29,8 +29,8 @@ AC_INIT(../src/postgresql.c)
 PACKAGE=dbi_postgresql
 
 MAJOR_VERSION=0
-# $Format: "MINOR_VERSION=$ProjectMajorVersion: 8 $ \"$
-MINOR_VERSION=0
+# $Format: "MINOR_VERSION=$ProjectMajorVersion: 8 $"$
+MINOR_VERSION=8
 PATCHLEVEL=
 
 VERSION=${MAJOR_VERSION}.${MINOR_VERSION}${PATCHLEVEL}
@@ -290,11 +290,6 @@ AC_SUBST(SHLIB_LD_LIBS)
 #--------------------------------------------------------------------
 
 SC_PROG_TCLSH
-
-#--------------------------------------------------------------------
-# Find dbi headers and libraries.
-#--------------------------------------------------------------------
-SC_DBI
 
 #--------------------------------------------------------------------
 # Find Postgresql headers and libraries.

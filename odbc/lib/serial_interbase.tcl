@@ -5,7 +5,7 @@ proc ::dbi::odbc::serial_Interbase_add {db version table field args} {
 	upvar #0 ::dbi::odbc::interbase_typetrans typetrans
 	set name srl\$${table}_${field}
 	set btable $table
-	if [llength $args] {set current [lindex $args 0]} else {set current 1}
+	if [llength $args] {set current [lindex $args 0]} else {set current 0}
 	set fieldsource [lindex [lindex [$db exec {
 		select RDB$FIELD_SOURCE
 		from RDB$RELATION_FIELDS

@@ -20,9 +20,16 @@ accessing and querying databases.
 <p>
 The object supports transactions but not column permissions, roles and domains. The 
 object also supports getting the number of lines in a result and backfetch. A clone shares 
-transactions with its parent.  Blobs cannot be updated by using parameters (blobparams).
+transactions with its parent. Blobs cannot be updated by using parameters (blobparams).
 </p>
 </section>
+
+<section>
+<title>BUGS</title>
+An sql error while in a transaction will rollback the entire transaction. I haven't
+found a way to stop this yet.
+</section>
+
 
 <seealso>
 <ref>interface_dbi</ref>

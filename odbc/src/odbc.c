@@ -10,7 +10,6 @@
 #include <string.h>
 #include <stdlib.h>
 #include "tcl.h"
-#include "dbi.h"
 #include "odbc.h"
 #include "odbc_getinfo.h"
 
@@ -510,6 +509,7 @@ int dbi_odbc_Exec(
 	dbi_odbc_Data *dbdata,
 	Tcl_Obj *cmd,
 	int usefetch,
+	int flat,
 	Tcl_Obj *nullvalue,
 	int objc,
 	Tcl_Obj **objv)
@@ -537,7 +537,7 @@ fprintf(stdout," ---- trans: %d autocommit: %d\n",dbi_odbc_trans_state(dbdata),d
 	if (error) {goto error;}
 	if (number == 1) {
 		error = dbi_odbc_Process_statement(interp,dbdata,commandlen,command,nullvalue,objc,objv);
-		if (error) {dbi_odbc_autocommit(dbdata,1);goto error;}
+		if (error) {/*dbi_odbc_autocommit(dbdata,1);*/goto error;}
 	} else {
 		if (objc != 0) {
 			Tcl_AppendResult(interp,"multiple commands cannot take arguments\n", NULL);
@@ -546,7 +546,7 @@ fprintf(stdout," ---- trans: %d autocommit: %d\n",dbi_odbc_trans_state(dbdata),d
 		for(i = 0 ; i < number ; i++) {
 			/* fprintf(stdout,"%d: %*.*s\n",lens[i],lens[i],lens[i],command);fflush(stdout); */
 			error = dbi_odbc_Process_statement(interp,dbdata,lens[i],command,nullvalue,0,NULL);
-			if (error) {dbi_odbc_autocommit(dbdata,1);goto error;}
+			if (error) {/*dbi_odbc_autocommit(dbdata,1);*/goto error;}
 			command += lens[i]+1;
 		}
 		Tcl_Free((char *)lens); lens = NULL;
@@ -563,7 +563,11 @@ fprintf(stdout," ---- trans: %d autocommit: %d\n",dbi_odbc_trans_state(dbdata),d
 			if (dbdata->result.nfields != 0) {
 				if (!usefetch) {
 					if (nullvalue == NULL) {nullvalue = 	dbdata->defnullvalue;}
-					error = dbi_odbc_ToResult(interp,hstmt,&(dbdata->result),nullvalue);
+					if (flat) {
+						error = dbi_odbc_ToResult_flat(interp,hstmt,&(dbdata->result),nullvalue);
+					} else {
+						error = dbi_odbc_ToResult(interp,hstmt,&(dbdata->result),nullvalue);
+					}
 					if (error) {showcmd = 1;goto error;}
 					if (dbi_odbc_Transaction_Commit(interp,dbdata) != TCL_OK) {
 						goto error;
@@ -1331,7 +1335,7 @@ int dbi_odbc_Interface(
 {
 	int i;
 	static char *interfaces[] = {
-		"dbi", "0.1",
+		"dbi", DBI_VERSION,
 		(char *) NULL};
 	if ((objc < 2)||(objc > 3)) {
 		Tcl_WrongNumArgs(interp,2,objv,"?pattern?");
@@ -1523,9 +1527,11 @@ int Dbi_odbc_DbObjCmd(
 	switch (index) {
 	case Exec:
 		{
-		Tcl_Obj *nullvalue = NULL, *command = NULL;
+	    static char *switches[] = {"-usefetch", "-nullvalue", "-flat",(char *) NULL};
+	    enum switchesIdx {Usefetch, Nullvalue, Flat};
+		Tcl_Obj *nullvalue = NULL;
 		char *string;
-		int usefetch = 0;
+		int usefetch = 0, flat = 0;
 		int stringlen;
 		if (objc < 3) {
 			Tcl_WrongNumArgs(interp, 2, objv, "?options? command ?argument? ?...?");
@@ -1533,36 +1539,30 @@ int Dbi_odbc_DbObjCmd(
 		}
 		i = 2;
 		while (i < objc) {
-			string = Tcl_GetStringFromObj(objv[i],&stringlen);
+			string = Tcl_GetStringFromObj(objv[i],NULL);
 			if (string[0] != '-') break;
-			if ((stringlen==9)&&(strncmp(string,"-usefetch",9)==0)) {
-				usefetch = 1;
-			} else if ((stringlen==8)&&(strncmp(string,"-command",8)==0)) {
-				i++;
-				if (i == objc) {
-					Tcl_AppendResult(interp,"no value given for option \"-command\"",NULL);
-					return TCL_ERROR;
-				}
-				Tcl_AppendResult(interp,"dbi_odbc: -command not supported",NULL);
+			if (Tcl_GetIndexFromObj(interp, objv[i], switches, "option", 0, &index)!= TCL_OK) {
 				return TCL_ERROR;
-				command = objv[i];
-			} else if ((stringlen==10)&&(strncmp(string,"-nullvalue",10)==0)) {
-				i++;
-				if (i == objc) {
-					Tcl_AppendResult(interp,"no value given for option \"-nullvalue\"",NULL);
-					return TCL_ERROR;
-				}
-				nullvalue = objv[i];
-			} else {
-				Tcl_AppendResult(interp,"unknown option \"",string,"\", must be one of: -usefetch, -nullvalue",NULL);
-				return TCL_ERROR;
+			}
+			switch (index) {
+				case Usefetch:
+					usefetch = 1;
+					break;
+				case Nullvalue:
+					i++;
+					if (i == objc) {
+						Tcl_AppendResult(interp,"\"-nullvalue\" option must be followed by the value returned for NULL columns",NULL);
+						return TCL_ERROR;
+					}
+					nullvalue = objv[i];
+					break;
+				case Flat:
+					flat = 1;
+					break;
 			}
 			i++;
 		}
-		if (command != NULL) {
-			usefetch = 1;
-		}
-		return dbi_odbc_Exec(interp,dbdata,objv[i],usefetch,nullvalue,objc-i-1,objv+i+1);
+		return dbi_odbc_Exec(interp,dbdata,objv[i],usefetch,flat,nullvalue,objc-i-1,objv+i+1);
 		}
 	case Fetch:
 		return dbi_odbc_Fetch(interp,dbdata, objc, objv);

@@ -10,7 +10,7 @@ namespace eval dbi::odbc {}
 # $Format: "set ::dbi::odbc::version 0.$ProjectMajorVersion$"$
 set ::dbi::odbc::version 0.8
 # $Format: "set ::dbi::odbc::patchlevel $ProjectMinorVersion$"$
-set ::dbi::odbc::patchlevel 1
+set ::dbi::odbc::patchlevel 2
 package provide dbi_odbc $::dbi::odbc::version
 
 proc ::dbi::odbc::init {name testcmd} {
@@ -61,7 +61,6 @@ proc ::dbi::odbc::init {name testcmd} {
 		}
 		#
 		# Load the shared library if present
-		# If not, Tcl code will be loaded when necessary
 		#
 		load $libfile
 		catch {unset libbase}

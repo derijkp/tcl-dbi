@@ -28,8 +28,6 @@ ac_help="$ac_help
 ac_help="$ac_help
   --enable-stubs         build and link with stubs [--enable-stubs]"
 ac_help="$ac_help
- --with-dbiinclude   directory containing the dbi header files."
-ac_help="$ac_help
  --with-odbcinclude   directory containing the ODBC header files."
 ac_help="$ac_help
  --with-odbclib	  directory containing the odbc library files."
@@ -559,8 +557,8 @@ fi
 PACKAGE=dbi_odbc
 
 MAJOR_VERSION=0
-# $Format: "MINOR_VERSION=$ProjectMajorVersion: 8 $ \"$
-MINOR_VERSION=0
+# $Format: "MINOR_VERSION=$ProjectMajorVersion: 8 $"$
+MINOR_VERSION=8
 PATCHLEVEL=
 
 VERSION=${MAJOR_VERSION}.${MINOR_VERSION}${PATCHLEVEL}
@@ -631,7 +629,7 @@ fi
     # Extract the first word of "gcc", so it can be a program name with args.
 set dummy gcc; ac_word=$2
 echo $ac_n "checking for $ac_word""... $ac_c" 1>&6
-echo "configure:635: checking for $ac_word" >&5
+echo "configure:633: checking for $ac_word" >&5
 if eval "test \"`echo '$''{'ac_cv_prog_CC'+set}'`\" = set"; then
   echo $ac_n "(cached) $ac_c" 1>&6
 else
@@ -661,7 +659,7 @@ if test -z "$CC"; then
   # Extract the first word of "cc", so it can be a program name with args.
 set dummy cc; ac_word=$2
 echo $ac_n "checking for $ac_word""... $ac_c" 1>&6
-echo "configure:665: checking for $ac_word" >&5
+echo "configure:663: checking for $ac_word" >&5
 if eval "test \"`echo '$''{'ac_cv_prog_CC'+set}'`\" = set"; then
   echo $ac_n "(cached) $ac_c" 1>&6
 else
@@ -712,7 +710,7 @@ fi
       # Extract the first word of "cl", so it can be a program name with args.
 set dummy cl; ac_word=$2
 echo $ac_n "checking for $ac_word""... $ac_c" 1>&6
-echo "configure:716: checking for $ac_word" >&5
+echo "configure:714: checking for $ac_word" >&5
 if eval "test \"`echo '$''{'ac_cv_prog_CC'+set}'`\" = set"; then
   echo $ac_n "(cached) $ac_c" 1>&6
 else
@@ -744,7 +742,7 @@ fi
 fi
 
 echo $ac_n "checking whether the C compiler ($CC $CFLAGS $LDFLAGS) works""... $ac_c" 1>&6
-echo "configure:748: checking whether the C compiler ($CC $CFLAGS $LDFLAGS) works" >&5
+echo "configure:746: checking whether the C compiler ($CC $CFLAGS $LDFLAGS) works" >&5
 
 ac_ext=c
 # CFLAGS is not in ac_cpp because -g, -O, etc. are not valid cpp options.
@@ -755,12 +753,12 @@ cross_compiling=$ac_cv_prog_cc_cross
 
 cat > conftest.$ac_ext << EOF
 
-#line 759 "configure"
+#line 757 "configure"
 #include "confdefs.h"
 
 main(){return(0);}
 EOF
-if { (eval echo configure:764: \"$ac_link\") 1>&5; (eval $ac_link) 2>&5; } && test -s conftest${ac_exeext}; then
+if { (eval echo configure:762: \"$ac_link\") 1>&5; (eval $ac_link) 2>&5; } && test -s conftest${ac_exeext}; then
   ac_cv_prog_cc_works=yes
   # If we can't run a trivial program, we are probably using a cross compiler.
   if (./conftest; exit) 2>/dev/null; then
@@ -786,12 +784,12 @@ if test $ac_cv_prog_cc_works = no; then
   { echo "configure: error: installation or configuration problem: C compiler cannot create executables." 1>&2; exit 1; }
 fi
 echo $ac_n "checking whether the C compiler ($CC $CFLAGS $LDFLAGS) is a cross-compiler""... $ac_c" 1>&6
-echo "configure:790: checking whether the C compiler ($CC $CFLAGS $LDFLAGS) is a cross-compiler" >&5
+echo "configure:788: checking whether the C compiler ($CC $CFLAGS $LDFLAGS) is a cross-compiler" >&5
 echo "$ac_t""$ac_cv_prog_cc_cross" 1>&6
 cross_compiling=$ac_cv_prog_cc_cross
 
 echo $ac_n "checking whether we are using GNU C""... $ac_c" 1>&6
-echo "configure:795: checking whether we are using GNU C" >&5
+echo "configure:793: checking whether we are using GNU C" >&5
 if eval "test \"`echo '$''{'ac_cv_prog_gcc'+set}'`\" = set"; then
   echo $ac_n "(cached) $ac_c" 1>&6
 else
@@ -800,7 +798,7 @@ else
   yes;
 #endif
 EOF
-if { ac_try='${CC-cc} -E conftest.c'; { (eval echo configure:804: \"$ac_try\") 1>&5; (eval $ac_try) 2>&5; }; } | egrep yes >/dev/null 2>&1; then
+if { ac_try='${CC-cc} -E conftest.c'; { (eval echo configure:802: \"$ac_try\") 1>&5; (eval $ac_try) 2>&5; }; } | egrep yes >/dev/null 2>&1; then
   ac_cv_prog_gcc=yes
 else
   ac_cv_prog_gcc=no
@@ -819,7 +817,7 @@ ac_test_CFLAGS="${CFLAGS+set}"
 ac_save_CFLAGS="$CFLAGS"
 CFLAGS=
 echo $ac_n "checking whether ${CC-cc} accepts -g""... $ac_c" 1>&6
-echo "configure:823: checking whether ${CC-cc} accepts -g" >&5
+echo "configure:821: checking whether ${CC-cc} accepts -g" >&5
 if eval "test \"`echo '$''{'ac_cv_prog_cc_g'+set}'`\" = set"; then
   echo $ac_n "(cached) $ac_c" 1>&6
 else
@@ -882,7 +880,7 @@ ac_configure=$ac_aux_dir/configure # This should be Cygnus configure.
 # SVR4 /usr/ucb/install, which tries to use the nonexistent group "staff"
 # ./install, which can be erroneously created by make from ./install.sh.
 echo $ac_n "checking for a BSD compatible install""... $ac_c" 1>&6
-echo "configure:886: checking for a BSD compatible install" >&5
+echo "configure:884: checking for a BSD compatible install" >&5
 if test -z "$INSTALL"; then
 if eval "test \"`echo '$''{'ac_cv_path_install'+set}'`\" = set"; then
   echo $ac_n "(cached) $ac_c" 1>&6
@@ -940,7 +938,7 @@ test -z "$INSTALL_DATA" && INSTALL_DATA='${INSTALL} -m 644'
 #--------------------------------------------------------------------
 
 echo $ac_n "checking whether ${MAKE-make} sets \${MAKE}""... $ac_c" 1>&6
-echo "configure:944: checking whether ${MAKE-make} sets \${MAKE}" >&5
+echo "configure:942: checking whether ${MAKE-make} sets \${MAKE}" >&5
 set dummy ${MAKE-make}; ac_make=`echo "$2" | sed 'y%./+-%__p_%'`
 if eval "test \"`echo '$''{'ac_cv_prog_make_${ac_make}_set'+set}'`\" = set"; then
   echo $ac_n "(cached) $ac_c" 1>&6
@@ -974,7 +972,7 @@ fi
 # Extract the first word of "ranlib", so it can be a program name with args.
 set dummy ranlib; ac_word=$2
 echo $ac_n "checking for $ac_word""... $ac_c" 1>&6
-echo "configure:978: checking for $ac_word" >&5
+echo "configure:976: checking for $ac_word" >&5
 if eval "test \"`echo '$''{'ac_cv_prog_RANLIB'+set}'`\" = set"; then
   echo $ac_n "(cached) $ac_c" 1>&6
 else
@@ -1007,12 +1005,12 @@ fi
 #--------------------------------------------------------------------
 
 echo $ac_n "checking for Cygwin environment""... $ac_c" 1>&6
-echo "configure:1011: checking for Cygwin environment" >&5
+echo "configure:1009: checking for Cygwin environment" >&5
 if eval "test \"`echo '$''{'ac_cv_cygwin'+set}'`\" = set"; then
   echo $ac_n "(cached) $ac_c" 1>&6
 else
   cat > conftest.$ac_ext <<EOF
-#line 1016 "configure"
+#line 1014 "configure"
 #include "confdefs.h"
 
 int main() {
@@ -1023,7 +1021,7 @@ int main() {
 return __CYGWIN__;
 ; return 0; }
 EOF
-if { (eval echo configure:1027: \"$ac_compile\") 1>&5; (eval $ac_compile) 2>&5; }; then
+if { (eval echo configure:1025: \"$ac_compile\") 1>&5; (eval $ac_compile) 2>&5; }; then
   rm -rf conftest*
   ac_cv_cygwin=yes
 else
@@ -1045,13 +1043,13 @@ test "$ac_cv_cygwin" = yes && CYGWIN=yes
 #--------------------------------------------------------------------
 
 echo $ac_n "checking for object suffix""... $ac_c" 1>&6
-echo "configure:1049: checking for object suffix" >&5
+echo "configure:1047: checking for object suffix" >&5
 if eval "test \"`echo '$''{'ac_cv_objext'+set}'`\" = set"; then
   echo $ac_n "(cached) $ac_c" 1>&6
 else
   rm -f conftest*
 echo 'int i = 1;' > conftest.$ac_ext
-if { (eval echo configure:1055: \"$ac_compile\") 1>&5; (eval $ac_compile) 2>&5; }; then
+if { (eval echo configure:1053: \"$ac_compile\") 1>&5; (eval $ac_compile) 2>&5; }; then
   for ac_file in conftest.*; do
     case $ac_file in
     *.c) ;;
@@ -1069,19 +1067,19 @@ OBJEXT=$ac_cv_objext
 ac_objext=$ac_cv_objext
 
 echo $ac_n "checking for mingw32 environment""... $ac_c" 1>&6
-echo "configure:1073: checking for mingw32 environment" >&5
+echo "configure:1071: checking for mingw32 environment" >&5
 if eval "test \"`echo '$''{'ac_cv_mingw32'+set}'`\" = set"; then
   echo $ac_n "(cached) $ac_c" 1>&6
 else
   cat > conftest.$ac_ext <<EOF
-#line 1078 "configure"
+#line 1076 "configure"
 #include "confdefs.h"
 
 int main() {
 return __MINGW32__;
 ; return 0; }
 EOF
-if { (eval echo configure:1085: \"$ac_compile\") 1>&5; (eval $ac_compile) 2>&5; }; then
+if { (eval echo configure:1083: \"$ac_compile\") 1>&5; (eval $ac_compile) 2>&5; }; then
   rm -rf conftest*
   ac_cv_mingw32=yes
 else
@@ -1100,7 +1098,7 @@ test "$ac_cv_mingw32" = yes && MINGW32=yes
 
 
 echo $ac_n "checking for executable suffix""... $ac_c" 1>&6
-echo "configure:1104: checking for executable suffix" >&5
+echo "configure:1102: checking for executable suffix" >&5
 if eval "test \"`echo '$''{'ac_cv_exeext'+set}'`\" = set"; then
   echo $ac_n "(cached) $ac_c" 1>&6
 else
@@ -1110,7 +1108,7 @@ else
   rm -f conftest*
   echo 'int main () { return 0; }' > conftest.$ac_ext
   ac_cv_exeext=
-  if { (eval echo configure:1114: \"$ac_link\") 1>&5; (eval $ac_link) 2>&5; }; then
+  if { (eval echo configure:1112: \"$ac_link\") 1>&5; (eval $ac_link) 2>&5; }; then
     for file in conftest.*; do
       case $file in
       *.c | *.o | *.obj) ;;
@@ -1176,7 +1174,7 @@ if test "${with_tcl+set}" = set; then
 fi
 
 	echo $ac_n "checking for Tcl configuration""... $ac_c" 1>&6
-echo "configure:1180: checking for Tcl configuration" >&5
+echo "configure:1178: checking for Tcl configuration" >&5
 	if eval "test \"`echo '$''{'ac_cv_c_tclconfig'+set}'`\" = set"; then
   echo $ac_n "(cached) $ac_c" 1>&6
 else
@@ -1246,7 +1244,7 @@ fi
 
 
     echo $ac_n "checking for existence of $TCL_BIN_DIR/tclConfig.sh""... $ac_c" 1>&6
-echo "configure:1250: checking for existence of $TCL_BIN_DIR/tclConfig.sh" >&5
+echo "configure:1248: checking for existence of $TCL_BIN_DIR/tclConfig.sh" >&5
 
     if test -f "$TCL_BIN_DIR/tclConfig.sh" ; then
         echo "$ac_t""loading" 1>&6
@@ -1291,7 +1289,7 @@ echo "configure:1250: checking for existence of $TCL_BIN_DIR/tclConfig.sh" >&5
 
 
     echo $ac_n "checking for Tcl public headers""... $ac_c" 1>&6
-echo "configure:1295: checking for Tcl public headers" >&5
+echo "configure:1293: checking for Tcl public headers" >&5
 
     # Check whether --with-tclinclude or --without-tclinclude was given.
 if test "${with_tclinclude+set}" = set; then
@@ -1389,7 +1387,7 @@ esac
 
 
     echo $ac_n "checking for building with threads""... $ac_c" 1>&6
-echo "configure:1393: checking for building with threads" >&5
+echo "configure:1391: checking for building with threads" >&5
     # Check whether --enable-threads or --disable-threads was given.
 if test "${enable_threads+set}" = set; then
   enableval="$enable_threads"
@@ -1416,7 +1414,7 @@ EOF
 		;;
 	    *)
 		echo $ac_n "checking for pthread_mutex_init in -lpthread""... $ac_c" 1>&6
-echo "configure:1420: checking for pthread_mutex_init in -lpthread" >&5
+echo "configure:1418: checking for pthread_mutex_init in -lpthread" >&5
 ac_lib_var=`echo pthread'_'pthread_mutex_init | sed 'y%./+-%__p_%'`
 if eval "test \"`echo '$''{'ac_cv_lib_$ac_lib_var'+set}'`\" = set"; then
   echo $ac_n "(cached) $ac_c" 1>&6
@@ -1424,7 +1422,7 @@ else
   ac_save_LIBS="$LIBS"
 LIBS="-lpthread  $LIBS"
 cat > conftest.$ac_ext <<EOF
-#line 1428 "configure"
+#line 1426 "configure"
 #include "confdefs.h"
 /* Override any gcc2 internal prototype to avoid an error.  */
 /* We use char because int might match the return type of a gcc2
@@ -1435,7 +1433,7 @@ int main() {
 pthread_mutex_init()
 ; return 0; }
 EOF
-if { (eval echo configure:1439: \"$ac_link\") 1>&5; (eval $ac_link) 2>&5; } && test -s conftest${ac_exeext}; then
+if { (eval echo configure:1437: \"$ac_link\") 1>&5; (eval $ac_link) 2>&5; } && test -s conftest${ac_exeext}; then
   rm -rf conftest*
   eval "ac_cv_lib_$ac_lib_var=yes"
 else
@@ -1481,7 +1479,7 @@ fi
 
 
     echo $ac_n "checking how to build libraries""... $ac_c" 1>&6
-echo "configure:1485: checking how to build libraries" >&5
+echo "configure:1483: checking how to build libraries" >&5
     # Check whether --enable-shared or --disable-shared was given.
 if test "${enable_shared+set}" = set; then
   enableval="$enable_shared"
@@ -1550,7 +1548,7 @@ SHLIB_CFLAGS=${TCL_SHLIB_CFLAGS}
     esac
 
     echo $ac_n "checking for build with symbols""... $ac_c" 1>&6
-echo "configure:1554: checking for build with symbols" >&5
+echo "configure:1552: checking for build with symbols" >&5
     # Check whether --enable-symbols or --disable-symbols was given.
 if test "${enable_symbols+set}" = set; then
   enableval="$enable_symbols"
@@ -1593,7 +1591,7 @@ fi
 
 
     echo $ac_n "checking how to build libraries""... $ac_c" 1>&6
-echo "configure:1597: checking how to build libraries" >&5
+echo "configure:1595: checking how to build libraries" >&5
     # Check whether --enable-stubs or --disable-stubs was given.
 if test "${enable_stubs+set}" = set; then
   enableval="$enable_stubs"
@@ -1718,7 +1716,7 @@ esac
 
 
     echo $ac_n "checking for tclsh""... $ac_c" 1>&6
-echo "configure:1722: checking for tclsh" >&5
+echo "configure:1720: checking for tclsh" >&5
 
     if eval "test \"`echo '$''{'ac_cv_path_tclsh'+set}'`\" = set"; then
   echo $ac_n "(cached) $ac_c" 1>&6
@@ -1750,72 +1748,6 @@ fi
 
 
 #--------------------------------------------------------------------
-# Find dbi headers and libraries.
-#--------------------------------------------------------------------
-
-	
-	echo $ac_n "checking for dbi header files""... $ac_c" 1>&6
-echo "configure:1759: checking for dbi header files" >&5
-
-	# Check whether --with-dbiinclude or --without-dbiinclude was given.
-if test "${with_dbiinclude+set}" = set; then
-  withval="$with_dbiinclude"
-  with_dbiinclude=${withval}
-fi
-
-
-	if test x"${with_dbiinclude}" != x ; then
-	if test -f "${with_dbiinclude}/dbi.h" ; then
-		ac_cv_c_dbiinclude=${with_dbiinclude}
-	else
-		{ echo "configure: error: ${with_dbiinclude} directory does not contain dbi public header file dbi.h" 1>&2; exit 1; }
-	fi
-	else
-	if eval "test \"`echo '$''{'ac_cv_c_dbiinclude'+set}'`\" = set"; then
-  echo $ac_n "(cached) $ac_c" 1>&6
-else
-  
-		# Use the value from --with-dbiinclude, if it was given
-
-		if test x"${with_dbiinclude}" != x ; then
-		ac_cv_c_dbiinclude=${with_dbiinclude}
-		else
-		# Check in the includedir, if --prefix was specified
-
-		eval "temp_includedir=${includedir}"
-		for i in \
-			`ls -d ${temp_includedir} 2>/dev/null` \
-			../../src ../../../src /usr/local/include /usr/include ; do
-			if test -f "$i/dbi.h" ; then
-				ac_cv_c_dbiinclude=$i
-				break
-			fi
-		done
-		fi
-	
-fi
-
-	fi
-
-	# Print a message based on how we determined the include path
-
-	if test x"${ac_cv_c_dbiinclude}" = x ; then
-	{ echo "configure: error: dbi.h not found.  Please specify its location with --with-dbiinclude" 1>&2; exit 1; }
-	else
-	echo "$ac_t""${ac_cv_c_dbiinclude}" 1>&6
-	fi
-
-	# Convert to a native path and substitute into the output files.
-
-	INCLUDE_DIR_NATIVE=`${CYGPATH} ${ac_cv_c_dbiinclude}`
-
-	DBI_INCLUDE=-I\"${INCLUDE_DIR_NATIVE}\"
-
-	
-
-
-
-#--------------------------------------------------------------------
 # Find odbc headers and libraries.
 #--------------------------------------------------------------------
 
@@ -1829,7 +1761,7 @@ fi
 	*)
 	  
 	echo $ac_n "checking for ODBC header files""... $ac_c" 1>&6
-echo "configure:1833: checking for ODBC header files" >&5
+echo "configure:1765: checking for ODBC header files" >&5
 
 	# Check whether --with-odbcinclude or --without-odbcinclude was given.
 if test "${with_odbcinclude+set}" = set; then
@@ -1892,7 +1824,7 @@ fi
 
 	  
 	echo $ac_n "checking for odbc library files""... $ac_c" 1>&6
-echo "configure:1896: checking for odbc library files" >&5
+echo "configure:1828: checking for odbc library files" >&5
 
 	# Check whether --with-odbclib or --without-odbclib was given.
 if test "${with_odbclib+set}" = set; then
@@ -2153,7 +2085,6 @@ s%@SHARED_BUILD@%$SHARED_BUILD%g
 s%@dbi_odbc_LIB_FILE@%$dbi_odbc_LIB_FILE%g
 s%@SHLIB_LD_LIBS@%$SHLIB_LD_LIBS%g
 s%@TCLSH_PROG@%$TCLSH_PROG%g
-s%@DBI_INCLUDE@%$DBI_INCLUDE%g
 s%@ODBC_INCLUDE@%$ODBC_INCLUDE%g
 s%@ODBC_LIB@%$ODBC_LIB%g
 

@@ -1,6 +1,8 @@
+/* $Format: "#define DBI_VERSION \"0.$ProjectMajorVersion: 8 $\""$ */
+#define DBI_VERSION "0.8"
+
 #include <libpq-fe.h>
 #include "tcl.h"
-#include "dbi.h"
 
 #define BPCHAROID 1042
 #define FLOAT4OID 700

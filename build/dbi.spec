@@ -1,17 +1,18 @@
 Summary:	sql dbms interface commands for Tcl
 Name:		dbi
-Version:	0.1.5
+Version:	0.8.1
 Release:	1
 Copyright:	BSD
 Group:	Development/Languages/Tcl
-Source:	dbi-0.1.5.src.tar.gz
+Source:	dbi-0.8.1.src.tar.gz
 URL: http://rrna.uia.ac.be/dbi
 Packager: Peter De Rijk <derijkp@uia.ua.ac.be>
-Requires: tcl >= 8.3.2
+Requires: tcl >= 8.3.2 interface >= 0.8
 Prefix: /usr
 %description
- tcl dbi provides generic access to sql dbms's via different possible backends.
- dbi comes with 3 backends: interbase, odbc, postgresql
+ The dbi interface is a generic Tcl interface for accessing different SQL databases.
+ It presents a generic api to open, query, and change databases.
+ The dbi package contains the definition of the dbi interface, and some tools.
 
 %prep
 %setup -n dbi
@@ -25,11 +26,10 @@ make
 %install
 cd build
 make install
-rm -rf /usr/doc/dbi-$RPM_PACKAGE_VERSION
-mkdir /usr/doc/dbi-$RPM_PACKAGE_VERSION
-ln -s /usr/lib/dbi0.1/docs /usr/doc/dbi-$RPM_PACKAGE_VERSION/docs
 
 %files
 %doc README
-/usr/lib/dbi-0.1
-/usr/lib/libdbi0.1.so
+%doc /usr/man/mann/dbi.n
+%doc /usr/man/mann/interface_dbi.n
+%doc /usr/man/mann/interface_dbi_admin.n
+/usr/lib/dbi0.8

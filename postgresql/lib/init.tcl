@@ -10,7 +10,7 @@ namespace eval dbi::postgresql {}
 # $Format: "set ::dbi::postgresql::version 0.$ProjectMajorVersion$"$
 set ::dbi::postgresql::version 0.8
 # $Format: "set ::dbi::postgresql::patchlevel $ProjectMinorVersion$"$
-set ::dbi::postgresql::patchlevel 1
+set ::dbi::postgresql::patchlevel 2
 package provide dbi_postgresql $::dbi::postgresql::version
 
 proc ::dbi::postgresql::string_split {string splitstring} {
@@ -211,7 +211,6 @@ proc ::dbi::postgresql::tableinfo {db table var} {
 
 proc ::dbi::postgresql::serial_add {db table field args} {
 	set db [privatedb $db]
-	if [llength $args] {set current [lindex $args 0]} else {set current 1}
 	set name ${table}_${field}_seq
 	catch {$db exec "drop sequence \"$name\""}
 	catch {$db exec "drop index \"${table}_${field}_key\""}
@@ -219,8 +218,15 @@ proc ::dbi::postgresql::serial_add {db table field args} {
 		create sequence $name;
 		alter table $table alter $field set default nextval('$name');
 		create unique index ${table}_${field}_key on $table ($field);
-		select setval('$name',$current)
 	}]
+	if [llength $args] {
+		set current [lindex $args 0]
+		$db exec [subst -nobackslashes -nocommands {
+			select setval('$name',$current)
+		}]
+	} else {
+		set current 1
+	}
 	return $current	
 }
 

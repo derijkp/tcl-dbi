@@ -10,7 +10,7 @@ namespace eval ::dbi {}
 # $Format: "set ::dbi::version 0.$ProjectMajorVersion$"$
 set ::dbi::version 0.8
 # $Format: "set ::dbi::patchlevel $ProjectMinorVersion$"$
-set ::dbi::patchlevel 1
+set ::dbi::patchlevel 2
 package provide dbi $::dbi::version
 
 proc ::dbi::init {name testcmd} {
@@ -56,7 +56,7 @@ proc dbi::info {item} {
 			catch {unset types}
 			catch {package require xxx}
 			foreach type [package names] {
-				if [regexp {^dbi_(.*)} $type temp type] {
+				if [regexp {^dbi_(.*)} $type] {
 					set types($type) {}
 				}
 			}

@@ -10,7 +10,6 @@
 #include <string.h>
 #include <stdlib.h>
 #include "tcl.h"
-#include "dbi.h"
 #include "odbc.h"
 
 int dbi_odbc_initresult(
@@ -323,5 +322,42 @@ int dbi_odbc_ToResult(
 	error:
 		if (result != NULL) Tcl_DecrRefCount(result);
 		if (line != NULL) Tcl_DecrRefCount(line);
+		return TCL_ERROR;
+}
+
+int dbi_odbc_ToResult_flat(
+	Tcl_Interp *interp,
+	HSTMT hstmt,
+	odbc_Result *dbresult,
+	Tcl_Obj *nullvalue)
+{
+	Tcl_Obj *result = NULL, *element = NULL;
+	int error,i;
+	RETCODE rc;
+	if (dbresult->nfields == 0) {return TCL_OK;}
+	result = Tcl_NewListObj(0,NULL);
+	while(1) {
+		rc = SQLFetch(hstmt);
+		if (rc == SQL_NO_DATA_FOUND) {
+			break;
+		} else if (rc != SQL_SUCCESS) {
+			Tcl_AppendResult(interp,"ODBC Error SQLFetch: ",NULL);
+			dbi_odbc_error(interp,rc,SQL_NULL_HDBC,hstmt);
+			goto error;
+		}
+		for (i = 0; i < dbresult->nfields; ++i) {
+			error = dbi_odbc_GetOne(interp,hstmt,dbresult,i,&element);
+			if (element == NULL) {
+		 	   element = nullvalue;
+			}
+			error = Tcl_ListObjAppendElement(interp,result,element);
+			if (error) goto error;
+		}
+	}
+	Tcl_SetObjResult(interp, result);
+	return TCL_OK;;
+	error:
+		if (result != NULL) Tcl_DecrRefCount(result);
+		if (element != NULL) Tcl_DecrRefCount(element);
 		return TCL_ERROR;
 }

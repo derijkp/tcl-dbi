@@ -1,7 +1,8 @@
 package require interface
 
-proc ::interfaces::dbi-0.1 {option args} {
-interface::implement dbi 0.1 [file join $::dbi::dir doc xml interface_dbi.n.xml] {
+# $Format: "proc ::interfaces::dbi-0.$ProjectMajorVersion$ {option args} {"$
+proc ::interfaces::dbi-0.8 {option args} {
+interface::implement dbi $::dbi::version [file join $::dbi::dir doc xml interface_dbi.n.xml] {
 	-testdb testdbi
 	-user2 guest
 	-object2 {}
@@ -12,7 +13,7 @@ interface::implement dbi 0.1 [file join $::dbi::dir doc xml interface_dbi.n.xml]
 
 interface::test {interface match} {
 	$object interface dbi
-} {0.1}
+} $::dbi::version
 
 interface::test {interface error} {
 	$object interface test12134
@@ -22,7 +23,7 @@ interface::test {interface list} {
 	set list [$object interface]
 	set pos [lsearch $list dbi]
 	lrange $list $pos [expr {$pos+1}]
-} {dbi 0.1}
+} [list dbi $::dbi::version]
 
 # procedures used to setup databases
 # ----------------------------------
@@ -199,6 +200,10 @@ interface::test {select} {
 interface::test {select again} {
 	$object exec {select * from "person"}
 } {{pdr Peter {De Rijk} 20.0} {jd John Do 17.5} {o Oog {} {}}}
+
+interface::test {select with -flat} {
+	$object exec -flat {select * from "person"}
+} {pdr Peter {De Rijk} 20.0 jd John Do 17.5 o Oog {} {}}
 
 interface::test {select with -nullvalue} {
 	$object exec -nullvalue NULL {select * from "person"}
@@ -441,7 +446,7 @@ interface::test {serial basic} {
 	$object exec {insert into "types" ("d") values (20)}
 	$object exec {insert into "types" ("d") values (21)}
 	$object exec {select "i","d" from "types" order by "d"}
-} {{2 20.0} {3 21.0}}
+} {{1 20.0} {2 21.0}}
 
 interface::test {serial set} {
 	$object exec {delete from "types"}
@@ -471,7 +476,7 @@ interface::test {serial next} {
 	set i [$object serial next types i]
 	$object exec {insert into "types" ("d") values (20)}
 	list $i [$object exec {select "i" from "types" order by "d"}]
-} {3 {2 4}}
+} {2 {1 3}}
 
 dbi::initdb
 
@@ -815,8 +820,8 @@ interface::test {transactions: syntax error in exec within transaction} {
 	set r2 [$object exec {select "first_name" from "person";}]
 	$object rollback
 	set r3 [$object exec {select "first_name" from "person";}]
-	list $r1 $r2 $r3 [string range $error 0 22]
-} {{} Peter {} {unknown option "-error"}}
+	list $r1 $r2 $r3 [string range $error 0 27]
+} {{} Peter {} {bad option "-error": must be}}
 
 interface::test {transactions: sql error in exec within transaction} {
 	$object exec {delete from "location";}
@@ -832,7 +837,7 @@ interface::test {transactions: sql error in exec within transaction} {
 	$object rollback
 	set r3 [$object exec {select "first_name" from "person";}]
 	list $r1 $r2 $r3
-} {{} {} {}}
+} {{} Peter {}}
 
 interface::test {transactions: sql error in exec within transaction, seperate calls} {
 	$object exec {delete from "location";}
@@ -850,7 +855,7 @@ interface::test {transactions: sql error in exec within transaction, seperate ca
 	$object rollback
 	set r3 [$object exec {select "first_name" from "person";}]
 	list $r1 $r2 $r3
-} {{} {} {}}
+} {{} Peter {}}
 
 # roles
 # ------------

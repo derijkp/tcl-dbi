@@ -10,7 +10,7 @@ namespace eval dbi::interbase {}
 # $Format: "set ::dbi::interbase::version 0.$ProjectMajorVersion$"$
 set ::dbi::interbase::version 0.8
 # $Format: "set ::dbi::interbase::patchlevel $ProjectMinorVersion$"$
-set ::dbi::interbase::patchlevel 1
+set ::dbi::interbase::patchlevel 2
 package provide dbi_interbase $::dbi::interbase::version
 
 proc ::dbi::interbase::init {name testcmd} {
@@ -167,8 +167,7 @@ proc ::dbi::interbase::info {db args} {
 			if {$len == 1} {
 				set result [$db exec {select RDB$ROLE_NAME from RDB$ROLES order by RDB$ROLE_NAME}]
 			} elseif {$len == 2} {
-				#set user [string toupper [lindex $args 1]]
-				set user [lindex $args 1]
+				set user [string toupper [lindex $args 1]]
 				set result [$db exec {
 					select RDB$RELATION_NAME from RDB$USER_PRIVILEGES 
 					where RDB$USER = ? and RDB$PRIVILEGE = 'M'
@@ -250,8 +249,7 @@ proc ::dbi::interbase::info {db args} {
 				default {error "wrong option \"$option\": must be one of select, insert, delete, update or reference"}
 			}
 			if {$len == 3} {
-				#set user [string toupper [lindex $args 2]]
-				set user [lindex $args 2]
+				set user [string toupper [lindex $args 2]]
 				set temp [$db exec {
 					select distinct RDB$RELATION_NAME
 					from RDB$USER_PRIVILEGES where RDB$USER = ? and RDB$PRIVILEGE = ?
@@ -263,8 +261,7 @@ proc ::dbi::interbase::info {db args} {
 					}
 				}
 			} elseif {$len == 4} {
-				#set user [string toupper [lindex $args 2]]
-				set user [lindex $args 2]
+				set user [string toupper [lindex $args 2]]
 				set table [lindex $args 3]
 				set temp [$db exec {
 					select RDB$FIELD_NAME
@@ -396,7 +393,7 @@ proc ::dbi::interbase::serial_add {db table field args} {
 	set db [privatedb $db]
 	set name srl\$${table}_${field}
 	set btable $table
-	if [llength $args] {set current [lindex $args 0]} else {set current 1}
+	if [llength $args] {set current [lindex $args 0]} else {set current 0}
 	set fieldsource [lindex [lindex [$db exec {
 		select RDB$FIELD_SOURCE
 		from RDB$RELATION_FIELDS
@@ -432,8 +429,8 @@ proc ::dbi::interbase::serial_add {db table field args} {
 proc ::dbi::interbase::serial_delete {db table field} {
 	set name srl\$${table}_${field}
 	set db [privatedb $db]
-	$db exec {delete from rdb$generators where rdb$generator_name = ?} $name
-	$db exec "drop trigger \"$name\""
+	catch {$db exec "drop trigger \"$name\""}
+	catch {$db exec {delete from rdb$generators where rdb$generator_name = ?} $name}
 }
 
 proc ::dbi::interbase::serial_set {db table field args} {
