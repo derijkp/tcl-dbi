@@ -8,9 +8,9 @@
 # =============================================================
 namespace eval ::dbi {}
 # $Format: "set ::dbi::version 0.$ProjectMajorVersion$"$
-set ::dbi::version 0.0
+set ::dbi::version 0.8
 # $Format: "set ::dbi::patchlevel $ProjectMinorVersion$"$
-set ::dbi::patchlevel 11
+set ::dbi::patchlevel 1
 package provide dbi $::dbi::version
 
 proc ::dbi::init {name testcmd} {

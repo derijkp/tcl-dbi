@@ -29,7 +29,7 @@ AC_INIT(../src/interbase.c)
 PACKAGE=dbi_interbase
 
 MAJOR_VERSION=0
-# $Format: "MINOR_VERSION=$ProjectMajorVersion: 0 $ \"$
+# $Format: "MINOR_VERSION=$ProjectMajorVersion: 8 $ \"$
 MINOR_VERSION=0
 PATCHLEVEL=
 

@@ -8,7 +8,7 @@
 # full path name of this file's directory.
 
 # $Format: "package ifneeded dbi_odbc 0.$ProjectMajorVersion$ \\"$
-package ifneeded dbi_odbc 0.0 \
+package ifneeded dbi_odbc 0.8 \
 [subst -nocommands {
 	namespace eval ::dbi {}
 	namespace eval ::dbi::odbc {}

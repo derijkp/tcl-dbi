@@ -8,9 +8,9 @@ package require dbi
 namespace eval dbi::odbc {}
 
 # $Format: "set ::dbi::odbc::version 0.$ProjectMajorVersion$"$
-set ::dbi::odbc::version 0.0
+set ::dbi::odbc::version 0.8
 # $Format: "set ::dbi::odbc::patchlevel $ProjectMinorVersion$"$
-set ::dbi::odbc::patchlevel 11
+set ::dbi::odbc::patchlevel 1
 package provide dbi_odbc $::dbi::odbc::version
 
 proc ::dbi::odbc::init {name testcmd} {

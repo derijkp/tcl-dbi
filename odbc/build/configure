@@ -559,7 +559,7 @@ fi
 PACKAGE=dbi_odbc
 
 MAJOR_VERSION=0
-# $Format: "MINOR_VERSION=$ProjectMajorVersion: 0 $ \"$
+# $Format: "MINOR_VERSION=$ProjectMajorVersion: 8 $ \"$
 MINOR_VERSION=0
 PATCHLEVEL=
 

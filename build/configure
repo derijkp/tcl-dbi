@@ -553,7 +553,7 @@ fi
 PACKAGE=dbi
 
 MAJOR_VERSION=0
-# $Format: "MINOR_VERSION=$ProjectMajorVersion: 0 $ \"$
+# $Format: "MINOR_VERSION=$ProjectMajorVersion: 8 $ \"$
 MINOR_VERSION=1
 PATCHLEVEL=
 

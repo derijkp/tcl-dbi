@@ -8,7 +8,7 @@
 # full path name of this file's directory.
 
 # $Format: "package ifneeded dbi 0.$ProjectMajorVersion$ \\"$
-package ifneeded dbi 0.0 \
+package ifneeded dbi 0.8 \
 [subst -nocommands {
 	namespace eval ::dbi {}
 	set ::dbi::execdir $dir

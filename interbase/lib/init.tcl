@@ -8,9 +8,9 @@ package require dbi
 namespace eval dbi::interbase {}
 
 # $Format: "set ::dbi::interbase::version 0.$ProjectMajorVersion$"$
-set ::dbi::interbase::version 0.0
+set ::dbi::interbase::version 0.8
 # $Format: "set ::dbi::interbase::patchlevel $ProjectMinorVersion$"$
-set ::dbi::interbase::patchlevel 11
+set ::dbi::interbase::patchlevel 1
 package provide dbi_interbase $::dbi::interbase::version
 
 proc ::dbi::interbase::init {name testcmd} {
