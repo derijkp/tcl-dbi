@@ -10,7 +10,7 @@ namespace eval ::dbi {}
 # $Format: "set ::dbi::version 0.$ProjectMajorVersion$"$
 set ::dbi::version 0.0
 # $Format: "set ::dbi::patchlevel $ProjectMinorVersion$"$
-set ::dbi::patchlevel 6
+set ::dbi::patchlevel 7
 package provide dbi $::dbi::version
 
 proc _package_loadlib {name version library args} {

@@ -209,6 +209,14 @@ int dbi_DbObjCmd(
 		}
 		if (error) {return TCL_ERROR;}
 		return TCL_OK;
+	} else if ((cmdlen == 4)&&(strncmp(cmd,"info",4) == 0)) {
+		if (db->info == NULL) {
+			Tcl_AppendResult(interp,db->type, " type: info not supported",NULL);
+			return TCL_ERROR;
+		}
+		error = db->info(interp,db,objc-2,objv+2);
+		if (error) {return TCL_ERROR;}
+		return TCL_OK;
 	} else if ((cmdlen == 6)&&(strncmp(cmd,"tables",6) == 0)) {
 		if (db->tables == NULL) {
 			Tcl_AppendResult(interp,db->type, " type: tables not supported",NULL);
@@ -230,7 +238,19 @@ int dbi_DbObjCmd(
 			Tcl_WrongNumArgs(interp, 2, objv, "tablename varName");
 			return TCL_ERROR;
 		}
-		error = db->tableinfo(interp,db,objv[2],objv[3]);
+		error = db->tableinfo(interp,db,objv[2],objv[3],DBI_INFO_ALL);
+		if (error) {return TCL_ERROR;}
+		return TCL_OK;
+	} else if ((cmdlen == 6)&&(strncmp(cmd,"fields",6) == 0)) {
+		if (db->tableinfo == NULL) {
+			Tcl_AppendResult(interp,db->type, " type: table info not supported",NULL);
+			return TCL_ERROR;
+		}
+		if (objc != 3) {
+			Tcl_WrongNumArgs(interp, 2, objv, "fields tablename");
+			return TCL_ERROR;
+		}
+		error = db->tableinfo(interp,db,objv[2],NULL,DBI_INFO_FIELDS);
 		if (error) {return TCL_ERROR;}
 		return TCL_OK;
 	} else if ((cmdlen == 5)&&(strncmp(cmd,"close",5) == 0)) {
@@ -418,6 +438,7 @@ int dbi_NewDbObjCmd(
 		db->close = NULL;
 		db->transaction = NULL;
 		db->admin = NULL;
+		db->info = NULL;
 		db->tables = NULL;
 		db->tableinfo = NULL;
 		db->serial = NULL;

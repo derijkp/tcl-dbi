@@ -12,7 +12,7 @@
 # See the file "license.terms" for information on usage and redistribution
 # of this file, and for a DISCLAIMER OF ALL WARRANTIES.
 #
-# RCS: @(#) $Id: Makefile 1.1 Wed, 15 Nov 2000 14:18:20 +0100 peter $
+# RCS: @(#) $Id: Makefile 1.2 Tue, 29 May 2001 11:35:38 +0200 peter $
 
 #========================================================================
 # Edit the following few lines when writing a new extension
@@ -73,7 +73,7 @@ GENERIC_HDRS=$(SOURCE_DIR)/interbase.h
 SAMPLE_NEW_VAR=@SAMPLE_NEW_VAR@
 DBI_INCLUDE=-I"../../src"
 DBI_LIB=@DBI_LIB@
-INTERBASE_INCLUDE=-I"/usr//include"
+INTERBASE_INCLUDE=-I"/usr/include"
 INTERBASE_LIB=-L"/usr/lib" -lgds -lcrypt
 
 #========================================================================
@@ -165,7 +165,7 @@ INCLUDE_DIR_NATIVE = @INCLUDE_DIR_NATIVE@
 TCL_BMAP_DIR_NATIVE = @TCL_BMAP_DIR_NATIVE@
 TCL_PLATFORM_DIR_NATIVE = @TCL_PLATFORM_DIR_NATIVE@
 TCL_GENERIC_DIR_NATIVE = @TCL_GENERIC_DIR_NATIVE@
-TCLSH_PROG = /usr//bin/tclsh8.3
+TCLSH_PROG = /usr/bin/tclsh8.3
 SHARED_BUILD = 1
 TCL_LIB_SPEC = -L/usr/lib -ltcl8.3${TCL_DBGX}
 
@@ -173,7 +173,7 @@ AUTOCONF = autoconf
 
 LDFLAGS = $(LDFLAGS_DEBUG)
 
-INCLUDES = -I"/usr//include" $(INTERBASE_INCLUDE) $(DBI_INCLUDE)
+INCLUDES = -I"/usr/include" $(INTERBASE_INCLUDE) $(DBI_INCLUDE)
 
 EXTRA_CFLAGS = $(TCL_DEFS) $(PROTO_FLAGS) $(SECURITY_FLAGS) $(MEM_DEBUG_FLAGS) $(KEYSYM_FLAGS) $(NO_DEPRECATED_FLAGS) $(TCL_EXTRA_CFLAGS)
 

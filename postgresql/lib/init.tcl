@@ -38,6 +38,20 @@ proc ::dbi::string_split {string splitstring} {
 	return $result
 }
 
+proc ::dbi::postgresql_fieldsinfo {db table} {
+	set c [$db exec "\
+		select attnum,attname,typname,attlen,attnotnull,atttypmod,usename,usesysid,pg_class.oid,relpages,reltuples,relhaspkey,relhasrules,relacl \
+		from pg_class,pg_user,pg_attribute,pg_type \
+		where (pg_class.relname='$table') and (pg_class.oid=pg_attribute.attrelid) and (pg_class.relowner=pg_user.usesysid) and (pg_attribute.atttypid=pg_type.oid) \
+		order by attnum"] 
+	if ![llength $c] {error "table \"$table\" does not exist"}
+	set result ""
+	foreach line [lrange $c 6 end] {
+		lappend result [lindex $line 1]
+	}
+	return $result
+}
+
 proc ::dbi::postgresql_tableinfo {db table var} {
 	upvar $var data
 	catch {unset data}

@@ -9,3 +9,7 @@
 set auto_index(_package_loadlib) [list source [file join $dir init.tcl]]
 set auto_index(::dbi::info) [list source [file join $dir init.tcl]]
 set auto_index(::dbi::load) [list source [file join $dir init.tcl]]
+set auto_index(tbledit) [list source [file join $dir tbledit.tcl]]
+
+# Addition of ClassyTcl classes defined in the directory
+set auto_index(TblEditor) [list source [file join $dir TblEditor.tcl]]

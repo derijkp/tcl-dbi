@@ -56,7 +56,7 @@ AC_DEFUN(SC_INTERBASE_INCLUDE, [
 	if test -f "${with_interbaseinclude}/ibase.h" ; then
 	    ac_cv_c_interbaseinclude=${with_interbaseinclude}
 	else
-	    AC_MSG_ERROR([${with_interbaseinclude} directory does not contain interbase public header file tcl.h])
+	    AC_MSG_ERROR([${with_interbaseinclude} directory does not contain interbase public header file ibase.h])
 	fi
     else
 	AC_CACHE_VAL(ac_cv_c_interbaseinclude, [
@@ -128,7 +128,7 @@ AC_DEFUN(SC_INTERBASE_LIB, [
 	elif test -f "${with_interbaselib}/libgds.a" ; then
 	    ac_cv_c_interbaselib=${with_interbaselib}
 	else
-	    AC_MSG_ERROR([${with_interbaselib} directory does not contain interbase public header file tcl.h])
+	    AC_MSG_ERROR([${with_interbaselib} directory does not contain interbase public header file ibase.h])
 	fi
     else
 	AC_CACHE_VAL(ac_cv_c_interbaselib, [

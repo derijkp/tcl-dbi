@@ -89,24 +89,106 @@ int dbi_Interbase_Reconnect(
 		return TCL_ERROR;
 }
 
+int dbi_Interbase_Free_out_sqlda(
+	dbi_Interbase_Data *dbdata)
+{
+	XSQLDA *sqlda = dbdata->out_sqlda;
+	int i;
+	if (dbdata->out_sqlda_filled) {
+		for(i = 0 ; i < sqlda->sqld ; i++) {
+			if (sqlda->sqlvar[i].sqldata != NULL) Tcl_Free((char *)sqlda->sqlvar[i].sqldata);
+			if (sqlda->sqlvar[i].sqltype & 1) Tcl_Free((char *)sqlda->sqlvar[i].sqlind);
+		}
+		sqlda->sqld = 0;
+	}
+	dbdata->out_sqlda_filled = 0;
+	return TCL_OK;
+}
+
+int dbi_Interbase_Prepare_out_sqlda(
+	Tcl_Interp *interp,
+	XSQLDA *out_sqlda)
+{
+	XSQLVAR *var;
+	int i,dtype;
+	for (i = 0, var = out_sqlda->sqlvar; i < out_sqlda->sqld; i++, var++) {
+		dtype = (var->sqltype & ~1); /* drop flag bit for now */
+		switch(dtype) {
+			case SQL_TEXT:
+				var->sqldata = (char *)Tcl_Alloc(sizeof(char)*var->sqllen+1);
+				break;
+			case SQL_VARYING:
+				var->sqldata = (char *)Tcl_Alloc(sizeof(short) + sizeof(char)*var->sqllen + 1);
+				break;
+			case SQL_SHORT:
+				var->sqldata = (char*)Tcl_Alloc(sizeof(short));
+				break;
+			case SQL_LONG:
+				var->sqldata = (char *)Tcl_Alloc(sizeof(long));
+				break;
+			case SQL_FLOAT:
+				var->sqldata = (char*)Tcl_Alloc(sizeof(float));
+				break;
+			case SQL_DOUBLE:
+				var->sqldata = (char*)Tcl_Alloc(sizeof(double));
+				break;
+			case SQL_D_FLOAT:
+				var->sqldata = (char*)Tcl_Alloc(sizeof(double));
+				break;
+			case SQL_TIMESTAMP:
+				var->sqldata = (char*)Tcl_Alloc(sizeof(ISC_TIMESTAMP));
+				break;
+			case SQL_BLOB:
+			case SQL_ARRAY:
+			case SQL_QUAD:
+				var->sqldata = (char*)Tcl_Alloc(sizeof(ISC_QUAD));
+				break;
+			case SQL_TYPE_TIME:
+				var->sqldata = (char*)Tcl_Alloc(sizeof(ISC_TIME));
+				break;
+			case SQL_TYPE_DATE:
+				var->sqldata = (char*)Tcl_Alloc(sizeof(ISC_DATE));
+				break;
+			case SQL_INT64:
+				var->sqldata = (char*)Tcl_Alloc(sizeof(ISC_INT64));
+				break;
+			default:
+				{
+				int j;
+				for (j = 0, var = out_sqlda->sqlvar; j < i; j++, var++) {
+					if (var->sqldata != NULL) Tcl_Free((char *)var->sqldata);
+					if (var->sqltype & 1) Tcl_Free((char *)var->sqlind);
+				}
+				Tcl_AppendResult(interp,"unsupported return type", NULL);
+				}
+				return TCL_ERROR;
+		}
+		if (var->sqltype & 1) { /* allocate variable to hold NULL status */ 
+			var->sqlind = (short *)Tcl_Alloc(sizeof(short));
+		}
+	}
+	return TCL_OK;
+}
+
 int dbi_Interbase_Error(
 	Tcl_Interp *interp,
 	Dbi *db)
 {
 	dbi_Interbase_Data *dbdata = (dbi_Interbase_Data *)db->dbdata;
-	ISC_STATUS *pvector = dbdata->status;
-	ISC_STATUS status_vector[20];
+	ISC_STATUS *status_vector = dbdata->status;
+	isc_stmt_handle *stmt = &(dbdata->stmt);
 	char msg[512];
 	long SQLCODE;
 	int error;
-	SQLCODE = isc_sqlcode(dbdata->status);
+	SQLCODE = isc_sqlcode(status_vector);
 	isc_sql_interprete(SQLCODE, msg, 512);
-	while(isc_interprete(msg + 1, &pvector)) {
+	while(isc_interprete(msg + 1, &status_vector)) {
 		Tcl_AppendResult(interp,msg+1," - ", NULL);
 	}
 	if (dbdata->cursor_open != 0) {
-		error = isc_dsql_free_statement(status_vector, dbdata->stmt, DSQL_close);
+		error = isc_dsql_free_statement(status_vector, stmt, DSQL_close);
 		dbdata->cursor_open = 0;
+		dbi_Interbase_Free_out_sqlda(dbdata);
 	}
 	if (SQLCODE == -902) {
 		error = dbi_Interbase_Reconnect(interp,db);
@@ -119,7 +201,7 @@ int dbi_Interbase_Error(
 		}
 	}
 	if ((dbdata->autocommit)&&(dbdata->trans != NULL)) {
-		error = isc_rollback_transaction(dbdata->status, &(dbdata->trans));
+		error = isc_rollback_transaction(status_vector, &(dbdata->trans));
 		if (error) {
 			Tcl_AppendResult(interp,"error rolling back transaction:\n", NULL);
 			dbi_Interbase_Error(interp,db);
@@ -287,87 +369,6 @@ int dbi_Interbase_Open(
 	return TCL_OK;
 	error:
 		return TCL_ERROR;
-}
-
-int dbi_Interbase_Free_out_sqlda(
-	dbi_Interbase_Data *dbdata)
-{
-	XSQLDA *sqlda = dbdata->out_sqlda;
-	int i;
-	if (dbdata->out_sqlda_filled) {
-		for(i = 0 ; i < sqlda->sqld ; i++) {
-			if (sqlda->sqlvar[i].sqldata != NULL) Tcl_Free((char *)sqlda->sqlvar[i].sqldata);
-			if (sqlda->sqlvar[i].sqltype & 1) Tcl_Free((char *)sqlda->sqlvar[i].sqlind);
-		}
-		sqlda->sqld = 0;
-	}
-	dbdata->out_sqlda_filled = 0;
-	return TCL_OK;
-}
-
-int dbi_Interbase_Prepare_out_sqlda(
-	Tcl_Interp *interp,
-	XSQLDA *out_sqlda)
-{
-	XSQLVAR *var;
-	int i,dtype;
-	for (i = 0, var = out_sqlda->sqlvar; i < out_sqlda->sqld; i++, var++) {
-		dtype = (var->sqltype & ~1); /* drop flag bit for now */
-		switch(dtype) {
-			case SQL_TEXT:
-				var->sqldata = (char *)Tcl_Alloc(sizeof(char)*var->sqllen+1);
-				break;
-			case SQL_VARYING:
-				var->sqldata = (char *)Tcl_Alloc(sizeof(short) + sizeof(char)*var->sqllen + 1);
-				break;
-			case SQL_SHORT:
-				var->sqldata = (char*)Tcl_Alloc(sizeof(short));
-				break;
-			case SQL_LONG:
-				var->sqldata = (char *)Tcl_Alloc(sizeof(long));
-				break;
-			case SQL_FLOAT:
-				var->sqldata = (char*)Tcl_Alloc(sizeof(float));
-				break;
-			case SQL_DOUBLE:
-				var->sqldata = (char*)Tcl_Alloc(sizeof(double));
-				break;
-			case SQL_D_FLOAT:
-				var->sqldata = (char*)Tcl_Alloc(sizeof(double));
-				break;
-			case SQL_TIMESTAMP:
-				var->sqldata = (char*)Tcl_Alloc(sizeof(ISC_TIMESTAMP));
-				break;
-			case SQL_BLOB:
-			case SQL_ARRAY:
-			case SQL_QUAD:
-				var->sqldata = (char*)Tcl_Alloc(sizeof(ISC_QUAD));
-				break;
-			case SQL_TYPE_TIME:
-				var->sqldata = (char*)Tcl_Alloc(sizeof(ISC_TIME));
-				break;
-			case SQL_TYPE_DATE:
-				var->sqldata = (char*)Tcl_Alloc(sizeof(ISC_DATE));
-				break;
-			case SQL_INT64:
-				var->sqldata = (char*)Tcl_Alloc(sizeof(ISC_INT64));
-				break;
-			default:
-				{
-				int j;
-				for (j = 0, var = out_sqlda->sqlvar; j < i; j++, var++) {
-					if (var->sqldata != NULL) Tcl_Free((char *)var->sqldata);
-					if (var->sqltype & 1) Tcl_Free((char *)var->sqlind);
-				}
-				Tcl_AppendResult(interp,"unsupported return type", NULL);
-				}
-				return TCL_ERROR;
-		}
-		if (var->sqltype & 1) { /* allocate variable to hold NULL status */ 
-			var->sqlind = (short *)Tcl_Alloc(sizeof(short));
-		}
-	}
-	return TCL_OK;
 }
 
 int dbi_Interbase_Fetch_One(
@@ -592,31 +593,6 @@ int dbi_Interbase_ToResult(
 		return TCL_ERROR;
 }
 
-int dbi_Interbase_Transaction_Start(
-	Tcl_Interp *interp,
-	Dbi *db)
-{
-	dbi_Interbase_Data *dbdata = (dbi_Interbase_Data *)db->dbdata;
-	int error;
-	if (dbdata->autocommit) {
-		error = isc_start_transaction(dbdata->status, &(dbdata->trans),1,&(dbdata->db), 0, (char *)NULL);
-		if (error) {
-			long SQLCODE;
-			SQLCODE = isc_sqlcode(dbdata->status);
-			if (SQLCODE == -902) {
-				error = dbi_Interbase_Reconnect(interp,db);
-				if (error) {return TCL_ERROR;}
-				error = isc_start_transaction(dbdata->status, &(dbdata->trans),1,&(dbdata->db), 0, (char *)NULL);
-				if (!error) {return TCL_OK;}
-			}
-			Tcl_AppendResult(interp,"error starting transaction:\n", NULL);
-			dbi_Interbase_Error(interp,db);
-			return TCL_ERROR;
-		}
-	}
-	return TCL_OK;
-}
-
 int dbi_Interbase_Transaction_Commit(
 	Tcl_Interp *interp,
 	Dbi *db)
@@ -628,13 +604,6 @@ int dbi_Interbase_Transaction_Commit(
 	if (dbdata->cursor_open != 0) {
 		error = isc_dsql_free_statement(status_vector, stmt, DSQL_close);
 		dbdata->cursor_open = 0;
-/*
-	    if (error) {
-			Tcl_AppendResult(interp,"Interbase error:\n", NULL);
-			dbi_Interbase_Error(interp,db);
-			return TCL_ERROR;
-		}
-*/
 		dbi_Interbase_Free_out_sqlda(dbdata);
 	}
 	if ((dbdata->autocommit)&&(dbdata->trans != NULL)) {
@@ -672,6 +641,36 @@ int dbi_Interbase_Transaction_Rollback(
 		error = isc_rollback_transaction(dbdata->status, &(dbdata->trans));
 		if (error) {
 			Tcl_AppendResult(interp,"error rolling back transaction:\n", NULL);
+			dbi_Interbase_Error(interp,db);
+			return TCL_ERROR;
+		}
+	}
+	return TCL_OK;
+}
+
+int dbi_Interbase_Transaction_Start(
+	Tcl_Interp *interp,
+	Dbi *db)
+{
+	dbi_Interbase_Data *dbdata = (dbi_Interbase_Data *)db->dbdata;
+	int error;
+	error = dbi_Interbase_Transaction_Commit(interp,db);
+	if (error) {
+		dbi_Interbase_Error(interp,db);
+		return TCL_ERROR;
+	}
+	if (dbdata->autocommit) {
+		error = isc_start_transaction(dbdata->status, &(dbdata->trans),1,&(dbdata->db), 0, (char *)NULL);
+		if (error) {
+			long SQLCODE;
+			SQLCODE = isc_sqlcode(dbdata->status);
+			if (SQLCODE == -902) {
+				error = dbi_Interbase_Reconnect(interp,db);
+				if (error) {return TCL_ERROR;}
+				error = isc_start_transaction(dbdata->status, &(dbdata->trans),1,&(dbdata->db), 0, (char *)NULL);
+				if (!error) {return TCL_OK;}
+			}
+			Tcl_AppendResult(interp,"error starting transaction:\n", NULL);
 			dbi_Interbase_Error(interp,db);
 			return TCL_ERROR;
 		}
@@ -1140,7 +1139,7 @@ int dbi_Interbase_Exec(
 				} else if (dbi_Interbase_Find_Prev(cmdstring+prevline,i-prevline,"END")) {
 					blevel--;
 				}				find = strstr(cmdstring+prevline,"end");
-				if ((level != 0)||(blevel != 0)) {
+				if (((level != 0)||(blevel != 0))&&(i != cmdlen)) {
 					i++;
 					continue;
 				}
@@ -1150,12 +1149,22 @@ int dbi_Interbase_Exec(
 				if (i == cmdlen) break;
 				while (i < cmdlen) {
 					i++;
+					if (i == cmdlen) break;
 					if ((cmdstring[i] != ' ')&&(cmdstring[i] != '\n')&&(cmdstring[i] != '\t')) break;
 				}
+				if (i == cmdlen) break;
 				start = i;
 				continue;
-			} else if ((cmdstring[i] == '\'') && ((i+1) != cmdlen) && (cmdstring[i+1] != '\'')) {
-				if (level) {level = 0;} else {level = 1;}
+			} else if (cmdstring[i] == '\'') {
+				if (level) {
+					if (((i+1) != cmdlen) && (cmdstring[i+1] != '\'')) {
+						level = 0;
+					} else {
+						i++;
+					}
+				} else {
+					level = 1;
+				}
 			}
 			i++;
 		}
@@ -1229,9 +1238,9 @@ int dbi_Interbase_Fetch(
 		case DBI_FETCH_FIELDS:
 			error = dbi_Interbase_Fetch_Fields(interp,db,dbdata->out_sqlda,&line);
 			if (error) {goto error;}
-			error = dbi_Interbase_String_Tolower(interp,&line);
+/*			error = dbi_Interbase_String_Tolower(interp,&line);
 			if (error) {goto error;}
-			Tcl_SetObjResult(interp, line);
+*/			Tcl_SetObjResult(interp, line);
 			return TCL_OK;
 		case DBI_FETCH_CLEAR:
 			dbi_Interbase_Free_out_sqlda(dbdata);
@@ -1308,19 +1317,45 @@ int dbi_Interbase_Fetch(
 		}
 }
 
+int dbi_Interbase_Info(
+	Tcl_Interp *interp,
+	Dbi *db,
+	int objc,
+	Tcl_Obj **objv)
+{
+	Tcl_Obj *cmd,*temp;
+	char *name;
+	int error,i;
+	name = Tcl_GetCommandName(interp,db->token);
+	cmd = Tcl_NewStringObj("::dbi::interbase_info",-1);
+	Tcl_IncrRefCount(cmd);
+	temp = Tcl_NewStringObj(name,-1);
+	error = Tcl_ListObjAppendElement(interp,cmd,temp);
+	if (error) {Tcl_DecrRefCount(cmd);Tcl_DecrRefCount(temp);return error;}
+	for (i = 0 ; i < objc ; i++) {
+		error = Tcl_ListObjAppendElement(interp,cmd,objv[i]);
+		if (error) {Tcl_DecrRefCount(cmd);return error;}
+	}
+	error = Tcl_EvalObj(interp,cmd);
+	Tcl_DecrRefCount(cmd);
+	return error;
+}
+
 int dbi_Interbase_Tables(
 	Tcl_Interp *interp,
 	Dbi *db)
 {
 	Tcl_Obj *result;
 	int error;
-	Tcl_Obj *cmd = Tcl_NewStringObj("select rdb$relation_name from rdb$relations where rdb$relation_name not starting with 'RDB$'",-1);
+	Tcl_Obj *cmd = Tcl_NewStringObj("select rdb$relation_name from rdb$relations where RDB$SYSTEM_FLAG = 0",-1);
 	error = dbi_Interbase_Exec(interp,db,cmd,0,NULL,0,NULL);
+/*
 	result = Tcl_GetObjResult(interp);
 	error = dbi_Interbase_String_Tolower(interp,&result);
-	Tcl_DecrRefCount(cmd);
 	if (error) {return error;}
 	Tcl_SetObjResult(interp,result);
+*/
+	Tcl_DecrRefCount(cmd);
 	return error;
 }
 
@@ -1328,21 +1363,28 @@ int dbi_Interbase_Tableinfo(
 	Tcl_Interp *interp,
 	Dbi *db,
 	Tcl_Obj *table,
-	Tcl_Obj *varName)
+	Tcl_Obj *varName,
+	int type)
 {
 	Tcl_Obj *cmd,*temp;
 	char *name;
 	int error;
 	name = Tcl_GetCommandName(interp,db->token);
-	cmd = Tcl_NewStringObj("::dbi::interbase_tableinfo",-1);
+	if (type == DBI_INFO_ALL) {
+		cmd = Tcl_NewStringObj("::dbi::interbase_tableinfo",-1);
+	} else {
+		cmd = Tcl_NewStringObj("::dbi::interbase_fieldsinfo",-1);
+	}
 	Tcl_IncrRefCount(cmd);
 	temp = Tcl_NewStringObj(name,-1);
 	error = Tcl_ListObjAppendElement(interp,cmd,temp);
 	if (error) {Tcl_DecrRefCount(cmd);Tcl_DecrRefCount(temp);return error;}
 	error = Tcl_ListObjAppendElement(interp,cmd,table);
 	if (error) {Tcl_DecrRefCount(cmd);return error;}
-	error = Tcl_ListObjAppendElement(interp,cmd,varName);
-	if (error) {Tcl_DecrRefCount(cmd);return error;}
+	if (type == DBI_INFO_ALL) {
+		error = Tcl_ListObjAppendElement(interp,cmd,varName);
+		if (error) {Tcl_DecrRefCount(cmd);return error;}
+	}
 	error = Tcl_EvalObj(interp,cmd);
 	Tcl_DecrRefCount(cmd);
 	return error;
@@ -1585,6 +1627,7 @@ int dbi_Interbase_Create(
 	db->drop = dbi_Interbase_Dropdb;
 	db->exec = dbi_Interbase_Exec;
 	db->fetch = dbi_Interbase_Fetch;
+	db->info = dbi_Interbase_Info;
 	db->tables = dbi_Interbase_Tables;
 	db->tableinfo = dbi_Interbase_Tableinfo;
 	db->transaction = dbi_Interbase_Transaction;

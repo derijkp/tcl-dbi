@@ -1,6 +1,6 @@
 #!/bin/sh
 # the next line restarts using wish \
-exec tclsh8.0 "$0" "$@"
+exec tclsh "$0" "$@"
 
 if [info exists env(TCL_TEST_DIR)] {
 	cd $env(TCL_TEST_DIR)

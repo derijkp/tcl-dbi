@@ -3,14 +3,19 @@
 exec tclsh "$0" "$@"
 puts "source [info script]"
 
+set user1 peter
+set user2 pdr
 set type interbase
 source tools.tcl
 set db [dbi $::type db]
 puts "open /home/ib/testdbi.gdb"
 db open /home/ib/testdbi.gdb
+catch {db exec {drop view v_test;}} result
+catch {db exec {drop table duse;}} result
 catch {db exec {drop table use;}} result
 catch {db exec {drop table test;}} result
 catch {db exec {drop table types}} result
+catch {db exec {drop table person}} result
 db exec {
 	create table test (
 		id integer not null primary key,
@@ -53,7 +58,6 @@ db exec {
 	insert into test (id,first_name) values(3,'Jane');
 }
 
-puts selects
 test select {basic} {
 	db exec {select * from test}
 } {{1 Peter {De Rijk} 20.0} {2 John Doe 17.5} {3 Jane {} {}}}
@@ -108,7 +112,7 @@ test select {fetch -isnull} {
 test select {fetch -fields} {
 	db exec -usefetch {select * from test}
 	db fetch -fields
-} {id first_name name score}
+} {ID FIRST_NAME NAME SCORE}
 
 test select {fetch -lines} {
 	db exec -usefetch {select * from test}
@@ -117,9 +121,20 @@ test select {fetch -lines} {
 	db fetch
 } {2 John Doe 17.5}
 
+test select {fetch and begin/rollback} {
+	db exec -usefetch {select * from test}
+	db fetch
+	db begin
+	db exec {
+		insert into test(id,first_name,name) values(10,'Try','It');
+	}
+	catch {db fetch} result
+	set result
+} {no result available: invoke exec method with -usefetch option first}
+
 test tables {tables} {
 	lsort [db tables]
-} {test types use}
+} {TEST TYPES USE}
 
 test types {types} {
 	set error ""
@@ -148,7 +163,7 @@ test types {types} {
 } 1
 
 test select {table info} {
-	db tableinfo use data
+	db tableinfo USE data
 	set result ""
 	foreach {k v} [array get data check*] {lappend result $v}
 	lappend result [array names data index,*,name]
@@ -237,9 +252,9 @@ test transactions {begin error} {
 } {{} Peter {}}
 
 test serial {basic} {
-	db exec {delete from types}
-	catch {db serial delete types i}
-	db serial add types i
+	db exec {delete from TYPES}
+	catch {db serial delete TYPES I}
+	db serial add TYPES I
 	db exec {insert into types (d) values (?)} 20
 	db exec {insert into types (d) values (?)} 21
 	db exec {select i,d from types order by d}
@@ -247,19 +262,19 @@ test serial {basic} {
 
 test serial {set} {
 	db exec {delete from types}
-	catch {db serial delete types i}
-	db serial add types i 1
+	catch {db serial delete TYPES I}
+	db serial add TYPES I 1
 	db exec {insert into types (d) values (?)} 20
-	db serial set types i 8
-	set i [db serial set types i]
+	db serial set TYPES I 8
+	set i [db serial set TYPES I]
 	db exec {insert into types (d) values (?)} 21
 	list $i [db exec {select i,d from types order by d}]
 } {8 {{2 20.0} {9 21.0}}}
 
 test serial {overrule} {
 	db exec {delete from types}
-	catch {db serial delete types i}
-	db serial add types i 1
+	catch {db serial delete TYPES I}
+	db serial add TYPES I 1
 	db exec {insert into types (d) values (?)} 20
 	db exec {insert into types (i,d) values (9,?)} 21
 	db exec {select i,d from types order by d}
@@ -267,10 +282,10 @@ test serial {overrule} {
 
 test serial {next} {
 	db exec {delete from types}
-	catch {db serial delete types i}
-	db serial add types i
+	catch {db serial delete TYPES I}
+	db serial add TYPES I
 	db exec {insert into types (d) values (?)} 20
-	set i [db serial next types i]
+	set i [db serial next TYPES I]
 	db exec {insert into types (d) values (?)} 20
 	list $i [db exec {select i from types order by d}]
 } {2 {1 3}}
@@ -317,3 +332,122 @@ test database {trigger with declare} {
 	db exec {update test set first_name = 'test' where id = 3}
 } {}
 
+catch {db exec {create role test}}
+catch {db exec {create role try}}
+
+test info {roles} {
+	db info roles
+} {TEST TRY}
+
+catch {db exec "grant test to [db info user]"}
+catch {db exec "grant try to [db info user]"}
+
+test info {roles} {
+	db info roles peter
+} {TEST TRY}
+
+db exec "revoke try from [db info user]"
+
+test info {roles} {
+	db info roles peter
+} {TEST}
+
+db exec {create view v_test as select ID, FIRST_NAME, NAME from test}
+
+test info {views} {
+	db info views
+} {V_TEST}
+
+catch {db exec "create domain tdom as varchar(6)"}
+catch {db exec "create domain idom as integer"}
+
+test info {domains} {
+	db info domains
+} {IDOM TDOM}
+
+test info {domain} {
+	db info domain TDOM
+} {varchar(6) nullable}
+
+test info {table} {
+	catch {db exec {drop table duse}}
+	db exec {
+		create table duse (
+			id integer not null primary key,
+			td tdom,
+			person integer not null unique references test(id),
+			place varchar(100),
+			usetime timestamp,
+			score float check (score < 20.0),
+			score2 float check (score2 < 20.0),
+			b blob sub_type 1 segment size 20,
+			check (score2 > score)
+		)
+	}
+	db tableinfo DUSE t
+	array set a [db info table DUSE]
+	list $a(fields) $a(type,ID) $a(length,PLACE) [array names a primary,*]
+} {{ID TD PERSON PLACE USETIME SCORE SCORE2 B} integer 100 primary,ID}
+
+
+test bugfix {crash} {
+catch {db exec {drop table person}}
+db exec {
+create table person (
+        "id" varchar(6) not null primary key,
+        "first_name" varchar(25) ,
+        "last_name" varchar(50) ,
+        "group" varchar(4) )
+}
+db exec {
+insert into person ("id","first_name","last_name","group") values ('peter','Peter','','binf');
+}
+set a 1
+} 1
+
+test info {access select} {
+	db exec {
+		grant select on test to pdr
+	}
+	list [db info access select PDR] [db info access select PETER]
+} {TEST {DUSE PERSON TEST TYPES USE V_TEST}}
+
+test info {access select table} {
+	db exec {
+		grant select on test to pdr
+	}
+	list [db info access select PDR TEST] [db info access select PETER TEST]
+} {{ID FIRST_NAME NAME SCORE} {ID FIRST_NAME NAME SCORE}}
+
+test info {access insert} {
+	db exec {
+		grant insert on test to pdr
+	}
+	list [db info access insert PDR] [db info access insert PETER]
+} {TEST {DUSE PERSON TEST TYPES USE V_TEST}}
+
+
+test info {access update} {
+	db exec {
+		grant update(ID,FIRST_NAME) on test to pdr
+	}
+	list [db info access update PDR] [db info access update PETER]
+} {TEST {DUSE PERSON TEST TYPES USE V_TEST}}
+
+test info {access select table} {
+	db exec {
+		grant update(ID,FIRST_NAME) on test to pdr
+	}
+	list [db info access select PDR DUSE] [db info access select PDR TEST] [db info access select PETER TEST]
+} {{} {ID FIRST_NAME NAME SCORE} {ID FIRST_NAME NAME SCORE}}
+
+test info {access update table} {
+	db exec {
+		grant update(ID,FIRST_NAME) on test to pdr
+	}
+	list [db info access update PDR TEST] [db info access update PETER TEST]
+} {{ID FIRST_NAME} {ID FIRST_NAME NAME SCORE}}
+
+test info {error db fields} {
+	db fields notexist
+} {}

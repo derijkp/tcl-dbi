@@ -292,7 +292,7 @@ int dbi_Postgresql_Tables(
 	dbi_Postgresql_Data *dbdata = (dbi_Postgresql_Data *)db->dbdata;
 	int error;
 	Tcl_Obj *cmd = Tcl_NewStringObj("select relname from pg_class where relkind = 'r' and relname !~ '^pg_'",70);
-	error = dbi_Postgresql_Exec(interp,db,cmd,0,NULL);
+	error = dbi_Postgresql_Exec(interp,db,cmd,0,NULL,0,(Tcl_Obj **)NULL);
 	Tcl_DecrRefCount(cmd);
 	return error;
 }
@@ -301,22 +301,29 @@ int dbi_Postgresql_Tableinfo(
 	Tcl_Interp *interp,
 	Dbi *db,
 	Tcl_Obj *table,
-	Tcl_Obj *varName)
+	Tcl_Obj *varName,
+	int type)
 {
 	dbi_Postgresql_Data *dbdata = (dbi_Postgresql_Data *)db->dbdata;
 	Tcl_Obj *cmd,*temp;
 	char *name;
 	int error;
 	name = Tcl_GetCommandName(interp,db->token);
-	cmd = Tcl_NewStringObj("::dbi::postgresql_tableinfo",-1);
+	if (type == DBI_INFO_ALL) {
+		cmd = Tcl_NewStringObj("::dbi::postgresql_tableinfo",-1);
+	} else {
+		cmd = Tcl_NewStringObj("::dbi::postgresql_fieldsinfo",-1);
+	}
 	Tcl_IncrRefCount(cmd);
 	temp = Tcl_NewStringObj(name,-1);
 	error = Tcl_ListObjAppendElement(interp,cmd,temp);
 	if (error) {Tcl_DecrRefCount(cmd);Tcl_DecrRefCount(temp);return error;}
 	error = Tcl_ListObjAppendElement(interp,cmd,table);
 	if (error) {Tcl_DecrRefCount(cmd);return error;}
-	error = Tcl_ListObjAppendElement(interp,cmd,varName);
-	if (error) {Tcl_DecrRefCount(cmd);return error;}
+	if (type == DBI_INFO_ALL) {
+		error = Tcl_ListObjAppendElement(interp,cmd,varName);
+		if (error) {Tcl_DecrRefCount(cmd);return error;}
+	}
 	error = Tcl_EvalObj(interp,cmd);
 	Tcl_DecrRefCount(cmd);
 	return error;

@@ -12,7 +12,7 @@
 # See the file "license.terms" for information on usage and redistribution
 # of this file, and for a DISCLAIMER OF ALL WARRANTIES.
 #
-# RCS: @(#) $Id: Makefile 1.2 Wed, 15 Nov 2000 14:18:20 +0100 peter $
+# RCS: @(#) $Id: Makefile 1.3 Tue, 29 May 2001 11:35:38 +0200 peter $
 
 #========================================================================
 # Edit the following few lines when writing a new extension
@@ -86,7 +86,7 @@ SHELL = /bin/sh
 
 srcdir = .
 top_srcdir = .
-prefix = /opt/tcltk/
+prefix = /usr
 exec_prefix = ${prefix}
 
 bindir = ${exec_prefix}/bin
@@ -143,20 +143,20 @@ MAKE_STATIC_LIB = ${STLIB_LD} $@ $($@_OBJECTS)
 OBJEXT = o
 RANLIB = :
 SHLIB_CFLAGS = -fPIC
-SHLIB_LD = cc -shared
+SHLIB_LD = gcc -pipe -shared
 SHLIB_LDFLAGS = 
-SHLIB_LD_LIBS = -L/opt/tcltk/lib -ltclstub8.3${TCL_DBGX}
+SHLIB_LD_LIBS = -L/usr/lib -ltclstub8.3${TCL_DBGX}
 STLIB_LD = ar cr
-TCL_BIN_DIR = /opt/tcltk/lib
-TCL_DEFS =  -DHAVE_UNISTD_H=1 -DHAVE_LIMITS_H=1 -DHAVE_GETCWD=1 -DHAVE_OPENDIR=1 -DHAVE_STRSTR=1 -DHAVE_STRTOL=1 -DHAVE_TMPNAM=1 -DHAVE_WAITPID=1 -DHAVE_UNISTD_H=1 -DHAVE_SYS_PARAM_H=1 -DUSE_TERMIOS=1 -DHAVE_SYS_TIME_H=1 -DTIME_WITH_SYS_TIME=1 -DHAVE_TM_ZONE=1 -DHAVE_TM_GMTOFF=1 -DHAVE_TIMEZONE_VAR=1 -DHAVE_ST_BLKSIZE=1 -DSTDC_HEADERS=1 -DNEED_MATHERR=1 -DHAVE_SIGNED_CHAR=1 -DHAVE_SYS_IOCTL_H=1 
+TCL_BIN_DIR = /usr/lib
+TCL_DEFS =  -DHAVE_UNISTD_H=1 -DHAVE_LIMITS_H=1 -DHAVE_GETCWD=1 -DHAVE_OPENDIR=1 -DHAVE_STRSTR=1 -DHAVE_STRTOL=1 -DHAVE_TMPNAM=1 -DHAVE_WAITPID=1 -DHAVE_UNISTD_H=1 -DHAVE_SYS_PARAM_H=1 -DHAVE_SYS_TIME_H=1 -DTIME_WITH_SYS_TIME=1 -DHAVE_TM_ZONE=1 -DHAVE_TM_GMTOFF=1 -DHAVE_TIMEZONE_VAR=1 -DHAVE_ST_BLKSIZE=1 -DSTDC_HEADERS=1 -DNEED_MATHERR=1 -DHAVE_SIGNED_CHAR=1 -DHAVE_SYS_IOCTL_H=1 
 TCL_EXTRA_CFLAGS = 
 TCL_LD_FLAGS = -rdynamic
 TCL_LIBS = -ldl  -lieee -lm
 TCL_SHLIB_LD_LIBS = ${LIBS}
-TCL_SRC_DIR = /usr/src/redhat/BUILD/tcltk-8.3.2/tcl8.3.2
+TCL_SRC_DIR = /home/flepied/rpm-rebuilder/RPM/BUILD/tcltk-8.3.2/tcl8.3.2
 TCL_DBGX = 
 TCL_STUB_LIB_FILE = libtclstub8.3${TCL_DBGX}.a
-TCL_STUB_LIB_SPEC = -L/opt/tcltk/lib -ltclstub8.3${TCL_DBGX}
+TCL_STUB_LIB_SPEC = -L/usr/lib -ltclstub8.3${TCL_DBGX}
 TCL_TOOL_DIR_NATIVE = @TCL_TOOL_DIR_NATIVE@
 TCL_TOP_DIR_NATIVE = @TCL_TOP_DIR_NATIVE@
 TCL_UNIX_DIR_NATIVE = @TCL_UNIX_DIR_NATIVE@
@@ -165,15 +165,15 @@ INCLUDE_DIR_NATIVE = @INCLUDE_DIR_NATIVE@
 TCL_BMAP_DIR_NATIVE = @TCL_BMAP_DIR_NATIVE@
 TCL_PLATFORM_DIR_NATIVE = @TCL_PLATFORM_DIR_NATIVE@
 TCL_GENERIC_DIR_NATIVE = @TCL_GENERIC_DIR_NATIVE@
-TCLSH_PROG = /opt/tcltk//bin/tclsh8.3
+TCLSH_PROG = /usr/bin/tclsh8.3
 SHARED_BUILD = 1
-TCL_LIB_SPEC = -L/opt/tcltk/lib -ltcl8.3${TCL_DBGX}
+TCL_LIB_SPEC = -L/usr/lib -ltcl8.3${TCL_DBGX}
 
 AUTOCONF = autoconf
 
 LDFLAGS = $(LDFLAGS_DEFAULT)
 
-INCLUDES = -I"/opt/tcltk//include" $(POSTGRESQL_INCLUDE) $(DBI_INCLUDE)
+INCLUDES = -I"/usr/include" $(POSTGRESQL_INCLUDE) $(DBI_INCLUDE)
 
 EXTRA_CFLAGS = $(TCL_DEFS) $(PROTO_FLAGS) $(SECURITY_FLAGS) $(MEM_DEBUG_FLAGS) $(KEYSYM_FLAGS) $(NO_DEPRECATED_FLAGS) $(TCL_EXTRA_CFLAGS)
 

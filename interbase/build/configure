@@ -1834,7 +1834,7 @@ fi
 	if test -f "${with_interbaseinclude}/ibase.h" ; then
 	    ac_cv_c_interbaseinclude=${with_interbaseinclude}
 	else
-	    { echo "configure: error: ${with_interbaseinclude} directory does not contain interbase public header file tcl.h" 1>&2; exit 1; }
+	    { echo "configure: error: ${with_interbaseinclude} directory does not contain interbase public header file ibase.h" 1>&2; exit 1; }
 	fi
     else
 	if eval "test \"`echo '$''{'ac_cv_c_interbaseinclude'+set}'`\" = set"; then
