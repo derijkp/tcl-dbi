@@ -8,7 +8,7 @@
 #
 
 # set to yes to compile with debugging information
-DEBUG=no
+DEBUG=yes
 # set to no to compile without stubs support
 USE_STUBS=no
 
@@ -23,8 +23,11 @@ TCLEXE = dbitcl
 POSTGRESQLOBJS =  postgresql.o
 POSTGRESQLSRCS = postgresql.c
 POSTGRESQLLIBS = -lpq
-OBJECTS = dbiInit.o dbi.o $(POSTGRESQLOBJS)
-SRCS = dbiInit.c dbi.c $(POSTGRESQLSRC)
+ODBCOBJS =  odbc.o odbc_result.o
+ODBCSRCS = odbc.c odbc_result.c
+ODBCLIBS = -lodbc
+OBJECTS = dbiInit.o dbi.o $(POSTGRESQLOBJS) $(ODBCOBJS)
+SRCS = dbiInit.c dbi.c $(POSTGRESQLSRC) $(ODBCSRCS)
 
 ifeq ($(DEBUG),yes)
 	CFLAGS = -g  
@@ -33,16 +36,16 @@ else
 endif
 
 ifeq ($(USE_STUBS),yes)
-	LD_LIBS = $(POSTGRESQLLIBS)  ${LIBS}
+	LD_LIBS = $(POSTGRESQLLIBS) $(ODBCLIBS)  
 	DEFS =  -DHAVE_GETCWD=1 -DHAVE_UNISTD_H=1 -DHAVE_SYS_TIME_H=1 -DTIME_WITH_SYS_TIME=1 -DHAVE_TM_ZONE=1 -DHAVE_TM_GMTOFF=1 -DHAVE_TIMEZONE_VAR=1 -DHAVE_ST_BLKSIZE=1 -DSTDC_HEADERS=1 -DNEED_MATHERR=1 -DRETSIGTYPE=void -DHAVE_SIGNED_CHAR=1 -DHAVE_SYS_IOCTL_H=1  -DUSE_TCL_STUBS
 else
-	LD_LIBS = $(POSTGRESQLLIBS) -L/usr/lib -ltcl8.0${TCL_DBGX} ${LIBS} -ldl  -lm
+	LD_LIBS = $(POSTGRESQLLIBS) $(ODBCLIBS) -L/usr/lib -ltcl8.0${TCL_DBGX}  -ldl  -lm
 	DEFS =  -DHAVE_GETCWD=1 -DHAVE_UNISTD_H=1 -DHAVE_SYS_TIME_H=1 -DTIME_WITH_SYS_TIME=1 -DHAVE_TM_ZONE=1 -DHAVE_TM_GMTOFF=1 -DHAVE_TIMEZONE_VAR=1 -DHAVE_ST_BLKSIZE=1 -DSTDC_HEADERS=1 -DNEED_MATHERR=1 -DRETSIGTYPE=void -DHAVE_SIGNED_CHAR=1 -DHAVE_SYS_IOCTL_H=1 
 endif
 
 INCLUDES = -I/usr/include
-CC = gcc -pipe
-SHLIB_LD =		gcc -pipe -shared
+CC = gcc
+SHLIB_LD =		gcc -shared
 SHLIB_SUFFIX =		.so
 
 CC_SWITCHES =  -I../extern $(INCLUDES) $(CFLAGS)	-fPIC $(DEFS)
@@ -78,31 +81,3 @@ depend:
 	$(CC) -c $(CC_SWITCHES) $<
 
 # DO NOT DELETE THIS LINE -- make depend depends on it.
-
-dbiInit.o: /usr/include/tcl.h /usr/include/stdio.h /usr/include/features.h
-dbiInit.o: /usr/include/sys/cdefs.h /usr/include/gnu/stubs.h
-dbiInit.o: /usr/lib/gcc-lib/i586-mandrake-linux/2.95.2/include/stddef.h
-dbiInit.o: /usr/lib/gcc-lib/i586-mandrake-linux/2.95.2/include/stdarg.h
-dbiInit.o: /usr/include/bits/types.h /usr/include/libio.h
-dbiInit.o: /usr/include/_G_config.h /usr/include/bits/stdio_lim.h dbi.h
-dbiInit.o: /usr/include/sys/types.h /usr/include/time.h /usr/include/endian.h
-dbiInit.o: /usr/include/bits/endian.h /usr/include/sys/select.h
-dbiInit.o: /usr/include/bits/select.h /usr/include/bits/sigset.h
-dbiInit.o: /usr/include/sys/sysmacros.h /usr/include/math.h
-dbiInit.o: /usr/include/bits/huge_val.h /usr/include/bits/mathdef.h
-dbiInit.o: /usr/include/bits/mathcalls.h
-dbiInit.o: /usr/lib/gcc-lib/i586-mandrake-linux/2.95.2/include/float.h
-dbi.o: /usr/include/string.h /usr/include/features.h /usr/include/sys/cdefs.h
-dbi.o: /usr/include/gnu/stubs.h
-dbi.o: /usr/lib/gcc-lib/i586-mandrake-linux/2.95.2/include/stddef.h
-dbi.o: /usr/include/errno.h /usr/include/bits/errno.h
-dbi.o: /usr/include/linux/errno.h /usr/include/asm/errno.h
-dbi.o: /usr/include/stdlib.h /usr/include/sys/types.h
-dbi.o: /usr/include/bits/types.h /usr/include/time.h /usr/include/endian.h
-dbi.o: /usr/include/bits/endian.h /usr/include/sys/select.h
-dbi.o: /usr/include/bits/select.h /usr/include/bits/sigset.h
-dbi.o: /usr/include/sys/sysmacros.h /usr/include/alloca.h /usr/include/tcl.h
-dbi.o: /usr/include/stdio.h
-dbi.o: /usr/lib/gcc-lib/i586-mandrake-linux/2.95.2/include/stdarg.h
-dbi.o: /usr/include/libio.h /usr/include/_G_config.h
-dbi.o: /usr/include/bits/stdio_lim.h dbi.h

@@ -15,7 +15,8 @@ Dbi_Init(interp)
 {
 	Tcl_CreateObjCommand(interp,"dbi",(Tcl_ObjCmdProc *)dbi_NewDbObjCmd,
 		(ClientData)NULL,(Tcl_CmdDeleteProc *)NULL);
-	dbi_CreateType(interp,"postgresql",dbi_Postgresql_Create);
+	Dbi_Postgresql_Init(interp);
+	Dbi_Odbc_Init(interp);
 	return TCL_OK;
 }
 

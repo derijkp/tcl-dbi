@@ -187,6 +187,13 @@ test $what {fetch -isnull field out of range} {
 	db fetch -isnull 2 5
 } {field 5 out of range} 1
 
+test $what {fetch -current} {
+	initdb
+	db exec -usefetch {select * from person}
+	db fetch 0
+	db fetch -current
+} 1
+
 db close
 
 }

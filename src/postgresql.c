@@ -36,7 +36,7 @@ int dbi_Postgresql_Open(
 		Tcl_AppendResult(interp,"dbi object has open connection, close first", NULL);
 		goto error;
 	}
-	if (objc < 2) {
+	if (objc < 3) {
 		Tcl_WrongNumArgs(interp,2,objv,"datasource ?-user user? ?-password password? ?-host host? ?-hostaddr hostaddress? ?-port port? ?-options options? ?-tty tty?");
 		return TCL_ERROR;
 	}
@@ -154,7 +154,7 @@ int dbi_Postgresql_Exec(
 			}
 			break;
 		default:
-			Tcl_AppendResult(interp,"database error while executing command \"",
+			Tcl_AppendResult(interp,"error executing command \"",
 				Tcl_GetStringFromObj(cmd,NULL), "\":\n",
 				PQresultErrorMessage(res), NULL);
 			goto error;
@@ -185,7 +185,6 @@ int dbi_Postgresql_Fetch(
 	PGresult *res = dbdata->res;
 	Tcl_Obj *result = NULL, *line = NULL, *element = NULL;
 	char *string;
-	char buffer[20];
 	int error,stringlen;
 	int ntuples = PQntuples(res);
 	int nfields = PQnfields(res);
@@ -194,13 +193,17 @@ int dbi_Postgresql_Fetch(
 		return TCL_ERROR;
 	}
 	if (t >= ntuples) {
-		sprintf(buffer,"%d",t);
-		Tcl_AppendResult(interp, "line ",buffer ," out of range", NULL);
+		Tcl_Obj *buffer;
+		buffer = Tcl_NewIntObj(t);
+		Tcl_AppendResult(interp, "line ",Tcl_GetStringFromObj(buffer,NULL) ," out of range", NULL);
+		Tcl_DecrRefCount(buffer);
 		return TCL_ERROR;
 	}
 	if (f >= nfields) {
-		sprintf(buffer,"%d",f);
-		Tcl_AppendResult(interp, "field ",buffer ," out of range", NULL);
+		Tcl_Obj *buffer;
+		buffer = Tcl_NewIntObj(t);
+		Tcl_AppendResult(interp, "field ",Tcl_GetStringFromObj(buffer,NULL) ," out of range", NULL);
+		Tcl_DecrRefCount(buffer);
 		return TCL_ERROR;
 	}
 	switch (fetch_option) {
@@ -305,3 +308,9 @@ int dbi_Postgresql_Create(
 	return TCL_OK;
 }
 
+int Dbi_Postgresql_Init(interp)
+	Tcl_Interp *interp;		/* Interpreter to add extra commands */
+{
+	dbi_CreateType(interp,"postgresql",dbi_Postgresql_Create);
+	return TCL_OK;
+}

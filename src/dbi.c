@@ -40,7 +40,7 @@ int dbi_DbObjCmd(
 		if (error) {return TCL_ERROR;}
 		return TCL_OK;
 	} else	if ((cmdlen == 4)&&(strncmp(cmd,"exec",4) == 0)) {
-		Tcl_Obj *temp, *nullvalue = NULL;
+		Tcl_Obj *temp, *nullvalue = NULL, *command = NULL;
 		char *string;
 		int usefetch = 0;
 		int objn,stringlen;
@@ -49,6 +49,7 @@ int dbi_DbObjCmd(
 			return TCL_ERROR;
 		}
 		i = 2;
+		db->respos = -1;
 		while (i < objc) {
 			string = Tcl_GetStringFromObj(objv[i],&stringlen);
 			if (string[0] != '-') break;
@@ -59,6 +60,15 @@ int dbi_DbObjCmd(
 				}
 				usefetch = 1;
 				db->respos = 0;
+			} else if ((stringlen==8)&&(strncmp(string,"-command",8)==0)) {
+				i++;
+				if (i == objc) {
+					Tcl_AppendResult(interp,"no value given for option \"-command\"",NULL);
+					return TCL_ERROR;
+				}
+				Tcl_AppendResult(interp,db->type, "-command not supported yet",NULL);
+				return TCL_ERROR;
+				command = objv[i];
 			} else if ((stringlen==10)&&(strncmp(string,"-nullvalue",10)==0)) {
 				i++;
 				if (i == objc) {
@@ -75,6 +85,9 @@ int dbi_DbObjCmd(
 		if (i != (objc-1)) {
 			Tcl_WrongNumArgs(interp, 2, objv, "?options? command");
 			return TCL_ERROR;
+		}
+		if (command != NULL) {
+			usefetch = 1;
 		}
 		error = db->exec(interp,db,objv[objc-1],usefetch,nullvalue);
 		if (error) {return TCL_ERROR;}
@@ -104,6 +117,9 @@ int dbi_DbObjCmd(
 				nullvalue = objv[i];
 			} else if ((stringlen==6)&&(strncmp(string,"-lines",6)==0)) {
 				fetch_option = DBI_FETCH_LINES;
+			} else if ((stringlen==8)&&(strncmp(string,"-current",8)==0)) {
+				Tcl_SetObjResult(interp, Tcl_NewIntObj(db->respos));
+				return TCL_OK;
 			} else if ((stringlen==7)&&(strncmp(string,"-fields",7)==0)) {
 				fetch_option = DBI_FETCH_FIELDS;
 			} else if ((stringlen==6)&&(strncmp(string,"-clear",6)==0)) {
@@ -128,6 +144,13 @@ int dbi_DbObjCmd(
 		}
 		if (tuple != NULL) {
 			error = Tcl_GetIntFromObj(interp,tuple,&t);
+			if (t < 0) {
+				Tcl_Obj *buffer;
+				buffer = Tcl_NewIntObj(t);
+				Tcl_AppendResult(interp, "line ",Tcl_GetStringFromObj(buffer,NULL) ," out of range", NULL);
+				Tcl_DecrRefCount(buffer);
+				return TCL_ERROR;
+			}
 			if (error) {return TCL_ERROR;}
 			db->respos = t;
 		} else {
