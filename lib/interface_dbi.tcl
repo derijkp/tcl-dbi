@@ -492,14 +492,14 @@ interface::test {table info} {
 interface::test {table info 2} {
 	array set a [$object info table types]
 	set result ""
-	array set trans {doubleprecision double}
+	array set trans {doubleprecision double char varchar smallint integer}
 	foreach name [lsort [array names a type,*]] {
 		set type $a($name)
 		if {[info exists trans($type)]} {set type $trans($type)}
 		lappend result $type
 	}
 	set result
-} {char double date float integer smallint time timestamp varchar}
+} {varchar double date float integer integer time timestamp varchar}
 
 interface::test {info views} {
 	$object info views

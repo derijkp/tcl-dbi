@@ -6,8 +6,10 @@
 # element name is the name of a command and the value is
 # a script that loads the command.
 
-set auto_index(::dbi::init) [list source [file join $dir init.tcl]]
 set auto_index(::dbi::info) [list source [file join $dir init.tcl]]
-set auto_index(tbledit) [list source [file join $dir tbledit.tcl]]
 set auto_index(::interfaces::dbi_admin-1.0) [list source [file join $dir interface_dbi_admin.tcl]]
+set auto_index(::package::architecture) [list source [file join $dir package.tcl]]
+set auto_index(::package::init) [list source [file join $dir package.tcl]]
 set auto_index(::interfaces::dbi-1.0) [list source [file join $dir interface_dbi.tcl]]
+set auto_index(::dbi::setup) [list source [file join $dir interface_dbi.tcl]]
+set auto_index(tbledit) [list source [file join $dir tbledit.tcl]]

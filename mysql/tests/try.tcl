@@ -30,13 +30,13 @@ array set opt [subst {
 	-object2 $object2
 }]
 
+catch {interfaces::dbi-1.0 doc}
 ::dbi::setup
 ::dbi::opendb
 ::dbi::cleandb
 ::dbi::createdb
 ::dbi::filldb
 
-interface::test {parameters with comments and literals} {
-	$object exec {select "id",'?' /* selecting what ? */ from "person" where "name" = ? and "score" = ?} {De Rijk} 19.5
-} {{pdr ?}}
-
+interface::test {error: select "try" from "person"} {
+	$object exec {select "try" from "person"}
+} {* while executing command: "select "try" from "person""} error match

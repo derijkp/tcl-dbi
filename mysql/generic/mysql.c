@@ -70,7 +70,7 @@ int dbi_Mysql_Open(
 	Tcl_Obj *objv[]
 )
 {
-	static char *switches[] = {"-user","-password","-host","-ssl", (char *) NULL};
+	const char *switches[] = {"-user","-password","-host","-ssl", (char *) NULL};
 	char *host=NULL,*user=NULL,*password=NULL;
 	unsigned int client_flag = 0;
 	int len,i,index;
@@ -372,13 +372,13 @@ int dbi_Mysql_Fetch(
 	Tcl_Obj *tuple = NULL, *field = NULL, *nullvalue = NULL, *line = NULL;
 	int fetch_option,ituple=-1,ifield=-1;
 	int error;
-    static char *subCmds[] = {
+    const char *subCmds[] = {
 		 "data", "lines", "pos", "fields", "isnull", "array",
 		(char *) NULL};
     enum ISubCmdIdx {
 		Data, Lines, Pos, Fields, Isnull, Array
     };
-    static char *switches[] = {
+    const char *switches[] = {
 		"-nullvalue",
 		(char *) NULL};
     enum switchesIdx {
@@ -592,25 +592,27 @@ int dbi_Mysql_ParseStatement(
 	int *parsedstatement[],
 	int *resultsize)
 {
-	int *result;
+	int *result = NULL;
 	int pos=0;
 	int i;
-	result = (int *)Tcl_Alloc(sizeof(int));
+	result = (int *)Tcl_Alloc(2*sizeof(int));
 	for (i=0 ; i < len ; i++) {
 		if (src[i] == '/') {
 			i++;
 			if (i == len) break;
 			/* C style comment */
 			if (src[i] == '*') {
-				while (i<len) {
+				while (i < len) {
 					i++;
+					if (i == len) break;
 					if ((src[i] == '*')&&(src[i+1] == '/')) break;
 				}
 			}
 			/* C++ style comment */
 			if (src[i] == '/') {
-				while (i<len) {
+				while (i < len) {
 					i++;
+					if (i == len) break;
 					if ((src[i] == '\n')||(src[i] == '/')) break;
 				}
 			}
@@ -618,10 +620,12 @@ int dbi_Mysql_ParseStatement(
 			char delim = src[i];
 			/* literal */
 			if (src[i] == delim) {
-				while (i<len) {
+				while (i < len) {
 					i++;
+					if (i == len) break;
 					if (src[i] == '\\') {
 						i++;
+						if (i == len) break;
 					} else if (src[i] == delim) break;
 				}
 			}
@@ -680,7 +684,6 @@ int dbi_Mysql_SplitSQL(
 			prevline = i+1;
 		} else if ((cmdstring[i] == ';')||(i == cmdlen)) {
 			len = i - start;
-			if (len == 0) break;
 			while (prevline <= i) {
 				if ((cmdstring[prevline] != ' ')&&(cmdstring[prevline] != '\n')&&(cmdstring[prevline] != '\t')) break;
 				prevline++;
@@ -737,53 +740,57 @@ int dbi_Mysql_SplitSQL(
 
 int dbi_Mysql_removequotes(
 	Tcl_Interp *interp,
+	char *tempstring,
 	char *cmdstring,
 	int *cmdlen)
 {
 	int i,to,len = *cmdlen;
 	to = 0;
 	for (i=0 ; i < len ; i++) {
-		if (cmdstring[i] == '/') {
+		if (tempstring[i] == '/') {
 			i++;
 			if (i == len) break;
 			/* C style comment */
-			if (cmdstring[i] == '*') {
-				while (i<len) {
+			if (tempstring[i] == '*') {
+				while (i < len) {
 					i++;
-					if ((cmdstring[i] == '*')&&(cmdstring[i+1] == '/')) break;
+					if (i == len) break;
+					if ((tempstring[i] == '*')&&(tempstring[i+1] == '/')) break;
 				}
+				i += 2;
 			}
 			/* C++ style comment */
-			if (cmdstring[i] == '/') {
-				while (i<len) {
+			if (tempstring[i] == '/') {
+				while (i < len) {
 					i++;
-					if ((cmdstring[i] == '\n')||(cmdstring[i] == '/')) break;
+					if (i == len) break;
+					if ((tempstring[i] == '\n')||(tempstring[i] == '/')) break;
 				}
 			}
-		} else if (cmdstring[i] == '\'') {
-			char delim = cmdstring[i];
+		} else if (tempstring[i] == '\'') {
+			char delim = tempstring[i];
 			/* literal */
-			if (cmdstring[i] == delim) {
-				if (to != i) {cmdstring[to++] = cmdstring[i];}
-				while (i<len) {
+			if (tempstring[i] == delim) {
+				cmdstring[to++] = tempstring[i];
+				while (i < len) {
 					i++;
-					if (cmdstring[i] == '\\') {
+					if (i == len) break;
+					if (tempstring[i] == '\\') {
 						i++;
-					} else if (cmdstring[i] == delim) {
+						if (i == len) break;
+					} else if (tempstring[i] == delim) {
 						break;
 					}
-					if (to != i) {cmdstring[to++] = cmdstring[i];}
+					cmdstring[to++] = tempstring[i];
 				}
 			}
-		} else if (cmdstring[i] == '\"') {
+		} else if (tempstring[i] == '\"') {
 			continue;
 		}
-		if (to != i) {
-			cmdstring[to] = cmdstring[i];
-		}
+		cmdstring[to] = tempstring[i];
 		to++;
 	}
-	cmdstring[to++] = '\0';
+	cmdstring[to] = '\0';
 	*cmdlen = to ;
 	return TCL_OK;
 }
@@ -801,7 +808,7 @@ int dbi_Mysql_InsertParam(
 	int *resultlen
 )
 {
-	char *sqlstring,*cursqlstring,*argstring;
+	char *sqlstring = NULL,*cursqlstring,*argstring;
 	int i,size,prvsrcpos,arglen;
 	/* calculate size of buffer needed */
 	size = cmdlen;
@@ -812,7 +819,7 @@ int dbi_Mysql_InsertParam(
 		/* add 2 for quotes around the value, and 4 more as a reserve for quotes in the value */
 		size += arglen+6;
 	}
-	sqlstring = (char *)Tcl_Alloc(size*sizeof(char));
+	sqlstring = (char *)Tcl_Alloc((size+1)*sizeof(char));
 	cursqlstring = sqlstring;
 	prvsrcpos = 0;
 	/* put sql with inserted parameters into buffer */
@@ -857,7 +864,6 @@ int dbi_Mysql_InsertParam(
 	Tcl_ResetResult(interp);
 	strncpy(cursqlstring,cmdstring+prvsrcpos,cmdlen-prvsrcpos);
 	cursqlstring[cmdlen-prvsrcpos] = '\0';
-	Tcl_Free((char *)parsedstatement);
 	*result = sqlstring;
 	if (resultlen != NULL) {*resultlen = cursqlstring-sqlstring+cmdlen-prvsrcpos;}
 	return TCL_OK;
@@ -875,7 +881,7 @@ int dbi_Mysql_Exec(
 	char *cmdstring = NULL, *tempstring, **lines = NULL;
 	char *sqlstring = NULL;
 	int *parsedstatement = NULL;
-	int error,cmdlen,num,numargs;
+	int error,cmdlen,templen,num,numargs;
 	int flat, usefetch, cache,*sizes = NULL;
 	flat = flags & EXEC_FLAT;
 	usefetch = flags & EXEC_USEFETCH;
@@ -884,11 +890,15 @@ int dbi_Mysql_Exec(
 		Tcl_AppendResult(interp,"dbi object has no open database, open a connection first", NULL);
 		return TCL_ERROR;
 	}
-	tempstring = Tcl_GetStringFromObj(cmd,&cmdlen);
+	tempstring = Tcl_GetStringFromObj(cmd,&templen);
+	cmdlen = templen;
 	if (cmdlen == 0) {return TCL_OK;}
-	cmdstring = (char *)Tcl_Alloc(cmdlen*sizeof(char));
-	strncpy(cmdstring,tempstring,cmdlen);
-	error = dbi_Mysql_removequotes(interp,cmdstring,&cmdlen);
+	cmdstring = (char *)Tcl_Alloc((cmdlen+1)*sizeof(char));
+	error = dbi_Mysql_removequotes(interp,tempstring,cmdstring,&cmdlen);
+/*
+fprintf(stdout,"sql:%s\n",tempstring);fflush(stdout);
+fprintf(stdout,"->sql:%s\n",cmdstring);fflush(stdout);
+*/
 	if (error) {goto error;}
 	dbi_Mysql_Clearresult(dbdata);
 	error = dbi_Mysql_SplitSQL(interp,cmdstring,cmdlen,&lines,&sizes);
@@ -899,7 +909,7 @@ int dbi_Mysql_Exec(
 			Tcl_Free((char *)parsedstatement);parsedstatement=NULL;
 			Tcl_Free((char *)cmdstring);cmdstring=NULL;
 			Tcl_AppendResult(interp,"wrong number of arguments given to exec", NULL);
-			Tcl_AppendResult(interp," while executing command: \"",	cmdstring, "\"", NULL);
+			Tcl_AppendResult(interp," while executing command: \"",	tempstring, "\"", NULL);
 			return TCL_ERROR;
 		}
 		if (numargs > 0) {
@@ -907,13 +917,13 @@ int dbi_Mysql_Exec(
 			int sqlstringlen,nulllen;
 			if (nullvalue == NULL) {
 				nullstring = NULL; nulllen = 0;
-				dbdata->nullvalue = 	dbdata->defnullvalue;
+				dbdata->nullvalue = dbdata->defnullvalue;
 			} else {
 				nullstring = Tcl_GetStringFromObj(nullvalue,&nulllen);
 				dbdata->nullvalue = nullvalue;
 			}
 			if (usefetch) {
-				dbdata->nullvalue = 	dbdata->defnullvalue;
+				dbdata->nullvalue = dbdata->defnullvalue;
 			}
 			error = dbi_Mysql_InsertParam(interp,cmdstring,cmdlen,parsedstatement,
 				nullstring,nulllen,objv,objc,&sqlstring,&sqlstringlen);
@@ -961,11 +971,12 @@ int dbi_Mysql_Exec(
 			goto error;
 		}
 	}
+	if (cmdstring != NULL) Tcl_Free((char *)cmdstring);
 	return TCL_OK;
 	error:
 		{
 		Tcl_Obj *temp;
-		temp = Tcl_NewStringObj(cmdstring,cmdlen);
+		temp = Tcl_NewStringObj(tempstring,templen);
 		Tcl_AppendResult(interp," while executing command: \"",	Tcl_GetStringFromObj(temp,NULL), "\"", NULL);
 		Tcl_DecrRefCount(temp);
 		if (lines != NULL) {Tcl_Free((char *)lines);}
@@ -981,7 +992,7 @@ int dbi_Mysql_Supports(
 	dbi_Mysql_Data *dbdata,
 	Tcl_Obj *keyword)
 {
-	static char *keywords[] = {
+	const char *keywords[] = {
 		"lines","backfetch","serials","sharedserials","blobparams","blobids",
 		"transactions","sharedtransactions","foreignkeys","checks","views",
 		"columnperm","roles","domains","permissions",
@@ -997,7 +1008,7 @@ int dbi_Mysql_Supports(
 	};
 	int error,index;
 	if (keyword == NULL) {
-		char **keyword = keywords;
+		char **keyword = (char **)keywords;
 		int *value = supports;
 		int index = 0;
 		while (1) {
@@ -1095,7 +1106,7 @@ int dbi_Mysql_Serial(
 	Tcl_Obj **objv)
 {
 	int error,index;
-    static char *subCmds[] = {
+    const char *subCmds[] = {
 		"add", "delete", "set", "next", "share",
 		(char *) NULL};
     enum ISubCmdIdx {
@@ -1216,7 +1227,7 @@ int dbi_Mysql_Interface(
 	Tcl_Obj *objv[])
 {
 	int i;
-    static char *interfaces[] = {
+    const char *interfaces[] = {
 		"dbi", DBI_VERSION, "dbi_admin", DBI_VERSION,
 		(char *) NULL};
 	if ((objc < 2)||(objc > 3)) {
@@ -1257,7 +1268,7 @@ int Dbi_mysql_DbObjCmd(
 {
 	dbi_Mysql_Data *dbdata = (dbi_Mysql_Data *)clientdata;
 	int error=TCL_OK,i,index;
-    static char *subCmds[] = {
+    const char *subCmds[] = {
 		"interface","open", "exec", "fetch", "close",
 		"info", "tables","fields",
 		"begin", "commit", "rollback",
@@ -1344,7 +1355,7 @@ int Dbi_mysql_DbObjCmd(
     switch (index) {
 	case Exec:
 		{
-	    static char *switches[] = {"-usefetch", "-nullvalue", "-flat","-cache", (char *) NULL};
+	    const char *switches[] = {"-usefetch", "-nullvalue", "-flat","-cache", (char *) NULL};
 	    enum switchesIdx {Usefetch, Nullvalue, Flat, Cache};
 		Tcl_Obj *nullvalue = NULL;
 		char *string;
