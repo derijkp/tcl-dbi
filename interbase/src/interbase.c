@@ -2034,10 +2034,10 @@ int dbi_Interbase_Supports(
 	Tcl_Obj *keyword)
 {
 	static char *keywords[] = {
-		"columnperm","roles","domains","blobparams","blobids","sharedtransactions","foreignkeys","checks","permissions",
+		"columnperm","roles","domains","blobparams","blobids","sharedtransactions","foreignkeys","checks","permissions","sharedserials",
 		(char *) NULL};
 	enum keywordsIdx {
-		Columnperm, Roles, Domains, Blobparams, Blobids, Sharedtransactions, Foreignkeys,Checks,Permissions
+		Columnperm, Roles, Domains, Blobparams, Blobids, Sharedtransactions, Foreignkeys,Checks,Permissions,Sharedserials
 	};
 	int error,index;
 	if (keyword == NULL) {

@@ -609,10 +609,10 @@ int dbi_Sqlite_Supports(
 	Tcl_Obj *keyword)
 {
 	static char *keywords[] = {
-		"lines","sharedtransactions","backfetch",
+		"lines","sharedtransactions","backfetch","sharedserials",
 		(char *) NULL};
 	enum keywordsIdx {
-		Lines,Sharedtransactions,Backfetch
+		Lines,Sharedtransactions,Backfetch,Sharedserials
 	};
 	int error,index;
 	if (keyword == NULL) {

@@ -181,7 +181,7 @@ proc ::dbi::opendb {} {
 ::dbi::opendb
 ::dbi::initdb
 
-$interface::test {autocommit error} {
+interface::test {autocommit error} {
 	$object exec {delete from "location";}
 	$object exec {delete from "person";}
 	set r1 [$object exec {select "first_name" from "person";}]
@@ -247,3 +247,15 @@ interface::test {transactions: sql error in exec within transaction, seperate ca
 #puts "tests done"
 #$object close
 interface::testsummarize
+
+if 0 {
+$object serial delete address id
+$object serial add address id
+
+	$object exec {insert into "types" ("d") values (24.0)}
+
+$object exec {select * from "types"}
+$object exec {select * from _dbi_serials}
+
+
+}

@@ -12,7 +12,7 @@
 # See the file "license.terms" for information on usage and redistribution
 # of this file, and for a DISCLAIMER OF ALL WARRANTIES.
 #
-# RCS: @(#) $Id: Makefile 1.5.1.1 Fri, 04 Jan 2002 17:58:38 +0100 peter $
+# RCS: @(#) $Id: Makefile 1.1 Tue, 11 Jun 2002 15:21:43 +0200 peter $
 
 #========================================================================
 # Edit the following few lines when writing a new extension
@@ -24,7 +24,7 @@
 # library that we are building.
 #========================================================================
 
-lib_BINARIES=$(dbi_odbc_LIB_FILE)
+lib_BINARIES=$(dbi_sqlite_LIB_FILE)
 bin_BINARIES=
 BINARIES=$(lib_BINARIES) $(bin_BINARIES)
 SOURCE_DIR=$(srcdir)/../src
@@ -34,8 +34,8 @@ SOURCE_DIR=$(srcdir)/../src
 # This will be used when a dist target is added to the Makefile.
 #========================================================================
 
-dbi_odbc_SOURCES = $(SOURCE_DIR)/odbc.c $(SOURCE_DIR)/odbc_result.c
-SOURCES = $(dbi_odbc_SOURCES)
+dbi_sqlite_SOURCES = $(SOURCE_DIR)/sqlite.c
+SOURCES = $(dbi_sqlite_SOURCES)
 
 #========================================================================
 # Enumerate the names of the object files included in this package.
@@ -45,8 +45,8 @@ SOURCES = $(dbi_odbc_SOURCES)
 #
 #========================================================================
 
-dbi_odbc_OBJECTS = odbc.$(OBJEXT) odbc_result.$(OBJEXT)
-OBJECTS = $(dbi_odbc_OBJECTS)
+dbi_sqlite_OBJECTS = sqlite.$(OBJEXT)
+OBJECTS = $(dbi_sqlite_OBJECTS)
 
 #========================================================================
 # The substitution of "exampleA_LIB_FILE" into the variable name below
@@ -56,14 +56,14 @@ OBJECTS = $(dbi_odbc_OBJECTS)
 # objects and the library itself in a platform-independent manner.
 #========================================================================
 
-dbi_odbc_LIB_FILE = libdbi_odbc0.8.so
-$(dbi_odbc_LIB_FILE)_OBJECTS = $(dbi_odbc_OBJECTS)
+dbi_sqlite_LIB_FILE = libdbi_sqlite0.8.so
+$(dbi_sqlite_LIB_FILE)_OBJECTS = $(dbi_sqlite_OBJECTS)
 
 #========================================================================
 # This is a list of header files to be installed
 #========================================================================
 
-GENERIC_HDRS=
+GENERIC_HDRS=$(SOURCE_DIR)/sqlite.h
 
 #========================================================================
 # Add additional lines to handle any additional AC_SUBST cases that
@@ -71,8 +71,8 @@ GENERIC_HDRS=
 #========================================================================
 
 SAMPLE_NEW_VAR=@SAMPLE_NEW_VAR@
-ODBC_INCLUDE=-I"/usr//include"
-ODBC_LIB=-L"/usr/lib" -lodbc
+SQLITE_INCLUDE=-I"/usr/local/include"
+SQLITE_LIB=-L"/usr/local/lib" -lsqlite
 
 #========================================================================
 # Nothing of the variables below this line need to be changed.  Please
@@ -103,10 +103,10 @@ tcllibdir = ${prefix}/lib
 
 DESTDIR =
 
-pkgdatadir = $(datadir)/dbi_odbc0.8
-pkglibdir = $(libdir)/dbi_odbc0.8
-pkgtcllibdir = $(tcllibdir)/dbi_odbc0.8
-pkgincludedir = $(includedir)/dbi_odbc0.8
+pkgdatadir = $(datadir)/dbi_sqlite0.8
+pkglibdir = $(libdir)/dbi_sqlite0.8
+pkgtcllibdir = $(tcllibdir)/dbi_sqlite0.8
+pkgincludedir = $(includedir)/dbi_sqlite0.8
 
 top_builddir = .
 
@@ -124,10 +124,10 @@ NORMAL_UNINSTALL = :
 PRE_UNINSTALL = :
 POST_UNINSTALL = :
 
-PACKAGE = dbi_odbc
+PACKAGE = dbi_sqlite
 VERSION = 0.8
 CC = cc
-CFLAGS_DEBUG = -g
+CFLAGS_DEBUG = -g -Wall
 CFLAGS_DEFAULT = -O -D__NO_STRING_INLINES -D__NO_MATH_INLINES
 CFLAGS_OPTIMIZE = -O -D__NO_STRING_INLINES -D__NO_MATH_INLINES
 CLEANFILES = extratcl
@@ -151,7 +151,7 @@ TCL_EXTRA_CFLAGS =
 TCL_LD_FLAGS = -rdynamic
 TCL_LIBS = -ldl  -lieee -lm
 TCL_SHLIB_LD_LIBS = ${LIBS}
-TCL_SRC_DIR = /home/vince/rpm/BUILD/tcltk-8.3.2/tcl8.3.2
+TCL_SRC_DIR = /home/snailtalk/RPM/BUILD/tcltk-8.3.3/tcl8.3.3
 TCL_DBGX = 
 TCL_STUB_LIB_FILE = libtclstub8.3${TCL_DBGX}.a
 TCL_STUB_LIB_SPEC = -L/usr/lib -ltclstub8.3${TCL_DBGX}
@@ -169,9 +169,9 @@ TCL_LIB_SPEC = -L/usr/lib -ltcl8.3${TCL_DBGX}
 
 AUTOCONF = autoconf
 
-LDFLAGS = $(LDFLAGS_DEFAULT)
+LDFLAGS = $(LDFLAGS_DEBUG)
 
-INCLUDES = -I"/usr//include" $(ODBC_INCLUDE)
+INCLUDES = -I"/usr//include" $(SQLITE_INCLUDE)
 
 EXTRA_CFLAGS = $(TCL_DEFS) $(PROTO_FLAGS) $(SECURITY_FLAGS) $(MEM_DEBUG_FLAGS) $(KEYSYM_FLAGS) $(NO_DEPRECATED_FLAGS) $(TCL_EXTRA_CFLAGS)
 
@@ -185,7 +185,7 @@ CONFIG_CLEAN_FILES = mkIndex.tcl
 CPPFLAGS = 
 LIBS = 
 AR = ar
-CFLAGS = ${CFLAGS_DEFAULT} ${CFLAGS_WARNING} ${SHLIB_CFLAGS}
+CFLAGS = ${CFLAGS_DEBUG} ${CFLAGS_WARNING} ${SHLIB_CFLAGS}
 COMPILE = $(CC) $(DEFS) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(AM_CFLAGS) $(CFLAGS)
 CCLD = $(CC)
 LINK = $(CCLD) $(AM_CFLAGS) $(CFLAGS) $(LDFLAGS) -o $@
@@ -214,6 +214,9 @@ all: binaries libraries doc
 binaries: $(BINARIES)
 
 libraries:
+	( echo \
+	  auto_mkindex $(srcdir)/../lib \;\
+	  exit; ) | $(TCLSH_PROG)
 
 doc:
 
@@ -239,13 +242,13 @@ install-libraries: libraries
 	echo "Adapting pkgIndex.tcl"
 	$(TCLSH_PROG) $(srcdir)/install-replace.tcl \
 		$(srcdir)/../pkgIndex.tcl $(DESTDIR)$(pkglibdir)/pkgIndex.tcl \
-		@TCLLIBDIR@ "$(DESTDIR)$(tcllibdir)/dbi_odbc0.8" \
+		@TCLLIBDIR@ "$(DESTDIR)$(tcllibdir)/dbi_sqlite0.8" \
 	echo "Adapting init.tcl"
 	$(TCLSH_PROG) $(srcdir)/install-replace.tcl \
 		$(srcdir)/../lib/init.tcl $(DESTDIR)$(pkgtcllibdir)/lib/init.tcl \
-		@LIB_LIBRARY@ "$(dbi_odbc_LIB_FILE)" \
+		@LIB_LIBRARY@ "$(dbi_sqlite_LIB_FILE)" \
 		@LIBDIR@ "$(DESTDIR)$(libdir)" \
-		@TCLLIBDIR@ "$(DESTDIR)$(tcllibdir)/dbi_odbc0.8" \
+		@TCLLIBDIR@ "$(DESTDIR)$(tcllibdir)/dbi_sqlite0.8" \
 		@DATADIR@ "$(DESTDIR)$(datadir)" \
 		@BINDIR@ "$(DESTDIR)$(bindir)"
 
@@ -277,7 +280,6 @@ test: binaries libraries
 	PATH="$(BUILD_DIR)":"$(TCL_BIN_DIR)":"$(PATH)" \
 	TCL_TEST_DIR=$(srcdir)/../tests \
 	TCL_TEST_ONLYERRORS=1 \
-	TCL_TEST_DBI_BACKEND= \
 	$(TCLSH_PROG) `echo $(srcdir)/../tests/all.tcl` $(TCLTESTARGS)
 
 depend:
@@ -296,13 +298,10 @@ depend:
 # name from "exampleA" to your package's name.
 #========================================================================
 
-$(dbi_odbc_LIB_FILE): $(dbi_odbc_OBJECTS)
-	-rm -f $(dbi_odbc_LIB_FILE)
-	${SHLIB_LD} -o $@ $($@_OBJECTS) ${SHLIB_LDFLAGS} ${SHLIB_LD_LIBS} $(ODBC_LIB)
-	$(RANLIB) $(dbi_odbc_LIB_FILE)
-
-odbctcl: tclAppInit.$(OBJEXT) $(dbi_odbc_OBJECTS)
-	$(CC) $(CC_SWITCHES) -o odbctcl tclAppInit.$(OBJEXT) $(dbi_odbc_OBJECTS) ${SHLIB_LDFLAGS} ${SHLIB_LD_LIBS} -lm $(ODBC_LIB)
+$(dbi_sqlite_LIB_FILE): $(dbi_sqlite_OBJECTS)
+	-rm -f $(dbi_sqlite_LIB_FILE)
+	${SHLIB_LD} -o $@ $($@_OBJECTS) ${SHLIB_LDFLAGS} ${SHLIB_LD_LIBS} $(SQLITE_LIB)
+	$(RANLIB) $(dbi_sqlite_LIB_FILE)
 
 #========================================================================
 # We need to enumerate the list of .c to .o lines here.
@@ -318,14 +317,8 @@ odbctcl: tclAppInit.$(OBJEXT) $(dbi_odbc_OBJECTS)
 # 	$(COMPILE) -c `echo $(srcdir)/src/win/exampleA.c` -o $@
 #========================================================================
 
-odbc.$(OBJEXT): $(SOURCE_DIR)/odbc.c
-	$(COMPILE) -c `echo $(SOURCE_DIR)/odbc.c` -o $@
-
-odbc_result.$(OBJEXT): $(SOURCE_DIR)/odbc_result.c
-	$(COMPILE) -c `echo $(SOURCE_DIR)/odbc_result.c` -o $@
-
-tclAppInit.$(OBJEXT): $(SOURCE_DIR)/tclAppInit.c
-	$(COMPILE) -c `echo $(SOURCE_DIR)/tclAppInit.c` -o $@
+sqlite.$(OBJEXT): $(SOURCE_DIR)/sqlite.c
+	$(COMPILE) -c `echo $(SOURCE_DIR)/sqlite.c` -o $@
 
 #========================================================================
 # End of user-definable section

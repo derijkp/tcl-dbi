@@ -10,7 +10,7 @@ namespace eval dbi::sqlite {}
 # $Format: "set ::dbi::sqlite::version 0.$ProjectMajorVersion$"$
 set ::dbi::sqlite::version 0.8
 # $Format: "set ::dbi::sqlite::patchlevel $ProjectMinorVersion$"$
-set ::dbi::sqlite::patchlevel 6
+set ::dbi::sqlite::patchlevel 7
 package provide dbi_sqlite $::dbi::sqlite::version
 
 proc ::dbi::sqlite::init {name testcmd} {
@@ -162,7 +162,7 @@ proc ::dbi::sqlite::info {db args} {
 				set table [lindex $args 1]
 				set fields {}
 				set result ""
-				foreach {pos name type nullable default} [$db exec -flat "pragma table_info($table)"] {
+				foreach {pos name type nullable default} [$db exec -flat "pragma table_info(\"$table\")"] {
 					lappend fields $name
 					if {[regexp {^(.*)\(([0-9]+)\)$} $type temp type size]} {
 						lappend result type,$name $type
@@ -174,7 +174,7 @@ proc ::dbi::sqlite::info {db args} {
 					} else {
 						lappend result type,$name $type
 					}
-					if {!$nullable} {
+					if {$nullable} {
 						lappend result notnull,$name 1
 					}
 					if {![string equal $default {}]} {
@@ -249,43 +249,67 @@ proc ::dbi::sqlite::serial_basic {db table field} {
 	}
 }
 
+proc ::dbi::sqlite::serial_shared {db table field} {
+	upvar #0 ::dbi::sqlite::shared shared
+	if {![::info exists shared($table,$field)]} {
+		if {[catch {
+			$db exec [subst {select sharedtable,sharedfield from _dbi_serials where stable = '$table' and sfield = '$field'}]
+		} shared($table,$field)]} {
+			return -code error "no serial on field \"$field\" in table \"$table\""
+		}
+	}
+	return $shared($table,$field)
+}
+
+proc ::dbi::sqlite::serial_add_trigger {db table field sharedtable sharedfield} {
+	set name _dbi_trigger_${table}_${field}
+	set fields [$db fields $table]
+	set pos [lsearch $fields $field]
+	set fields [lreplace $fields $pos $pos]
+	set sql [subst {
+		create trigger $name before insert on $table when new."$field" is null
+		begin
+			update _dbi_serials set serial = serial+1  where stable = '$sharedtable' and sfield = '$sharedfield';
+			insert into "$table" ("$field","[join $fields \",\"]")
+				values ((select serial from _dbi_serials where stable = '$sharedtable' and sfield = '$sharedfield'),
+				new."[join $fields \",new.\"]");
+			select case when 1 then raise(ignore) end;
+		end;
+	}]
+	$db exec $sql
+}
+
 proc ::dbi::sqlite::serial_add {db table field args} {
 	set db [privatedb $db]
-	serial_basic $db $table $field
+	::dbi::sqlite::serial_basic $db $table $field
 	if [llength $args] {set current [lindex $args 0]} else {set current 0}
+	set serial [$db exec -flat {select "serial" from _dbi_serials where "stable" = ? and "sfield" = ?} $table $field]
+	if {[llength $serial]} {
+		return -code error "serial already exists on field \"$field\" in table \"$table\""
+	}
 	$db exec {insert into _dbi_serials (stable,sfield,serial) values (?,?,?)} $table $field $current
-#	set name _dbi_trigger_${table}_${field}
-#	set fields [$db fields $table]
-#	set pos [lsearch $fields $field]
-#	set fields [lreplace $fields $pos $pos]
-#	set sql [subst {
-#		create trigger $name after insert on $table
-#		begin
-#			delete from "$table" where "rowid" = last_insert_rowid();
-#			update _dbi_serials set serial = serial+1  where stable = '$table' and sfield = '$field';
-#			insert into "$table" ("$field","[join $fields \",\"]")
-#			values (coalesce(new."$field",(select serial from _dbi_serials where stable = '$table' and sfield = '$field')),
-#			new."[join $fields \",new.\"]");
-#		end;
-#	}]
-#	$db exec $sql
+	::dbi::sqlite::serial_add_trigger $db $table $field $table $field
 }
 
 proc ::dbi::sqlite::serial_share {db table field stable sfield} {
+	upvar #0 ::dbi::sqlite::shared shared
 	set db [privatedb $db]
+	serial_basic $db $table $field
+	$db exec {insert into _dbi_serials (stable,sfield,serial,sharedtable,sharedfield) values (?,?,?,?,?)} $table $field -1 $stable $sfield
+	::dbi::sqlite::serial_add_trigger $db $table $field $stable $sfield
 }
 
 proc ::dbi::sqlite::serial_delete {db table field} {
 	set db [privatedb $db]
 	serial_basic $db $table $field
 	$db exec {delete from _dbi_serials where stable = ? and sfield = ?} $table $field
-#	set name _dbi_trigger_${table}_${field}
-#	catch {$db exec [subst {drop trigger $name}]}
+	set name _dbi_trigger_${table}_${field}
+	catch {$db exec [subst {drop trigger $name}]}
 }
 
 proc ::dbi::sqlite::serial_set {db table field args} {
 	set db [privatedb $db]
-	serial_basic $db $table $field
+	foreach {stable sfield} [::dbi::sqlite::serial_shared $db $table $field] break
 	if [llength $args] {
 		$db exec [subst {update _dbi_serials set serial = [lindex $args 0] where stable = '$table' and sfield = '$field'}]
 	} else {
@@ -295,7 +319,7 @@ proc ::dbi::sqlite::serial_set {db table field args} {
 
 proc ::dbi::sqlite::serial_next {db table field} {
 	set db [privatedb $db]
-	serial_basic $db $table $field
+	foreach {stable sfield} [::dbi::sqlite::serial_shared $db $table $field] break
 	$db begin
 	set current [$db exec {select serial from _dbi_serials where stable = ? and sfield = ?} $table $field]
 	incr current
