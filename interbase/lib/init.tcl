@@ -10,7 +10,7 @@ namespace eval dbi::interbase {}
 # $Format: "set ::dbi::interbase::version 0.$ProjectMajorVersion$"$
 set ::dbi::interbase::version 0.8
 # $Format: "set ::dbi::interbase::patchlevel $ProjectMinorVersion$"$
-set ::dbi::interbase::patchlevel 3
+set ::dbi::interbase::patchlevel 4
 package provide dbi_interbase $::dbi::interbase::version
 
 proc ::dbi::interbase::init {name testcmd} {
@@ -449,4 +449,15 @@ proc ::dbi::interbase::serial_next {db table field} {
 	set db [privatedb $db]
 	set name srl\$${table}_${field}
 	$db exec "select (gen_id(\"$name\",1)) from rdb\$database"
+}
+
+proc ::dbi::interbase::errorclean {db error} {
+	if {[regexp {^violation of FOREIGN KEY constraint "([^"]+)"} $error temp index]} {
+		foreach  {table field} [::dbi::interbase::index_info $db $index] break
+		regsub {on table} $error [subst {on field "$field" in table}] error
+	} elseif {[regexp {^violation of PRIMARY or UNIQUE KEY constraint "([^"]+)"} $error temp index]} {
+		foreach  {table field} [::dbi::interbase::index_info $db $index] break
+		regsub {on table} $error [subst {on field "$field" in table}] error
+	}
+	return $error
 }

@@ -143,12 +143,37 @@ int dbi_Interbase_Reconnect(
 		return TCL_ERROR;
 }
 
+int dbi_Interbase_TclEval(
+	Tcl_Interp *interp,
+	dbi_Interbase_Data *dbdata,
+	char *cmdstring,
+	int objc,
+	Tcl_Obj **objv)
+{
+	Tcl_Obj *cmd,*dbcmd;
+	int error,i;
+	dbcmd = Tcl_NewObj();
+	Tcl_GetCommandFullName(interp, dbdata->token, dbcmd);
+	cmd = Tcl_NewStringObj(cmdstring,-1);
+	Tcl_IncrRefCount(cmd);
+	error = Tcl_ListObjAppendElement(interp,cmd,dbcmd);
+	if (error) {Tcl_DecrRefCount(cmd);Tcl_DecrRefCount(dbcmd);return error;}
+	for (i = 0 ; i < objc ; i++) {
+		error = Tcl_ListObjAppendElement(interp,cmd,objv[i]);
+		if (error) {Tcl_DecrRefCount(cmd);return error;}
+	}
+	error = Tcl_EvalObj(interp,cmd);
+	Tcl_DecrRefCount(cmd);
+	return error;
+}
+
 int dbi_Interbase_Error(
 	Tcl_Interp *interp,
 	dbi_Interbase_Data *dbdata,
 	char *premsg)
 {
 	ISC_STATUS *status_vector = dbdata->status;
+	Tcl_Obj *errormsg;
 	char msg[512];
 	long SQLCODE;
 	int error;
@@ -157,9 +182,12 @@ int dbi_Interbase_Error(
 	}
 	SQLCODE = isc_sqlcode(status_vector);
 	isc_sql_interprete(SQLCODE, msg, 512);
+	errormsg = Tcl_NewObj();
 	while(isc_interprete(msg + 1, &status_vector)) {
-		Tcl_AppendResult(interp,msg+1," - ", NULL);
+/*		Tcl_AppendResult(interp,msg+1," - ", NULL); */
+		Tcl_AppendStringsToObj(errormsg,msg+1," - ", NULL);
 	}
+	dbi_Interbase_TclEval(interp,dbdata,"::dbi::interbase::errorclean",1,&errormsg);	
 	if (dbdata->cursor_open != 0) {dbi_Interbase_Free_Stmt(dbdata,DSQL_close);}
 	if (SQLCODE == -902) {
 		error = dbi_Interbase_Reconnect(interp,dbdata);
@@ -2334,7 +2362,9 @@ int dbi_Interbase_Destroy(
 {
 	dbi_Interbase_Data *dbdata = (dbi_Interbase_Data *)clientdata;
 	Tcl_DecrRefCount(dbdata->defnullvalue);
-	dbi_Interbase_Close(dbdata);
+	if (dbdata->database != NULL) {
+		dbi_Interbase_Close(dbdata);
+	}
 	Tcl_Free((char *)dbdata);
 	Tcl_DeleteExitHandler((Tcl_ExitProc *)dbi_Interbase_Destroy, clientdata);
 	return TCL_OK;

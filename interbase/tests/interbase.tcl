@@ -16,6 +16,12 @@ set object2 [dbi_interbase]
 interface test dbi_admin-$version $object \
 	-testdb /home/ib/testdbi.gdb
 
+interface::test {destroy without opening a database} {
+	dbi_interbase	db
+	db destroy
+	set a 1
+} 1
+
 array set opt [subst {
 	-testdb /home/ib/testdbi.gdb
 	-user2 PDR
@@ -28,9 +34,23 @@ eval interface test dbi-0.8 $object [array get opt]
 ::dbi::opendb
 ::dbi::initdb
 
+interface::test {foreign key} {
+	$object exec {
+		insert into "location" ("type", "inhabitant", "address") 
+		values ('home',10000,1)
+	}
+} {^violation of FOREIGN KEY constraint ".*" on field "inhabitant" in table "location".*} error regexp
+
+interface::test {primary key} {
+	$object exec {
+		insert into "person" ("id", "first_name") 
+		values ('pdr','peter')
+	}
+} {^violation of PRIMARY or UNIQUE KEY constraint ".*" on field "id" in table "person".*} error regexp
+
 interface::test {interface match} {
-	$object supports
-} {columnperm blobparams roles domains sharedtransactions}
+	lsort [$object supports]
+} {blobids blobparams columnperm domains roles sharedtransactions}
 
 interface::test {transactions via exec} {
 	$object exec {delete from "location";}
