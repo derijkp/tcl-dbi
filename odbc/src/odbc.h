@@ -20,6 +20,18 @@ typedef struct ResultBuffer {
 	char*  strResult;
 } ResultBuffer;
 
+typedef struct odbc_Result {
+	ResultBuffer *buffer;
+	int nfields;
+	int ntuples;
+	int tuple;
+} odbc_Result;
+
+typedef struct ParamBuffer {
+	char*  paramdata;
+	SQLINTEGER arglen;
+} ParamBuffer;
+
 typedef struct dbi_odbc_Data {
 	Tcl_Command token;
 	SQLHDBC hdbc;
@@ -29,18 +41,35 @@ typedef struct dbi_odbc_Data {
 	Tcl_Obj *namespace;
 	Tcl_Obj *dbms_name;
 	Tcl_Obj *dbms_ver;
+	Tcl_Obj *user_name;
 	int supportpos;
 	Tcl_Obj *defnullvalue;
-	ResultBuffer *resultbuffer;
+	odbc_Result result;
 	int autocommit;
 	int trans;
-	int nfields;
-	int ntuples;
-	int tuple;
 } dbi_odbc_Data;
 
 #define DB_OPENCONN(dbdata) (dbdata->hasconn == 1)
 
-void dbi_odbc_error(Tcl_Interp *interp,dbi_odbc_Data *dbdata,long erg,SQLHDBC hdbc,SQLHSTMT hstmt);
+#define CATALOG_SQLColumns 1
+#define CATALOG_SQLPrimaryKeys 2
+#define CATALOG_SQLColumnPrivileges 3
+#define CATALOG_SQLForeignKeys 4
+#define CATALOG_SQLSpecialColumns 5
+#define CATALOG_SQLStatistics 6
+#define CATALOG_SQLTablePrivileges 7
+#define CATALOG_SQLTables 8
+#define CATALOG_SQLProcedures 9
+#define CATALOG_SQLProcedureColumns 10
+
+
+
+void dbi_odbc_error(Tcl_Interp *interp,long erg,SQLHDBC hdbc,SQLHSTMT hstmt);
+int dbi_odbc_initresult(odbc_Result *result);
+int dbi_odbc_bindresult(Tcl_Interp *interp,SQLHSTMT hstmt, odbc_Result *result);
+int dbi_odbc_clearresult(SQLHSTMT hstmt, odbc_Result *result);
+int dbi_odbc_GetOne(Tcl_Interp *interp,SQLHSTMT hstmt, odbc_Result *result,int i,Tcl_Obj **resultPtr);
+int dbi_odbc_GetRow(Tcl_Interp *interp,SQLHSTMT hstmt, odbc_Result *result,Tcl_Obj *nullvalue,Tcl_Obj **resultPtr);
+int dbi_odbc_ToResult(Tcl_Interp *interp,SQLHSTMT hstmt, odbc_Result *result,Tcl_Obj *nullvalue);
 
 EXTERN int dbi_odbc_Init(Tcl_Interp *interp);

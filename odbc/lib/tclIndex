@@ -11,3 +11,4 @@ set auto_index(::dbi::odbc::serial_Interbase_add) [list source [file join $dir s
 set auto_index(::dbi::odbc::serial_Interbase_delete) [list source [file join $dir serial_interbase.tcl]]
 set auto_index(::dbi::odbc::serial_Interbase_set) [list source [file join $dir serial_interbase.tcl]]
 set auto_index(::dbi::odbc::serial_Interbase_next) [list source [file join $dir serial_interbase.tcl]]
+set auto_index(::dbi::odbc_info) [list source [file join $dir info.tcl]]

@@ -292,7 +292,7 @@ int dbi_Postgresql_Exec(
 			Tcl_AppendResult(interp," while executing command: \"",	Tcl_GetStringFromObj(cmd,NULL), "\"", NULL);
 			goto error;
 	}
-	dbdata->respos = 0;
+	dbdata->respos = -1;
 	if (usefetch) {
 		if (dbdata->res != NULL) {
 			PQclear(dbdata->res);
@@ -442,10 +442,12 @@ int dbi_Postgresql_Fetch(
 	}
 	if (ituple != -1) {
 		dbdata->respos = ituple;
+	} else {
+		dbdata->respos++;
 	}
 	if (dbdata->respos >= ntuples) {
 		Tcl_Obj *buffer;
-		buffer = Tcl_NewIntObj(dbdata->respos);
+		buffer = Tcl_NewIntObj(ntuples);
 		Tcl_AppendResult(interp, "line ",Tcl_GetStringFromObj(buffer,NULL) ," out of range", NULL);
 		Tcl_DecrRefCount(buffer);
 		return TCL_ERROR;
@@ -479,7 +481,6 @@ int dbi_Postgresql_Fetch(
 				line = NULL;
 			}
 			Tcl_DecrRefCount(nullvalue);
-			if (ituple == -1) {dbdata->respos++;}
 			break;
 		case Isnull:
 			Tcl_SetObjResult(interp,Tcl_NewIntObj(PQgetisnull(res,dbdata->respos,ifield)));
@@ -498,7 +499,7 @@ int dbi_Postgresql_Tables(
 	dbi_Postgresql_Data *dbdata)
 {
 	int error;
-	Tcl_Obj *cmd = Tcl_NewStringObj("select relname from pg_class where relkind = 'r' and relname !~ '^pg_' and relname !~ '^pga_'",93);
+	Tcl_Obj *cmd = Tcl_NewStringObj("select relname from pg_class where relkind = 'r' and relname !~ '^pg_'",70);
 	error = dbi_Postgresql_Exec(interp,dbdata,cmd,0,NULL,0,(Tcl_Obj **)NULL);
 	Tcl_DecrRefCount(cmd);
 	return error;
@@ -893,7 +894,7 @@ int Dbi_Postgresql_NewDbObjCmd(
 	}
 	dbdata = (dbi_Postgresql_Data *)Tcl_Alloc(sizeof(dbi_Postgresql_Data));
 	dbdata->conn = NULL;
-	dbdata->respos = 0;
+	dbdata->respos = -1;
 	dbdata->res = NULL;
 	if (objc == 2) {
 		dbi_nameObj = objv[1];

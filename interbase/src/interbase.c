@@ -1080,7 +1080,7 @@ int dbi_Interbase_Exec(
 				}
 				/* fprintf(stdout,"** %*.*s\n",i-start,i-start,cmdstring+start);fflush(stdout); */
 				error = dbi_Interbase_Process_statement(interp,dbdata,i-start,cmdstring+start,nullvalue,0,NULL);
-				if (error) {dbdata->autocommit = 1;goto error;}
+				if (error) {dbdata->autocommit = 1; goto error;}
 				if (i == cmdlen) break;
 				while (i < cmdlen) {
 					i++;
@@ -1120,7 +1120,7 @@ int dbi_Interbase_Exec(
 			}
 		} else {
 			dbdata->tuple = -1;
-			dbdata->nrows = -1;
+			dbdata->ntuples = -1;
 		}
 	} else {
 		if (dbi_Interbase_Transaction_Commit(interp,dbdata) != TCL_OK) {
@@ -1163,6 +1163,10 @@ int dbi_Interbase_Fetch(
     long fetch_stat;
 	int error;
 	int nfields = dbdata->out_sqlda->sqld;
+	if (dbdata->out_sqlda->sqld == 0) {
+		Tcl_AppendResult(interp, "no result available: invoke exec method with -usefetch option first", NULL);
+		return TCL_ERROR;
+	}
 	/*
 	 * decode options
 	 * --------------
@@ -1237,39 +1241,12 @@ int dbi_Interbase_Fetch(
 		}
 	}
 	/*
-	 * fetch data
-	 * ----------
+	 * result info
+	 * -----------
 	 */
-	if (dbdata->tuple == -1) {
-		/* get to the first line in the result, if this is the first call to fetch */
-		fetch_stat = isc_dsql_fetch(status_vector, stmt, SQL_DIALECT_V6, dbdata->out_sqlda);
-		if (fetch_stat) {dbdata->nrows = dbdata->tuple;goto out_of_position;}
-		dbdata->tuple++;		
-	}
-	if (dbdata->nrows != -1) {
-		if (ituple == -1) {
-			if (dbdata->tuple > dbdata->nrows) {goto out_of_position;}
-		} else {
-			if (ituple > dbdata->nrows) {goto out_of_position;}
-		}
-	}
-	if (dbdata->out_sqlda->sqld == 0) {
-		Tcl_AppendResult(interp, "no result available: invoke exec method with -usefetch option first", NULL);
-		return TCL_ERROR;
-	}
-	if (ifield >= nfields) {
-		Tcl_Obj *buffer;
-		buffer = Tcl_NewIntObj(ifield);
-		Tcl_AppendResult(interp, "field ",Tcl_GetStringFromObj(buffer,NULL) ," out of range", NULL);
-		Tcl_DecrRefCount(buffer);
-		return TCL_ERROR;
-	}
-	if ((dbdata->nrows != -1)&&(ituple >= dbdata->nrows)) {
-		goto out_of_position;
-	}
 	switch (fetch_option) {
 		case Lines:
-			Tcl_AppendResult(interp,"interbase type: fetch lines not supported", NULL);
+			Tcl_AppendResult(interp,"dbi_interbase: fetch lines not supported", NULL);
 			return TCL_OK;
 		case Fields:
 			error = dbi_Interbase_Fetch_Fields(interp,dbdata,dbdata->out_sqlda,&line);
@@ -1285,15 +1262,41 @@ int dbi_Interbase_Fetch(
 			Tcl_SetObjResult(interp,Tcl_NewIntObj(dbdata->tuple));
 			return TCL_OK;
 	}
-	/* move to the requested line if ituple != -1 */
-	if (ituple != -1) {
+	/*
+	 * fetch data
+	 * ----------
+	 */
+	if (ituple == -1) {
+		ituple = dbdata->tuple+1;
+	}
+	if (dbdata->tuple == -1) {
+		/* get to the first line in the result, if this is the first call to fetch */
+		fetch_stat = isc_dsql_fetch(status_vector, stmt, SQL_DIALECT_V6, dbdata->out_sqlda);
+		if (fetch_stat) {dbdata->ntuples = dbdata->tuple;goto out_of_position;}
+		dbdata->tuple++;		
+	}
+	if ((dbdata->ntuples != -1)&&(ituple > dbdata->ntuples)) {
+		goto out_of_position;
+	}
+	if (ifield >= nfields) {
+		Tcl_Obj *buffer;
+		buffer = Tcl_NewIntObj(ifield);
+		Tcl_AppendResult(interp, "field ",Tcl_GetStringFromObj(buffer,NULL) ," out of range", NULL);
+		Tcl_DecrRefCount(buffer);
+		return TCL_ERROR;
+	}
+	if ((dbdata->ntuples != -1)&&(ituple >= dbdata->ntuples)) {
+		goto out_of_position;
+	}
+	/* move to the requested line */
+	if (ituple != dbdata->tuple) {
 		if (ituple < dbdata->tuple) {
 			Tcl_AppendResult(interp,"interbase error: backwards positioning for fetch not supported",NULL);
 			return TCL_ERROR;
 		}
 		while (dbdata->tuple < ituple) {
 			fetch_stat = isc_dsql_fetch(status_vector, stmt, SQL_DIALECT_V6, dbdata->out_sqlda);
-			if (fetch_stat) {dbdata->nrows = dbdata->tuple;goto out_of_position;}
+			if (fetch_stat) {dbdata->ntuples = dbdata->tuple;goto out_of_position;}
 			dbdata->tuple++;		
 		}
 	}
@@ -1317,14 +1320,6 @@ int dbi_Interbase_Fetch(
 				}
 			}
 			Tcl_DecrRefCount(nullvalue);
-			if (ituple == -1) {
-				fetch_stat = isc_dsql_fetch(status_vector, stmt, SQL_DIALECT_V6, dbdata->out_sqlda);
-				if (fetch_stat) {
-					dbdata->nrows = dbdata->tuple-1;
-				} else {
-					dbdata->tuple++;
-				}
-			}
 			break;
 		case Isnull:
 			error = dbi_Interbase_Fetch_One(interp,dbdata,ifield,&element);

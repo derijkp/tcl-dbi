@@ -10,14 +10,7 @@ proc ::dbi::odbc::serial_Interbase_add {db version table field args} {
 		from RDB$RELATION_FIELDS
 		where RDB$RELATION_NAME = ? and RDB$FIELD_NAME = ?} $btable $field] 0] 0]
 	if {![llength $fieldsource]} {
-		set field $field
-		set fieldsource [lindex [lindex [$db exec {
-			select RDB$FIELD_SOURCE
-			from RDB$RELATION_FIELDS
-			where RDB$RELATION_NAME = ? and RDB$FIELD_NAME = ?} $btable $field] 0] 0]
-		if {![llength $fieldsource]} {
-			error "field \"$field\" not found in table \"$table\""
-		}
+		error "field \"$field\" not found in table \"$table\""
 	}
 	set type [$db exec {
 		select RDB$FIELD_TYPE

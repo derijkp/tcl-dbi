@@ -310,6 +310,19 @@ interface::test {fetch isnull 1} {
 	$object fetch isnull 2 2
 } 1
 
+interface::test {fetch isnull 1} {
+	$object exec -usefetch {select * from "person"}
+	$object fetch isnull current 2
+} {line -1 out of range} 1
+
+interface::test {fetch isnull 1} {
+	$object exec -usefetch {select * from "person"}
+	$object fetch
+	$object fetch
+	$object fetch
+	$object fetch isnull current 2
+} 1
+
 interface::test {fetch isnull 0} {
 	$object exec -usefetch {select * from "person"}
 	$object fetch isnull 2 1
@@ -333,7 +346,7 @@ interface::test {fetch isnull field out of range} {
 interface::test {fetch pos} {
 	$object exec -usefetch {select * from "person"}
 	$object fetch pos
-} 0
+} -1
 
 interface::test {fetch pos 2} {
 	$object exec -usefetch {select * from "person"}
@@ -345,7 +358,7 @@ interface::test {fetch pos 3} {
 	$object exec -usefetch {select * from "person"}
 	$object fetch
 	$object fetch pos
-} 1
+} 0
 
 interface::test {fetch current after fetch 0} {
 	$object exec -usefetch {select * from "person"}
@@ -359,7 +372,7 @@ interface::test {fetch current after fetch} {
 	$object fetch
 	$object fetch current
 	$object fetch current
-} {jd John Do 17.5}
+} {pdr Peter {De Rijk} 20.0}
 
 interface::test {fetch fields} {
 	$object exec -usefetch {select * from "person"}
@@ -584,7 +597,13 @@ interface::test {types} {
 # ------------------------
 
 interface::test {tables 2} {
-	lsort [$object tables]
+	# there maybe other tables than these present
+	array set a {address 1 location 1 person 1 types 1 use 1 v_test 1}
+	set tables {}
+	foreach table [$object tables] {
+		if {[info exists a($table)]} {lappend tables $table}
+	}
+	lsort $tables
 } {address location person types use v_test}
 
 interface::test {db fields} {
@@ -599,6 +618,14 @@ interface::test {table info} {
 	array set a [$object info table use]
 	list $a(fields) $a(type,id) $a(length,place) [array names a primary,*]
 } {{id person place usetime score score2} integer 100 primary,id}
+
+interface::test {table info} {
+	array set a [$object info table types]
+	set result ""
+	foreach name [lsort [array names a type,*]] {
+		lappend result $a($name)
+	}
+} {char double date float integer smallint time timestamp varchar}
 
 interface::test {info views} {
 	$object info views

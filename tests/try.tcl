@@ -7,16 +7,19 @@ namespace eval interface {}
 set type interbase
 set ::interface::testdb /home/ib/testdbi.gdb
 set type odbc
-set ::interface::testdb pgtestdbi
+set ::interface::testdb testdbi
 set ::interface::interface dbi/try
 set ::interface::version 0.1
 set ::interface::testleak 0
 set ::interface::name dbi-01
 set ::interface::user2 PDR
 
+puts "load package dbi"
 package require dbi
+puts "load package dbi_$type"
 package require dbi_$type
 
+puts "create dbi_$type"
 set db [dbi_$type]
 set db2 [dbi_$type]
 set ::interface::object $db
@@ -136,9 +139,9 @@ proc ::interface::filldb {} {
 }
 
 proc ::interface::initdb {} {
-	cleandb
-	createdb
-	filldb
+	::interface::cleandb
+	::interface::createdb
+	::interface::filldb
 }
 
 proc ::interface::opendb {} {
@@ -147,26 +150,25 @@ proc ::interface::opendb {} {
 	$object open $testdb
 }
 
+puts "open"
 interface::opendb
-interface::initdb
-puts [$object tables]
-
-interface::test {fetch 1} {
-	$object exec -usefetch {select * from "person"}
-	$object fetch 1
-} {jd John Do 17.5}
-
-interface::test {repeat fetch 1} {
-	$object exec -usefetch {select * from "person"}
-	$object fetch 1
-	$object fetch 1
-} {jd John Do 17.5}
-
-interface::testsummarize
-
-#catch {unset a}
-#set table location
-#array set a [$db info table $table]
-#parray a
 #interface::initdb
-#$db exec {update "person" set "name" = ? where "id" = ?} try t
+puts "start test"
+
+set options [$object sqlgetinfo options]
+puts [llength $options]
+foreach option $options {
+puts $option
+	catch {$object sqlgetinfo $option} result
+#	puts "$option: [string range $result 0 20]"
+	puts "$option: $result"
+}
+puts [$object sqlgetinfo dbms_name]
+puts [$object sqlgetinfo order_by_columns_in_select]
+puts param_array_selects:[$object sqlgetinfo param_array_selects]
+puts ddl_index:[$object sqlgetinfo ddl_index]
+puts user_name:[$object sqlgetinfo user_name]
+
+puts "tests done"
+#$object close
+#interface::testsummarize

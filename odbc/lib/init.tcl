@@ -10,7 +10,7 @@ namespace eval dbi::odbc {}
 # $Format: "set ::dbi::odbc::version 0.$ProjectMajorVersion$"$
 set ::dbi::odbc::version 0.0
 # $Format: "set ::dbi::odbc::patchlevel $ProjectMinorVersion$"$
-set ::dbi::odbc::patchlevel 8
+set ::dbi::odbc::patchlevel 9
 package provide dbi_odbc $::dbi::odbc::version
 
 proc ::dbi::odbc::init {name testcmd} {
@@ -78,3 +78,4 @@ proc ::dbi::odbc::init {name testcmd} {
 rename ::dbi::odbc::init {}
 
 lappend auto_path [file join $::dbi::odbc::dir lib]
+

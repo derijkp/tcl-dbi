@@ -19,7 +19,7 @@ typedef struct dbi_Interbase_Data {
 	int cursor_open;
 	int out_sqlda_filled;
 	int tuple;
-	int nrows;
+	int ntuples;
 } dbi_Interbase_Data;
 
 EXTERN int dbi_Interbase_Init(Tcl_Interp *interp);

@@ -11,7 +11,7 @@
 # See the file "license.terms" for information on usage and redistribution
 # of this file, and for a DISCLAIMER OF ALL WARRANTIES.
 #
-# RCS: @(#) $Id: Makefile.in 1.1 Tue, 27 Jun 2000 10:01:26 +0200 peter $
+# RCS: @(#) $Id: Makefile.in 1.2 Fri, 03 Aug 2001 19:09:07 +0200 peter $
 
 #========================================================================
 # Edit the following few lines when writing a new extension
@@ -297,6 +297,9 @@ $(dbi_odbc_LIB_FILE): $(dbi_odbc_OBJECTS)
 	@MAKE_LIB@ $(ODBC_LIB)
 	$(RANLIB) $(dbi_odbc_LIB_FILE)
 
+odbctcl: tclAppInit.$(OBJEXT) $(dbi_odbc_OBJECTS)
+	$(CC) $(CC_SWITCHES) -o odbctcl tclAppInit.$(OBJEXT) $(dbi_odbc_OBJECTS) ${SHLIB_LDFLAGS} ${SHLIB_LD_LIBS} -lm $(ODBC_LIB)
+
 #========================================================================
 # We need to enumerate the list of .c to .o lines here.
 # Unfortunately, there does not seem to be any other way to do this
@@ -316,6 +319,9 @@ odbc.$(OBJEXT): $(SOURCE_DIR)/odbc.c
 
 odbc_result.$(OBJEXT): $(SOURCE_DIR)/odbc_result.c
 	$(COMPILE) -c `@CYGPATH@ $(SOURCE_DIR)/odbc_result.c` -o $@
+
+tclAppInit.$(OBJEXT): $(SOURCE_DIR)/tclAppInit.c
+	$(COMPILE) -c `@CYGPATH@ $(SOURCE_DIR)/tclAppInit.c` -o $@
 
 #========================================================================
 # End of user-definable section

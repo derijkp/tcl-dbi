@@ -12,7 +12,7 @@
 # See the file "license.terms" for information on usage and redistribution
 # of this file, and for a DISCLAIMER OF ALL WARRANTIES.
 #
-# RCS: @(#) $Id: Makefile 1.3 Fri, 27 Jul 2001 10:13:52 +0200 peter $
+# RCS: @(#) $Id: Makefile 1.4 Fri, 03 Aug 2001 19:09:07 +0200 peter $
 
 #========================================================================
 # Edit the following few lines when writing a new extension
@@ -72,7 +72,7 @@ GENERIC_HDRS=
 
 SAMPLE_NEW_VAR=@SAMPLE_NEW_VAR@
 DBI_INCLUDE=-I"../../src"
-ODBC_INCLUDE=-I"/usr//include"
+ODBC_INCLUDE=-I"/usr/include"
 ODBC_LIB=-L"/usr/lib" -lodbc
 
 #========================================================================
@@ -85,7 +85,7 @@ SHELL = /bin/sh
 
 srcdir = .
 top_srcdir = .
-prefix = /usr/
+prefix = /usr
 exec_prefix = ${prefix}
 
 bindir = ${exec_prefix}/bin
@@ -144,7 +144,7 @@ RANLIB = :
 SHLIB_CFLAGS = -fPIC
 SHLIB_LD = gcc -pipe -shared
 SHLIB_LDFLAGS = 
-SHLIB_LD_LIBS = -L/usr/lib -ltclstub8.3${TCL_DBGX}
+SHLIB_LD_LIBS = -L/usr/lib -ltcl8.3${TCL_DBGX}
 STLIB_LD = ar cr
 TCL_BIN_DIR = /usr/lib
 TCL_DEFS =  -DHAVE_UNISTD_H=1 -DHAVE_LIMITS_H=1 -DHAVE_GETCWD=1 -DHAVE_OPENDIR=1 -DHAVE_STRSTR=1 -DHAVE_STRTOL=1 -DHAVE_TMPNAM=1 -DHAVE_WAITPID=1 -DHAVE_UNISTD_H=1 -DHAVE_SYS_PARAM_H=1 -DUSE_TERMIOS=1 -DHAVE_SYS_TIME_H=1 -DTIME_WITH_SYS_TIME=1 -DHAVE_TM_ZONE=1 -DHAVE_TM_GMTOFF=1 -DHAVE_TIMEZONE_VAR=1 -DHAVE_ST_BLKSIZE=1 -DSTDC_HEADERS=1 -DNEED_MATHERR=1 -DHAVE_SIGNED_CHAR=1 -DHAVE_SYS_IOCTL_H=1 
@@ -164,7 +164,7 @@ INCLUDE_DIR_NATIVE = @INCLUDE_DIR_NATIVE@
 TCL_BMAP_DIR_NATIVE = @TCL_BMAP_DIR_NATIVE@
 TCL_PLATFORM_DIR_NATIVE = @TCL_PLATFORM_DIR_NATIVE@
 TCL_GENERIC_DIR_NATIVE = @TCL_GENERIC_DIR_NATIVE@
-TCLSH_PROG = /usr//bin/tclsh8.3
+TCLSH_PROG = /usr/bin/tclsh8.3
 SHARED_BUILD = 1
 TCL_LIB_SPEC = -L/usr/lib -ltcl8.3${TCL_DBGX}
 
@@ -172,11 +172,11 @@ AUTOCONF = autoconf
 
 LDFLAGS = $(LDFLAGS_DEBUG)
 
-INCLUDES = -I"/usr//include" $(ODBC_INCLUDE) $(DBI_INCLUDE)
+INCLUDES = -I"/usr/include" $(ODBC_INCLUDE) $(DBI_INCLUDE)
 
 EXTRA_CFLAGS = $(TCL_DEFS) $(PROTO_FLAGS) $(SECURITY_FLAGS) $(MEM_DEBUG_FLAGS) $(KEYSYM_FLAGS) $(NO_DEPRECATED_FLAGS) $(TCL_EXTRA_CFLAGS)
 
-DEFS =  -DVERSION=\"0.1\" -DUSE_TCL_STUBS=1  $(EXTRA_CFLAGS)
+DEFS =  -DVERSION=\"0.1\"  $(EXTRA_CFLAGS)
 
 ACLOCAL_M4 = $(top_srcdir)/aclocal.m4
 CONFIGDIR = $(top_srcdir)
@@ -298,6 +298,9 @@ $(dbi_odbc_LIB_FILE): $(dbi_odbc_OBJECTS)
 	${SHLIB_LD} -o $@ $($@_OBJECTS) ${SHLIB_LDFLAGS} ${SHLIB_LD_LIBS} $(ODBC_LIB)
 	$(RANLIB) $(dbi_odbc_LIB_FILE)
 
+odbctcl: tclAppInit.$(OBJEXT) $(dbi_odbc_OBJECTS)
+	$(CC) $(CC_SWITCHES) -o odbctcl tclAppInit.$(OBJEXT) $(dbi_odbc_OBJECTS) ${SHLIB_LDFLAGS} ${SHLIB_LD_LIBS} -lm $(ODBC_LIB)
+
 #========================================================================
 # We need to enumerate the list of .c to .o lines here.
 # Unfortunately, there does not seem to be any other way to do this
@@ -317,6 +320,9 @@ odbc.$(OBJEXT): $(SOURCE_DIR)/odbc.c
 
 odbc_result.$(OBJEXT): $(SOURCE_DIR)/odbc_result.c
 	$(COMPILE) -c `echo $(SOURCE_DIR)/odbc_result.c` -o $@
+
+tclAppInit.$(OBJEXT): $(SOURCE_DIR)/tclAppInit.c
+	$(COMPILE) -c `echo $(SOURCE_DIR)/tclAppInit.c` -o $@
 
 #========================================================================
 # End of user-definable section

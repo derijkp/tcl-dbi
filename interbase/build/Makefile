@@ -12,7 +12,7 @@
 # See the file "license.terms" for information on usage and redistribution
 # of this file, and for a DISCLAIMER OF ALL WARRANTIES.
 #
-# RCS: @(#) $Id: Makefile 1.3 Fri, 27 Jul 2001 10:13:52 +0200 peter $
+# RCS: @(#) $Id: Makefile 1.4 Fri, 03 Aug 2001 19:09:07 +0200 peter $
 
 #========================================================================
 # Edit the following few lines when writing a new extension
@@ -187,7 +187,7 @@ CONFIG_CLEAN_FILES = mkIndex.tcl
 CPPFLAGS = 
 LIBS = 
 AR = ar
-CFLAGS = ${CFLAGS_DEBUG} ${CFLAGS_WARNING} ${SHLIB_CFLAGS}
+CFLAGS = ${CFLAGS_DEBUG} ${CFLAGS_WARNING} ${SHLIB_CFLAGS} -Wall
 COMPILE = $(CC) $(DEFS) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(AM_CFLAGS) $(CFLAGS)
 CCLD = $(CC)
 LINK = $(CCLD) $(AM_CFLAGS) $(CFLAGS) $(LDFLAGS) -o $@
