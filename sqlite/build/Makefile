@@ -12,7 +12,7 @@
 # See the file "license.terms" for information on usage and redistribution
 # of this file, and for a DISCLAIMER OF ALL WARRANTIES.
 #
-# RCS: @(#) $Id: Makefile 1.1 Tue, 11 Jun 2002 15:21:43 +0200 peter $
+# RCS: @(#) $Id: Makefile 1.2 Fri, 13 Sep 2002 18:39:35 +0200 peter $
 
 #========================================================================
 # Edit the following few lines when writing a new extension
@@ -71,8 +71,8 @@ GENERIC_HDRS=$(SOURCE_DIR)/sqlite.h
 #========================================================================
 
 SAMPLE_NEW_VAR=@SAMPLE_NEW_VAR@
-SQLITE_INCLUDE=-I"/usr/local/include"
-SQLITE_LIB=-L"/usr/local/lib" -lsqlite
+SQLITE_INCLUDE=-I"/usr/include"
+SQLITE_LIB=-L"/usr/lib" -lsqlite
 
 #========================================================================
 # Nothing of the variables below this line need to be changed.  Please
@@ -84,7 +84,7 @@ SHELL = /bin/sh
 
 srcdir = .
 top_srcdir = .
-prefix = /usr/
+prefix = /usr
 exec_prefix = ${prefix}
 
 bindir = ${exec_prefix}/bin
@@ -127,7 +127,7 @@ POST_UNINSTALL = :
 PACKAGE = dbi_sqlite
 VERSION = 0.8
 CC = cc
-CFLAGS_DEBUG = -g -Wall
+CFLAGS_DEBUG = -g
 CFLAGS_DEFAULT = -O -D__NO_STRING_INLINES -D__NO_MATH_INLINES
 CFLAGS_OPTIMIZE = -O -D__NO_STRING_INLINES -D__NO_MATH_INLINES
 CLEANFILES = extratcl
@@ -163,15 +163,15 @@ INCLUDE_DIR_NATIVE = @INCLUDE_DIR_NATIVE@
 TCL_BMAP_DIR_NATIVE = @TCL_BMAP_DIR_NATIVE@
 TCL_PLATFORM_DIR_NATIVE = @TCL_PLATFORM_DIR_NATIVE@
 TCL_GENERIC_DIR_NATIVE = @TCL_GENERIC_DIR_NATIVE@
-TCLSH_PROG = /usr//bin/tclsh8.3
+TCLSH_PROG = /usr/bin/tclsh8.3
 SHARED_BUILD = 1
 TCL_LIB_SPEC = -L/usr/lib -ltcl8.3${TCL_DBGX}
 
 AUTOCONF = autoconf
 
-LDFLAGS = $(LDFLAGS_DEBUG)
+LDFLAGS = $(LDFLAGS_DEFAULT)
 
-INCLUDES = -I"/usr//include" $(SQLITE_INCLUDE)
+INCLUDES = -I"/usr/include" $(SQLITE_INCLUDE)
 
 EXTRA_CFLAGS = $(TCL_DEFS) $(PROTO_FLAGS) $(SECURITY_FLAGS) $(MEM_DEBUG_FLAGS) $(KEYSYM_FLAGS) $(NO_DEPRECATED_FLAGS) $(TCL_EXTRA_CFLAGS)
 
@@ -185,7 +185,7 @@ CONFIG_CLEAN_FILES = mkIndex.tcl
 CPPFLAGS = 
 LIBS = 
 AR = ar
-CFLAGS = ${CFLAGS_DEBUG} ${CFLAGS_WARNING} ${SHLIB_CFLAGS}
+CFLAGS = ${CFLAGS_DEFAULT} ${CFLAGS_WARNING} ${SHLIB_CFLAGS}
 COMPILE = $(CC) $(DEFS) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(AM_CFLAGS) $(CFLAGS)
 CCLD = $(CC)
 LINK = $(CCLD) $(AM_CFLAGS) $(CFLAGS) $(LDFLAGS) -o $@

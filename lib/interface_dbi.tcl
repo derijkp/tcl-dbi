@@ -260,7 +260,7 @@ interface::test {non select query with -nullvalue update to NULL} {
 	set result	
 } {{nul hasnull NULL 10.0} {nul hasnull NULL NULL}}
 
-interface::test {error} {
+interface::test {error: select "try" from "person"} {
 	$object exec {select "try" from "person"}
 } {* while executing command: "select "try" from "person""} error match
 
@@ -488,6 +488,18 @@ interface::test {parameters error} {
 interface::test {parameters with comments and literals} {
 	$object exec {select "id",'?' /* selecting what ? */ from "person" where "name" = ? and "score" = ?} {De Rijk} 20
 } {{pdr ?}}
+
+interface::test {parameters with 2 quotes} {
+	$object exec {delete from "person"  where "id" = ?} test
+	$object exec {insert into "person" ("id","name") values(?,?)} test {a'b'}
+	$object exec -flat {select "name" from "person" where "id" = ?} test
+} {a'b'}
+
+interface::test {parameters with 6 quotes} {
+	$object exec {delete from "person"  where "id" = ?} test
+	$object exec {insert into "person" ("id","name") values(?,?)} test {a'b'c'd'e'f'}
+	$object exec -flat {select "name" from "person" where "id" = ?} test
+} {a'b'c'd'e'f'}
 
 # serial
 # ------
@@ -977,7 +989,7 @@ interface::test {autocommit error} {
 	set r1 [$object exec {select "first_name" from "person";}]
 	catch {$object exec {
 		insert into "person" values(1,'Peter','De Rijk',20.0);
-		insert into "person" values(2,'John','Doe','error');
+		insert into "person" values(1,'John','Doe','error');
 		insert into "person" ("id","first_name") values(3,'Jane');
 	}}
 	list $r1 [$object exec {select "first_name" from "person";}]
@@ -1007,7 +1019,7 @@ interface::test {transactions: sql error in exec within transaction} {
 	$object begin
 	catch {$object exec {
 		insert into "person" values(1,'Peter','De Rijk',20.0);
-		insert into "person" values(2,'John','Doe','error');
+		insert into "person" values(1,'John','Doe','error');
 		insert into "person" ("id","first_name") values(3,'Jane');
 	}} error
 	set r2 [$object exec {select "first_name" from "person";}]
@@ -1025,7 +1037,7 @@ interface::test {transactions: sql error in exec within transaction, seperate ca
 		insert into "person" values(1,'Peter','De Rijk',20.0);
 	}} error
 	catch {$object exec {
-		insert into "person" values(2,'John','Doe','error');
+		insert into "person" values(1,'John','Doe','error');
 		insert into "person" ("id","first_name") values(3,'Jane');
 	}} error
 	set r2 [$object exec {select "first_name" from "person";}]

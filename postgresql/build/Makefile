@@ -12,7 +12,7 @@
 # See the file "license.terms" for information on usage and redistribution
 # of this file, and for a DISCLAIMER OF ALL WARRANTIES.
 #
-# RCS: @(#) $Id: Makefile 1.5.1.1 Fri, 04 Jan 2002 17:58:38 +0100 peter $
+# RCS: @(#) $Id: Makefile 1.5.1.2 Fri, 13 Sep 2002 18:39:35 +0200 peter $
 
 #========================================================================
 # Edit the following few lines when writing a new extension
@@ -110,7 +110,7 @@ pkgincludedir = $(includedir)/dbi_postgresql0.8
 
 top_builddir = .
 
-INSTALL = /usr//bin/install -c
+INSTALL = /usr/bin/install -c
 INSTALL_PROGRAM = ${INSTALL}
 INSTALL_DATA = ${INSTALL} -m 644
 INSTALL_SCRIPT = ${INSTALL_PROGRAM}

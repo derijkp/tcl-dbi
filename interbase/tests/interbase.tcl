@@ -50,7 +50,7 @@ interface::test {primary key} {
 
 interface::test {interface match} {
 	lsort [$object supports]
-} {blobids blobparams checks columnperm domains foreignkeys permissions roles sharedtransactions}
+} {blobids blobparams checks columnperm domains foreignkeys permissions roles sharedserials sharedtransactions}
 
 interface::test {transactions via exec} {
 	$object exec {delete from "location";}
@@ -213,6 +213,50 @@ interface::test {newblob} {
 	set data [$object exec {select "data" from bl where "id" = 1}]
 	list [string equal $odata $data] [string length $data] [string range $data 1000 1009]
 } {1 10000 -000000100}
+
+interface::test {info dependencies} {
+	catch {$object exec {drop view "vtest"}}
+	catch {$object exec {drop table "test"}}
+	catch {$object exec {drop exception test_except}}
+	$object exec {
+		create table "test" (
+			"id" integer not null primary key,
+			"person" char(6) references "person"("id") ,
+			"score" float check ("score" < 20.0),
+			"score2" float,
+			"cscore" computed by ("score"*10),
+			check ("score2" > "score")
+		)
+	}
+	$object exec {
+		create index "testindex" on "test"("score")
+	}
+	$object exec {
+		create index "testindex2" on "test"("score","score2")
+	}
+	$object exec {
+		create exception test_except 'test exception'
+	}
+	$object exec {
+		create trigger test_Insert for "test" before insert as
+		begin
+			NEW."score" = 10.0;
+			exception test_except;
+		end
+	}
+	$object exec {
+		create view "vtest" as
+		select "score" from "test"
+	}
+	set result [$object info dependencies test]
+	lrange $result 0 8
+} {{score computed_field *} {score trigger CHECK_*} {score trigger CHECK_*} {score trigger CHECK_*} {score2 trigger CHECK_*} {score trigger CHECK_*} {score2 trigger CHECK_*} {score trigger TEST_INSERT} {{} view vtest}} match
+
+interface::test {info dependencies} {
+	catch {drop domain "testdomain"}
+	$object exec {create domain "testdomain" varchar(10)}
+	$object info domain testdomain
+} {varchar(10) nullable}
 
 $object destroy
 $object2 destroy

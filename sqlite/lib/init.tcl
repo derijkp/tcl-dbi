@@ -10,7 +10,7 @@ namespace eval dbi::sqlite {}
 # $Format: "set ::dbi::sqlite::version 0.$ProjectMajorVersion$"$
 set ::dbi::sqlite::version 0.8
 # $Format: "set ::dbi::sqlite::patchlevel $ProjectMinorVersion$"$
-set ::dbi::sqlite::patchlevel 7
+set ::dbi::sqlite::patchlevel 8
 package provide dbi_sqlite $::dbi::sqlite::version
 
 proc ::dbi::sqlite::init {name testcmd} {
@@ -182,7 +182,7 @@ proc ::dbi::sqlite::info {db args} {
 					}
 				}
 				lappend result fields $fields
-				foreach {seq name unique} [$db exec -flat "pragma index_list($table)"] {
+				foreach {seq name unique} [$db exec -flat "pragma index_list(\"$table\")"] {
 					set columns {}
 					foreach {seqno cid cname} [$db exec -flat "pragma index_info('$name')"] {
 						lappend columns $cname
@@ -221,7 +221,7 @@ proc ::dbi::sqlite::fieldsinfo {db table} {
 		return -code error "table \"$table\" does not exist"
 	}
 	set result {}
-	foreach line [$db exec "pragma table_info($table)"] {
+	foreach line [$db exec "pragma table_info(\"$table\")"] {
 		lappend result [lindex $line 1]
 	}
 	return $result
@@ -252,11 +252,11 @@ proc ::dbi::sqlite::serial_basic {db table field} {
 proc ::dbi::sqlite::serial_shared {db table field} {
 	upvar #0 ::dbi::sqlite::shared shared
 	if {![::info exists shared($table,$field)]} {
-		if {[catch {
-			$db exec [subst {select sharedtable,sharedfield from _dbi_serials where stable = '$table' and sfield = '$field'}]
-		} shared($table,$field)]} {
+		set temp [$db exec [subst {select sharedtable,sharedfield from _dbi_serials where stable = '$table' and sfield = '$field'}]]
+		if ![llength $temp] {
 			return -code error "no serial on field \"$field\" in table \"$table\""
 		}
+		set shared($table,$field) $temp
 	}
 	return $shared($table,$field)
 }
@@ -321,9 +321,8 @@ proc ::dbi::sqlite::serial_next {db table field} {
 	set db [privatedb $db]
 	foreach {stable sfield} [::dbi::sqlite::serial_shared $db $table $field] break
 	$db begin
+	$db exec [subst {update _dbi_serials set serial = serial+1 where stable = '$table' and sfield = '$field'}]
 	set current [$db exec {select serial from _dbi_serials where stable = ? and sfield = ?} $table $field]
-	incr current
-	$db exec [subst {update _dbi_serials set serial = $current where stable = '$table' and sfield = '$field'}]
 	$db commit
 	return $current
 }

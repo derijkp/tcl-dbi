@@ -541,7 +541,8 @@ int dbi_Sqlite_Exec(
 			Tcl_GetStringFromObj(objv[i],&arglen);
 			/* we need at least space for 4 characters: in case of a NULL */
 			if (arglen < 2) {arglen = 2;}
-			size += arglen+2;
+			/* add 2 for quotes around the value, and 4 more as a reserve for quotes in the value */
+			size += arglen+6;
 		}
 		sqlstring = (char *)Tcl_Alloc(size*sizeof(char));
 		cursqlstring = sqlstring;
@@ -556,9 +557,32 @@ int dbi_Sqlite_Exec(
 				strncpy(cursqlstring,"NULL",4);
 				cursqlstring += 4;
 			} else {
+				char *pos;
+				int partsize,count=0,curpos;
 				*cursqlstring++ = '\'';
-				strncpy(cursqlstring,argstring,arglen);
-				cursqlstring += arglen;
+				while (1) {
+					pos = strchr(argstring,'\'');
+					if (pos == NULL) {
+						strncpy(cursqlstring,argstring,arglen);
+						cursqlstring += arglen;
+						break;
+					} else {
+						count++;
+						if (count > 4) {
+							size += 1;
+							curpos = cursqlstring - sqlstring;
+							sqlstring = (char *)Tcl_Realloc(sqlstring,size*sizeof(char));
+							cursqlstring = sqlstring+curpos;
+						}
+						partsize = pos-argstring;
+						strncpy(cursqlstring,argstring,partsize);
+						cursqlstring += pos-argstring;
+						*cursqlstring++ = '\'';
+						*cursqlstring++ = '\'';
+						arglen -= partsize+1;
+						argstring = pos+1;
+					}
+				}
 				*cursqlstring++ = '\'';
 			}
 		}
@@ -567,24 +591,29 @@ int dbi_Sqlite_Exec(
 		cursqlstring[cmdlen-prvsrcpos] = '\0';
 		Tcl_Free((char *)parsedstatement);
 /*printf("sql = %s\n",sqlstring);*/
+		if (dbi_Sqlite_autocommit_state(dbdata)) sqlite_exec(dbdata->db,"begin transaction _dbi_exec",NULL,NULL,&(dbdata->errormsg));
 		error = sqlite_exec(dbdata->db,sqlstring,dbi_Sqlite_Fillresult,dbdata,&(dbdata->errormsg));
 		Tcl_Free(sqlstring);
 	} else {
+		if (dbi_Sqlite_autocommit_state(dbdata)) sqlite_exec(dbdata->db,"begin transaction _dbi_exec",NULL,NULL,&(dbdata->errormsg));
 		error = sqlite_exec(dbdata->db,cmdstring,dbi_Sqlite_Fillresult,dbdata,&(dbdata->errormsg));
 	}
 	switch (error) {
 		case SQLITE_OK:
+			if (dbi_Sqlite_autocommit_state(dbdata)) sqlite_exec(dbdata->db,"end transaction _dbi_exec",NULL,NULL,&(dbdata->errormsg));
 			break;
 		case SQLITE_CONSTRAINT:
 			Tcl_AppendResult(interp,"database error executing command \"",
 				cmdstring, "\":\n",	"violation of PRIMARY or UNIQUE KEY constraint", NULL);
 			free(dbdata->errormsg);
+			if (dbi_Sqlite_autocommit_state(dbdata)) sqlite_exec(dbdata->db,"rollback transaction _dbi_exec",NULL,NULL,&(dbdata->errormsg));
 			goto error;
 			break;
 		default:
 			Tcl_AppendResult(interp,"database error executing command \"",
 				cmdstring, "\":\n",	dbdata->errormsg, NULL);
 			free(dbdata->errormsg);
+			if (dbi_Sqlite_autocommit_state(dbdata)) sqlite_exec(dbdata->db,"rollback transaction _dbi_exec",NULL,NULL,&(dbdata->errormsg));
 			goto error;
 	}
 	if (!usefetch) {

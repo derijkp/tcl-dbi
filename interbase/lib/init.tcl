@@ -10,7 +10,7 @@ namespace eval dbi::interbase {}
 # $Format: "set ::dbi::interbase::version 0.$ProjectMajorVersion$"$
 set ::dbi::interbase::version 0.8
 # $Format: "set ::dbi::interbase::patchlevel $ProjectMinorVersion$"$
-set ::dbi::interbase::patchlevel 7
+set ::dbi::interbase::patchlevel 8
 package provide dbi_interbase $::dbi::interbase::version
 
 proc ::dbi::interbase::init {name testcmd} {
@@ -153,6 +153,26 @@ proc ::dbi::interbase::indexsegments {db index} {
 	} $index]
 }
 
+proc ::dbi::interbase::fieldsinfo {db table} {
+	set db [privatedb $db]
+	set table $table
+	set c [$db exec {
+		select RDB$FIELD_NAME,RDB$FIELD_SOURCE,RDB$NULL_FLAG
+		from RDB$RELATION_FIELDS
+		where RDB$RELATION_NAME = ?
+		order by RDB$FIELD_POSITION} $table]
+	if {![llength $c]} {
+		return -code error "table \"$table\" does not exist"
+	}
+	set result ""
+	foreach el $c {lappend result [lindex $el 0]}
+	return $result
+}
+
+#
+# info
+#
+
 proc ::dbi::interbase::info {db args} {
 	upvar #0 ::dbi::interbase::typetrans typetrans
 	set db [privatedb $db]
@@ -223,6 +243,7 @@ proc ::dbi::interbase::info {db args} {
 				set temp [lindex [$db exec {
 					select RDB$FIELD_TYPE,RDB$FIELD_LENGTH,RDB$NULL_FLAG
 					from RDB$FIELDS where RDB$FIELD_NAME = ?} $domain] 0]
+				if {![llength $temp]} {error "domain \"$domain\" not found"}
 				set result $typetrans([lindex $temp 0])
 				switch $result {
 					char - varchar {
@@ -284,83 +305,7 @@ proc ::dbi::interbase::info {db args} {
 		}
 		table {
 			if {$len == 2} {
-				set table [lindex $args 1]
-				set result ""
-				set temp [$db exec {
-					select rf.RDB$FIELD_NAME, f.RDB$FIELD_NAME, f.RDB$FIELD_TYPE, f.RDB$DIMENSIONS, 
-						f.RDB$COMPUTED_BLR, f.RDB$COMPUTED_SOURCE,
-						f.RDB$FIELD_LENGTH, rf.RDB$NULL_FLAG,
-						rf.RDB$DEFAULT_SOURCE, f.RDB$DEFAULT_SOURCE, f.RDB$VALIDATION_SOURCE
-					from RDB$RELATION_FIELDS rf, RDB$FIELDS f
-					where rf.RDB$FIELD_SOURCE = f.RDB$FIELD_NAME and rf.RDB$RELATION_NAME = ?
-					order by rf.RDB$FIELD_POSITION, rf.RDB$FIELD_NAME
-				} $table]
-				if {[llength $temp] == 0} {error "table \"$table\" does not exist"}
-				set sresult ""
-				set fields ""
-				foreach line $temp {
-					set field [lindex $line 0]
-					lappend fields $field
-					set type $typetrans([lindex $line 2])
-					lappend result type,$field $type
-					set dom [lindex $line 1]
-					if {![string match {RDB$*} $dom]} {
-						lappend result domain,$field $dom
-					}
-					foreach key {
-						dim computed computed_src
-						length notnull default fdefault validation
-					} value [lrange $line 3 end] {
-						if {[string length $value]} {
-							lappend result $key,$field $value
-						}
-					}
-				}
-				set result [linsert $result 0 fields $fields]
-				set temp [$db exec {
-					select RDB$CONSTRAINT_TYPE, RDB$CONSTRAINT_NAME, RDB$INDEX_NAME
-					from RDB$RELATION_CONSTRAINTS
-					where RDB$RELATION_NAME = ?
-				} $table]
-				foreach line $temp {
-					foreach {type name index} $line break
-					switch $type {
-						"PRIMARY KEY" {
-							set field [::dbi::interbase::indexsegments $db $index]
-							lappend result primary,$field $name
-						}
-						"UNIQUE" {
-							set field [::dbi::interbase::indexsegments $db $index]
-							lappend result unique,$field $name
-						}
-						"FOREIGN KEY" {
-							set field [::dbi::interbase::indexsegments $db $index]
-							set temp2 [lindex [$db exec {
-								select rel.RDB$RELATION_NAME, rel.RDB$INDEX_NAME,
-								ref.RDB$UPDATE_RULE, ref.RDB$DELETE_RULE
-								from RDB$RELATION_CONSTRAINTS rel, RDB$REF_CONSTRAINTS ref
-								where rel.RDB$CONSTRAINT_NAME = ref. RDB$CONST_NAME_UQ
-									and ref.RDB$CONSTRAINT_NAME = ?
-							} $name] 0]
-							set reffield [::dbi::interbase::indexsegments $db [lindex $temp2 1]]
-							set reftable [lindex $temp2 0]
-							set rule [lindex $temp2 2]
-							if {"$rule" != "RESTRICT"} {lappend sub update_rule $rule}
-							set rule [lindex $temp2 3]
-							if {"$rule" != "RESTRICT"} {lappend sub delete_rule $rule}
-							lappend result foreign,$field [list $reftable $reffield]
-						}
-						"CHECK" {
-							set ctemp [$db exec {
-								select RDB$TRIGGER_SOURCE
-								from RDB$TRIGGERS trg, RDB$CHECK_CONSTRAINTS chk
-								where trg.RDB$TRIGGER_TYPE = 1
-									and trg.RDB$TRIGGER_NAME = chk.RDB$TRIGGER_NAME
-									and chk.RDB$CONSTRAINT_NAME = ?} $name]
-							lappend result constraint,[lindex [lindex $ctemp 0] 0] $name
-						}
-					}
-				}
+				set result [info_table $db [lindex $args 1]]
 			} else {
 				error "wrong # args: should be \"$db info table tablename\""
 			}
@@ -392,6 +337,25 @@ proc ::dbi::interbase::info {db args} {
 				error "wrong # args: should be \"$db info referenced tablename\""
 			}
 		}
+		object {
+			if {($len != 2)&&($len != 3)} {
+				error "wrong # args: should be \"$db info dependencies object ?objecttype?\""
+			}
+			set result [::dbi::interbase::info_object $db [lindex $args 1] [lindex $args 2]]
+		}
+		dependencies {
+			if {($len != 2)&&($len != 3)} {
+				error "wrong # args: should be \"$db info dependencies table ?field?\""
+			}
+			set result [info_dependencies $db [lindex $args 1] [lindex $args 2]]
+			return $result
+		}
+		fk {
+			if {$len != 2} {
+				error "wrong # args: should be \"$db info fk table\""
+			}
+			return [::dbi::interbase::list_fk $db [lindex $args 1]]
+		}
 		default {
 			error "error: info about $type not supported"
 		}
@@ -399,21 +363,303 @@ proc ::dbi::interbase::info {db args} {
 	return $result
 }
 
-proc ::dbi::interbase::fieldsinfo {db table} {
-	set db [privatedb $db]
-	set table $table
-	set c [$db exec {
-		select RDB$FIELD_NAME,RDB$FIELD_SOURCE,RDB$NULL_FLAG
-		from RDB$RELATION_FIELDS
-		where RDB$RELATION_NAME = ?
-		order by RDB$FIELD_POSITION} $table]
-	if {![llength $c]} {
-		return -code error "table \"$table\" does not exist"
+proc ::dbi::interbase::info_dependencies {db table {field {}}} {
+	array set transtype {
+		0 table 1 view 2 trigger 3 computed_field 4 validation 5 procedure
+		6 expression_index 7 exception 8 user 9 field 10 index
 	}
-	set result ""
-	foreach el $c {lappend result [lindex $el 0]}
+	set result {}
+	if {![llength $field]} {
+		set list [$db exec -flat {
+			select  RDB$DEPENDENT_NAME, RDB$DEPENDED_ON_NAME, RDB$FIELD_NAME, RDB$DEPENDENT_TYPE, RDB$DEPENDED_ON_TYPE from "RDB$DEPENDENCIES"
+			where "RDB$DEPENDED_ON_NAME" =?
+		} $table]
+	} else {
+		set list [$db exec -flat {
+			select  RDB$DEPENDENT_NAME, RDB$DEPENDED_ON_NAME, RDB$FIELD_NAME, RDB$DEPENDENT_TYPE, RDB$DEPENDED_ON_TYPE from "RDB$DEPENDENCIES"
+			where "RDB$DEPENDED_ON_NAME" = ? and RDB$FIELD_NAME = ?
+		} $table $field]
+	}
+	foreach {dependent depend_on field type type_on} $list {
+		lappend result [list $field $transtype($type) $dependent]
+	}
+	set c [$db exec -flat {
+		select src.RDB$RELATION_NAME,src.RDB$INDEX_NAME,
+			ref.RDB$RELATION_NAME, ref.RDB$INDEX_NAME,
+		link.RDB$UPDATE_RULE, link.RDB$DELETE_RULE
+		from RDB$RELATION_CONSTRAINTS src, RDB$RELATION_CONSTRAINTS ref, RDB$REF_CONSTRAINTS link
+		where ref.RDB$CONSTRAINT_NAME = link.RDB$CONST_NAME_UQ
+			and src.RDB$CONSTRAINT_NAME = link.RDB$CONSTRAINT_NAME
+			and link.RDB$CONSTRAINT_NAME = ?
+	} $table]
+	foreach {type name index} [$db exec -flat {
+		select RDB$CONSTRAINT_TYPE,RDB$CONSTRAINT_NAME,RDB$INDEX_NAME
+		from RDB$RELATION_CONSTRAINTS	where RDB$RELATION_NAME = ?
+	} $table] {
+		lappend result [list {} $type $name $index]
+	}
 	return $result
 }
+
+proc ::dbi::interbase::info_fk {db name} {
+	set db [privatedb $db]
+	set c [$db exec -flat {
+		select src.RDB$RELATION_NAME,src.RDB$INDEX_NAME,
+			ref.RDB$RELATION_NAME, ref.RDB$INDEX_NAME,
+		link.RDB$UPDATE_RULE, link.RDB$DELETE_RULE
+		from RDB$RELATION_CONSTRAINTS src, RDB$RELATION_CONSTRAINTS ref, RDB$REF_CONSTRAINTS link
+		where ref.RDB$CONSTRAINT_NAME = link.RDB$CONST_NAME_UQ
+			and src.RDB$CONSTRAINT_NAME = link.RDB$CONSTRAINT_NAME
+			and link.RDB$CONSTRAINT_NAME = ?
+	} $name]
+	if {![llength $c]} {
+		return -code error "relation_constraint \"$name\" not found"
+	}
+	set result {type foreignkey}
+	foreach key {table index reftable refindex updaterule deleterule} value $c {
+		lappend result $key $value
+	}
+	return $result
+}
+
+proc ::dbi::interbase::list_fk {db table} {
+	set db [privatedb $db]
+	set result "nothing dropped"
+	set c [$db exec -flat {
+		select src.RDB$CONSTRAINT_NAME,src.RDB$RELATION_NAME,src.RDB$INDEX_NAME,
+			ref.RDB$RELATION_NAME, ref.RDB$INDEX_NAME
+		from RDB$RELATION_CONSTRAINTS src, RDB$RELATION_CONSTRAINTS ref, RDB$REF_CONSTRAINTS link
+		where ref.RDB$CONSTRAINT_NAME = link.RDB$CONST_NAME_UQ
+			and src.RDB$CONSTRAINT_NAME = link.RDB$CONSTRAINT_NAME
+			and src.RDB$RELATION_NAME = ?
+	} $table]
+	set result {}
+	foreach {name ctable index reftable refindex} $c {
+		array set ai [$db info object $index]
+		array set refai [$db info object $refindex]
+		lappend result [list $name $ctable $ai(fields) $index $reftable $refai(fields) $refindex]
+	}
+	return $result
+}
+
+proc ::dbi::interbase::info_relation_constraint {db name} {
+	set db [privatedb $db]
+	set c [$db exec -flat {
+		select RDB$CONSTRAINT_TYPE,RDB$RELATION_NAME,RDB$INDEX_NAME
+		from RDB$RELATION_CONSTRAINTS	where RDB$CONSTRAINT_NAME = ? 
+	} $name]
+	if {![llength $c]} {
+		return -code error "relation_constraint \"$name\" not found"
+	}
+	set result {}
+	foreach key {type table index} value $c {
+		lappend result $key $value
+	}
+}
+
+proc ::dbi::interbase::info_trigger {db trigger} {
+	set db [privatedb $db]
+	array set triggertrans {1 {before insert} 2 {after insert} 3 {before update} 4 {after update} 5 {before delete} 6 {after delete}}
+	set c [$db exec -flat {
+		select RDB$TRIGGER_NAME,RDB$RELATION_NAME,RDB$TRIGGER_SEQUENCE,RDB$TRIGGER_TYPE,RDB$TRIGGER_SOURCE,RDB$DESCRIPTION,RDB$TRIGGER_INACTIVE,RDB$SYSTEM_FLAG,RDB$FLAGS
+		from RDB$TRIGGERS
+		where RDB$TRIGGER_NAME = ?
+	} $trigger]
+	if {![llength $c]} {
+		return -code error "trigger \"$trigger\" not found"
+	}
+	set result {type trigger}
+	foreach key {trigger_name relation_name trigger_sequence trigger_type trigger_source description trigger_inactive system_flag flags} value $c {
+		lappend result $key $value
+	}
+	return $result
+}
+
+proc ::dbi::interbase::info_view {db name} {
+	info_table $db $name
+}
+
+proc ::dbi::interbase::info_table {db table} {
+	upvar #0 ::dbi::interbase::typetrans typetrans
+	set db [privatedb $db]
+	# id it a view ?
+	set temp [$db exec {
+		select rdb$relation_name from rdb$relations 
+		where rdb$relation_name = ? and RDB$VIEW_BLR is not null
+	} $table]
+	if {[llength $temp]} {
+		set result {type view}
+	} else {
+		set result {type table}
+	}
+	set temp [$db exec {
+		select rf.RDB$FIELD_NAME, f.RDB$FIELD_NAME, f.RDB$FIELD_TYPE, f.RDB$DIMENSIONS, 
+			f.RDB$COMPUTED_BLR, f.RDB$COMPUTED_SOURCE,
+			f.RDB$FIELD_LENGTH, rf.RDB$NULL_FLAG,
+			rf.RDB$DEFAULT_SOURCE, f.RDB$DEFAULT_SOURCE, f.RDB$VALIDATION_SOURCE
+		from RDB$RELATION_FIELDS rf, RDB$FIELDS f
+		where rf.RDB$FIELD_SOURCE = f.RDB$FIELD_NAME and rf.RDB$RELATION_NAME = ?
+		order by rf.RDB$FIELD_POSITION, rf.RDB$FIELD_NAME
+	} $table]
+	if {[llength $temp] == 0} {error "table \"$table\" does not exist"}
+	set sresult ""
+	set fields ""
+	foreach line $temp {
+		set field [lindex $line 0]
+		lappend fields $field
+		set type $typetrans([lindex $line 2])
+		lappend result type,$field $type
+		set dom [lindex $line 1]
+		if {![string match {RDB$*} $dom]} {
+			lappend result domain,$field $dom
+		}
+		foreach key {
+			dim computed computed_src
+			length notnull default fdefault validation
+		} value [lrange $line 3 end] {
+			if {[string length $value]} {
+				lappend result $key,$field $value
+			}
+		}
+	}
+	set result [linsert $result 2 fields $fields]
+	set temp [$db exec {
+		select RDB$CONSTRAINT_TYPE, RDB$CONSTRAINT_NAME, RDB$INDEX_NAME
+		from RDB$RELATION_CONSTRAINTS
+		where RDB$RELATION_NAME = ?
+	} $table]
+	foreach line $temp {
+		foreach {type name index} $line break
+		switch $type {
+			"PRIMARY KEY" {
+				set field [::dbi::interbase::indexsegments $db $index]
+				lappend result primary,$field $name
+			}
+			"UNIQUE" {
+				set field [::dbi::interbase::indexsegments $db $index]
+				lappend result unique,$field $name
+			}
+			"FOREIGN KEY" {
+				set field [::dbi::interbase::indexsegments $db $index]
+				set temp2 [lindex [$db exec {
+					select rel.RDB$RELATION_NAME, rel.RDB$INDEX_NAME,
+					ref.RDB$UPDATE_RULE, ref.RDB$DELETE_RULE
+					from RDB$RELATION_CONSTRAINTS rel, RDB$REF_CONSTRAINTS ref
+					where rel.RDB$CONSTRAINT_NAME = ref. RDB$CONST_NAME_UQ
+						and ref.RDB$CONSTRAINT_NAME = ?
+				} $name] 0]
+				set reffield [::dbi::interbase::indexsegments $db [lindex $temp2 1]]
+				set reftable [lindex $temp2 0]
+				set rule [lindex $temp2 2]
+				if {"$rule" != "RESTRICT"} {lappend sub update_rule $rule}
+				set rule [lindex $temp2 3]
+				if {"$rule" != "RESTRICT"} {lappend sub delete_rule $rule}
+				lappend result foreign,$field [list $reftable $reffield]
+			}
+			"CHECK" {
+				set ctemp [$db exec {
+					select RDB$TRIGGER_SOURCE
+					from RDB$TRIGGERS trg, RDB$CHECK_CONSTRAINTS chk
+					where trg.RDB$TRIGGER_TYPE = 1
+						and trg.RDB$TRIGGER_NAME = chk.RDB$TRIGGER_NAME
+						and chk.RDB$CONSTRAINT_NAME = ?} $name]
+				lappend result constraint,[lindex [lindex $ctemp 0] 0] $name
+			}
+		}
+	}
+	return $result
+}
+
+proc ::dbi::interbase::info_check {db name} {
+	set db [privatedb $db]
+	set c [$db exec -flat {
+		select trg.RDB$TRIGGER_NAME,trg.RDB$RELATION_NAME,trg.RDB$TRIGGER_SEQUENCE,trg.RDB$TRIGGER_SOURCE,trg.RDB$DESCRIPTION,trg.RDB$TRIGGER_INACTIVE,trg.RDB$SYSTEM_FLAG,trg.RDB$FLAGS
+		from RDB$TRIGGERS trg, RDB$CHECK_CONSTRAINTS chk
+		where trg.RDB$TRIGGER_TYPE = 1
+			and trg.RDB$TRIGGER_NAME = chk.RDB$TRIGGER_NAME
+			and chk.RDB$CONSTRAINT_NAME = ?
+	} $name]
+	if {![llength $c]} {
+		return -code error "check \"$check\" not found"
+	}
+	set result {type check}
+	foreach key {trigger_name relation_name trigger_sequence trigger_source description trigger_inactive system_flag flags} value $c {
+		lappend result $key $value
+	}
+	return $result
+}
+
+proc ::dbi::interbase::info_exception {db name} {
+	set db [privatedb $db]
+	set c [$db exec -flat {
+		select RDB$EXCEPTION_NUMBER,RDB$MESSAGE,RDB$DESCRIPTION,RDB$SYSTEM_FLAG
+		from RDB$EXCEPTIONS where RDB$EXCEPTION_NAME = ?
+	} $name]
+	if {![llength $c]} {
+		return -code error "exception \"$name\" not found"
+	}
+	set result {type exception}
+	foreach key {number message description system} value $c {
+		lappend result $key $value
+	}
+	return $result
+}
+
+proc ::dbi::interbase::info_computed_field {db name} {
+	set db [privatedb $db]
+	set c [$db exec -flat {
+		select rf.RDB$RELATION_NAME,rf.RDB$FIELD_NAME, f.RDB$COMPUTED_SOURCE
+		from RDB$RELATION_FIELDS rf, RDB$FIELDS f
+		where rf.RDB$FIELD_SOURCE = f.RDB$FIELD_NAME and rf.RDB$FIELD_SOURCE = ?
+	} $name]
+	if {![llength $c]} {
+		return -code error "computed_column \"$name\" not found"
+	}
+	set result {type computed_column}
+	foreach key {table field computed} value $c {
+		lappend result $key $value
+	}
+	return $result
+}
+
+proc ::dbi::interbase::info_index {db index} {
+	set c [$db exec -flat {
+		select RDB$RELATION_NAME,RDB$UNIQUE_FLAG,RDB$DESCRIPTION,RDB$INDEX_INACTIVE,
+			RDB$FOREIGN_KEY,RDB$SYSTEM_FLAG,RDB$STATISTICS
+		from RDB$INDICES	where RDB$INDEX_NAME = ?
+	} $index]
+	if {![llength $c]} {
+		return -code error "index \"$index\" not found"
+	}
+	set result {type index }
+	foreach key {table unique description inactive foreign system statistics} value $c {
+		lappend result $key $value
+	}
+	lappend result fields [$db exec {
+		select RDB$FIELD_NAME from RDB$INDEX_SEGMENTS	where RDB$INDEX_NAME = ? order by RDB$FIELD_POSITION
+	} $index]
+	return $result
+}
+
+proc ::dbi::interbase::info_object {db object {type {}}} {
+	set db [privatedb $db]
+	if {[string length $type]} {
+		return [::dbi::interbase::info_$type $db $object]
+	} else {
+		# todo:	validation procedure expression_index user field
+		foreach type {
+			check trigger table view computed_field exception index fk relation_constraint
+		} {
+			if {![catch {::dbi::interbase::info_$type $db $object} result]} {
+				return $result
+			}
+		}
+	}
+}
+
+#
+# serial
+#
 
 proc ::dbi::interbase::serial_add {db table field args} {
 	upvar #0 ::dbi::interbase::typetrans typetrans
@@ -552,3 +798,40 @@ proc ::dbi::interbase::errorclean {db error} {
 	}
 	return $error
 }
+
+
+
+
+if 0 {
+	proc ::dbi::interbase::dumptable {db table} {
+		foreach line [$db exec "select * from \"$table\""] {
+			puts $line
+		}
+		return {}
+	}
+	
+	proc ::dbi::interbase::searchtable {db table pattern} {
+		foreach line [$db exec "select * from \"$table\""] {
+			if {[regexp $pattern $line]} {
+				puts $line
+			}
+		}
+		return {}
+	}
+	
+	proc ::dbi::interbase::parse_systemtables {db pattern} {
+		set db [privatedb $db]
+		set systables [$db info systemtables]
+		set result {}
+		foreach table $systables {
+			set c [$db exec "select * from $table"]
+			foreach line $c {
+				if {[regexp $pattern $c]} {
+					lappend result $table
+				}
+			}
+		}
+		return [lsort -unique $result]
+	}
+}
+

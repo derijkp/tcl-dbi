@@ -8,10 +8,10 @@ set type postgresql
 set testdb testdbi
 set type odbc
 set testdb testdbi
-set type interbase
-set testdb /home/ib/testdbi.gdb
 set type sqlite
 set testdb test.db
+set type interbase
+set testdb /home/ib/testdbi.gdb
 
 set interface dbi/try
 set version 0.1
@@ -181,81 +181,14 @@ proc ::dbi::opendb {} {
 ::dbi::opendb
 ::dbi::initdb
 
-interface::test {autocommit error} {
-	$object exec {delete from "location";}
-	$object exec {delete from "person";}
-	set r1 [$object exec {select "first_name" from "person";}]
-	catch {$object exec {
-		insert into "person" values(1,'Peter','De Rijk',20.0);
-		insert into "person" values(2,'John','Doe','error');
-		insert into "person" ("id","first_name") values(3,'Jane');
-	}}
-	list $r1 [$object exec {select "first_name" from "person";}]
-} {{} {}}
+interface::test {info dependencies} {
+	catch {drop domain "testdomain"}
+	$object exec {create domain "testdomain" varchar(10)}
+	$object info domain testdomain
+} {varchar(10) nullable}
 
-interface::test {transactions: syntax error in exec within transaction} {
-	$object exec {delete from "location";}
-	$object exec {delete from "person";}
-	set r1 [$object exec {select "first_name" from "person";}]
-	$object begin
-	catch {$object exec {
-		insert into "person" values(1,'Peter','De Rijk',20.0);
-	}} error
-	catch {$object exec -error {
-		insert into "person" values(2,'John','Doe',18.5);
-	}} error
-	set r2 [$object exec {select "first_name" from "person";}]
-	$object rollback
-	set r3 [$object exec {select "first_name" from "person";}]
-	list $r1 $r2 $r3 [string range $error 0 27]
-} {{} Peter {} {bad option "-error": must be}}
-
-interface::test {transactions: sql error in exec within transaction} {
-	$object exec {delete from "location";}
-	$object exec {delete from "person";}
-	set r1 [$object exec {select "first_name" from "person";}]
-	$object begin
-	catch {$object exec {
-		insert into "person" values(1,'Peter','De Rijk',20.0);
-		insert into "person" values(2,'John','Doe','error');
-		insert into "person" ("id","first_name") values(3,'Jane');
-	}} error
-	set r2 [$object exec {select "first_name" from "person";}]
-	$object rollback
-	set r3 [$object exec {select "first_name" from "person";}]
-	list $r1 $r2 $r3
-} {{} Peter {}}
-
-interface::test {transactions: sql error in exec within transaction, seperate calls} {
-	$object exec {delete from "location";}
-	$object exec {delete from "person";}
-	set r1 [$object exec {select "first_name" from "person";}]
-	$object begin
-	catch {$object exec {
-		insert into "person" values(1,'Peter','De Rijk',20.0);
-	}} error
-	catch {$object exec {
-		insert into "person" values(2,'John','Doe','error');
-		insert into "person" ("id","first_name") values(3,'Jane');
-	}} error
-	set r2 [$object exec {select "first_name" from "person";}]
-	$object rollback
-	set r3 [$object exec {select "first_name" from "person";}]
-	list $r1 $r2 $r3
-} {{} Peter {}}
+set c [dbi::interbase::parse_systemtables $db {RDB\$418}]
 
 #puts "tests done"
 #$object close
 interface::testsummarize
-
-if 0 {
-$object serial delete address id
-$object serial add address id
-
-	$object exec {insert into "types" ("d") values (24.0)}
-
-$object exec {select * from "types"}
-$object exec {select * from _dbi_serials}
-
-
-}
