@@ -1851,7 +1851,8 @@ else
 		eval "temp_includedir=${includedir}"
 		for i in \
 			`ls -d ${temp_includedir} 2>/dev/null` \
-			/usr/local/include /usr/include ; do
+			/usr/local/include /usr/include \
+			"/Program Files/Borland/InterBase/SDK/include"; do
 		    if test -f "$i/ibase.h" ; then
 				ac_cv_c_interbaseinclude=$i
 				break
@@ -1873,7 +1874,7 @@ fi
 
     # Convert to a native path and substitute into the output files.
 
-    INCLUDE_DIR_NATIVE=`${CYGPATH} ${ac_cv_c_interbaseinclude}`
+    INCLUDE_DIR_NATIVE=`${CYGPATH} "${ac_cv_c_interbaseinclude}"`
 
     INTERBASE_INCLUDE=-I\"${INCLUDE_DIR_NATIVE}\"
 
@@ -1881,22 +1882,22 @@ fi
 
 	
     echo $ac_n "checking for interbase library files""... $ac_c" 1>&6
-echo "configure:1885: checking for interbase library files" >&5
-
+echo "configure:1886: checking for interbase library files" >&5
     # Check whether --with-interbaselib or --without-interbaselib was given.
 if test "${with_interbaselib+set}" = set; then
   withval="$with_interbaselib"
   with_interbaselib=${withval}
 fi
 
-
     if test x"${with_interbaselib}" != x ; then
 	if test -f "${with_interbaselib}/libgds.so" ; then
 	    ac_cv_c_interbaselib=${with_interbaselib}
 	elif test -f "${with_interbaselib}/libgds.a" ; then
 	    ac_cv_c_interbaselib=${with_interbaselib}
+	elif test -f "${with_interbaselib}/gds32.lib" ; then
+	    ac_cv_c_interbaselib=${with_interbaselib}
 	else
-	    { echo "configure: error: ${with_interbaselib} directory does not contain interbase public header file tcl.h" 1>&2; exit 1; }
+	    { echo "configure: error: ${with_interbaselib} directory does not contain interbase public library file $libgdsfile" 1>&2; exit 1; }
 	fi
     else
 	if eval "test \"`echo '$''{'ac_cv_c_interbaselib'+set}'`\" = set"; then
@@ -1913,11 +1914,15 @@ else
 		eval "temp_libdir=${libdir}"
 		for i in \
 			`ls -d ${temp_libdir} 2>/dev/null` \
-			/usr/local/lib /usr/lib ; do
+			/usr/local/lib /usr/lib \
+			/Program Files/Borland/InterBase/SDK/lib ; do
 		    if test -f "$i/libgds.so" ; then
 				ac_cv_c_interbaselib=$i
 				break
 		    elif test -f "$i/libgds.a" ; then
+				ac_cv_c_interbaselib=$i
+				break
+		    elif test -f "$i/gds32.lib" ; then
 				ac_cv_c_interbaselib=$i
 				break
 		    fi
@@ -1930,18 +1935,32 @@ fi
 
     # Print a message based on how we determined the library path
 
-    if test x"${ac_cv_c_interbaselib}" = x ; then
-	{ echo "configure: error: libgds.so or libgds.a not found.  Please specify its location with --with-interbaselib" 1>&2; exit 1; }
-    else
-	echo "$ac_t""${ac_cv_c_interbaselib}" 1>&6
-    fi
-
-    # Convert to a native path and substitute into the output files.
-
-    LIB_DIR_NATIVE=`${CYGPATH} ${ac_cv_c_interbaselib}`
-
-    INTERBASE_LIB="-L\"${LIB_DIR_NATIVE}\" -lgds -lcrypt"
-
+	case "`uname -s`" in
+		*win32* | *WIN32* | *CYGWIN_NT* |*CYGWIN_98*|*CYGWIN_95*)
+		    if test x"${ac_cv_c_interbaselib}" = x ; then
+			{ echo "configure: error: gds32.lib not found.  Please specify its location with --with-interbaselib" 1>&2; exit 1; }
+		    else
+			echo "$ac_t""${ac_cv_c_interbaselib}" 1>&6
+		    fi
+		
+		    # Convert to a native path and substitute into the output files.
+		
+		    INTERBASE_LIB=`${CYGPATH} "${ac_cv_c_interbaselib}/gds32.lib"`
+		;;
+		*)
+		    if test x"${ac_cv_c_interbaselib}" = x ; then
+			{ echo "configure: error: libgds.so or libgds.a not found.  Please specify its location with --with-interbaselib" 1>&2; exit 1; }
+		    else
+			echo "$ac_t""${ac_cv_c_interbaselib}" 1>&6
+		    fi
+		
+		    # Convert to a native path and substitute into the output files.
+		
+		    LIB_DIR_NATIVE=`${CYGPATH} "${ac_cv_c_interbaselib}"`
+		
+		    INTERBASE_LIB="-L\"${LIB_DIR_NATIVE}\" -lgds -lcrypt"
+		;;
+	esac
     
 
 

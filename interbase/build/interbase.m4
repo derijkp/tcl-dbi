@@ -70,7 +70,10 @@ AC_DEFUN(SC_INTERBASE_INCLUDE, [
 		eval "temp_includedir=${includedir}"
 		for i in \
 			`ls -d ${temp_includedir} 2>/dev/null` \
-			/usr/local/include /usr/include ; do
+			/usr/local/include /usr/include \
+			"/Program Files/Firebird/include" \
+			"/Program Files/borland/interBase/Include" \
+			"/Program Files/Borland/InterBase/SDK/include"; do
 		    if test -f "$i/ibase.h" ; then
 				ac_cv_c_interbaseinclude=$i
 				break
@@ -90,7 +93,7 @@ AC_DEFUN(SC_INTERBASE_INCLUDE, [
 
     # Convert to a native path and substitute into the output files.
 
-    INCLUDE_DIR_NATIVE=`${CYGPATH} ${ac_cv_c_interbaseinclude}`
+    INCLUDE_DIR_NATIVE=`${CYGPATH} "${ac_cv_c_interbaseinclude}"`
 
     INTERBASE_INCLUDE=-I\"${INCLUDE_DIR_NATIVE}\"
 
@@ -119,16 +122,16 @@ AC_DEFUN(SC_INTERBASE_INCLUDE, [
 
 AC_DEFUN(SC_INTERBASE_LIB, [
     AC_MSG_CHECKING(for interbase library files)
-
     AC_ARG_WITH(interbaselib, [ --with-interbaselib      directory containing the interbase library files.], with_interbaselib=${withval})
-
     if test x"${with_interbaselib}" != x ; then
 	if test -f "${with_interbaselib}/libgds.so" ; then
 	    ac_cv_c_interbaselib=${with_interbaselib}
 	elif test -f "${with_interbaselib}/libgds.a" ; then
 	    ac_cv_c_interbaselib=${with_interbaselib}
+	elif test -f "${with_interbaselib}/gds32_ms.lib" ; then
+	    ac_cv_c_interbaselib=${with_interbaselib}
 	else
-	    AC_MSG_ERROR([${with_interbaselib} directory does not contain interbase public header file ibase.h])
+	    AC_MSG_ERROR([${with_interbaselib} directory does not contain interbase public library file $libgdsfile])
 	fi
     else
 	AC_CACHE_VAL(ac_cv_c_interbaselib, [
@@ -142,11 +145,17 @@ AC_DEFUN(SC_INTERBASE_LIB, [
 		eval "temp_libdir=${libdir}"
 		for i in \
 			`ls -d ${temp_libdir} 2>/dev/null` \
-			/usr/local/lib /usr/lib ; do
+			/usr/local/lib /usr/lib \
+			"/Program Files/Firebird/lib" \
+			"/Program Files/borland/interBase/Lib" \
+			"/Program Files/Borland/InterBase/SDK/lib_ms" ; do
 		    if test -f "$i/libgds.so" ; then
 				ac_cv_c_interbaselib=$i
 				break
 		    elif test -f "$i/libgds.a" ; then
+				ac_cv_c_interbaselib=$i
+				break
+		    elif test -f "$i/gds32_ms.lib" ; then
 				ac_cv_c_interbaselib=$i
 				break
 		    fi
@@ -155,19 +164,31 @@ AC_DEFUN(SC_INTERBASE_LIB, [
 	])
     fi
 
-    # Print a message based on how we determined the library path
-
-    if test x"${ac_cv_c_interbaselib}" = x ; then
-	AC_MSG_ERROR(libgds.so or libgds.a not found.  Please specify its location with --with-interbaselib)
-    else
-	AC_MSG_RESULT(${ac_cv_c_interbaselib})
-    fi
-
-    # Convert to a native path and substitute into the output files.
-
-    LIB_DIR_NATIVE=`${CYGPATH} ${ac_cv_c_interbaselib}`
-
-    INTERBASE_LIB="-L\"${LIB_DIR_NATIVE}\" -lgds -lcrypt"
-
+	case "`uname -s`" in
+		*win32* | *WIN32* | *CYGWIN_NT* |*CYGWIN_98*|*CYGWIN_95*)
+		    if test x"${ac_cv_c_interbaselib}" = x ; then
+			AC_MSG_ERROR(gds32.lib not found.  Please specify its location with --with-interbaselib)
+		    else
+			AC_MSG_RESULT(${ac_cv_c_interbaselib})
+		    fi
+		
+		    # Convert to a native path and substitute into the output files.
+		
+		    INTERBASE_LIB=\"`${CYGPATH} "${ac_cv_c_interbaselib}/gds32_ms.lib"`\"
+		;;
+		*)
+		    if test x"${ac_cv_c_interbaselib}" = x ; then
+			AC_MSG_ERROR(libgds.so or libgds.a not found.  Please specify its location with --with-interbaselib)
+		    else
+			AC_MSG_RESULT(${ac_cv_c_interbaselib})
+		    fi
+		
+		    # Convert to a native path and substitute into the output files.
+		
+		    LIB_DIR_NATIVE=`${CYGPATH} "${ac_cv_c_interbaselib}"`
+		
+		    INTERBASE_LIB="-L\"${LIB_DIR_NATIVE}\" -lgds -lcrypt"
+		;;
+	esac
     AC_SUBST(INTERBASE_LIB)
 ])

@@ -9,5 +9,13 @@
 
 # $Format: "package ifneeded dbi_postgresql 0.$ProjectMajorVersion$ \\"$
 package ifneeded dbi_postgresql 0.0 \
-	"[list array set _package_dbi_postgresql [list execdir $dir dir {@TCLLIBDIR@} bindir {@BINDIR@} datadir {@DATADIR@} libdir {@LIBDIR@} library {@LIB_LIBRARY@}]] ; \
-	source [file join $dir lib init.tcl]"
+[subst -nocommands {
+	namespace eval ::dbi {}
+	namespace eval ::dbi::postgresql {}
+	set ::dbi::postgresql::execdir $dir
+	if [file exists [file join $dir lib init.tcl]] {
+		source [file join $dir lib init.tcl]
+	} else {
+		source [file join @TCLLIBDIR@ lib init.tcl]
+	}
+}]

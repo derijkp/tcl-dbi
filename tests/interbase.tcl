@@ -2,12 +2,12 @@
 # the next line restarts using wish \
 exec tclsh "$0" "$@"
 puts "source [info script]"
-
 set user1 peter
 set user2 pdr
 set type interbase
 source tools.tcl
-set db [dbi $::type db]
+package require dbi_interbase
+set db [dbi_interbase db]
 puts "open /home/ib/testdbi.gdb"
 db open /home/ib/testdbi.gdb
 catch {db exec {drop view v_test;}} result
@@ -58,6 +58,18 @@ db exec {
 	insert into test (id,first_name) values(3,'Jane');
 }
 
+test interface {match} {
+	db interface dbi
+} {0.1}
+
+test interface {error} {
+	db interface test
+} {db does not support interface test} 1
+
+test interface {list} {
+	eval list [db interface]
+} {dbi 0.1 dbi/admin 0.1}
+
 test select {basic} {
 	db exec {select * from test}
 } {{1 Peter {De Rijk} 20.0} {2 John Doe 17.5} {3 Jane {} {}}}
@@ -99,24 +111,24 @@ test select {fetch -nullvalue} {
 	db fetch -nullvalue null 3
 } {3 Jane null null}
 
-test select {fetch -isnull} {
+test select {fetch isnull} {
 	db exec -usefetch {select * from test}
-	db fetch -isnull 3 2
+	db fetch isnull 3 2
 } {1}
 
-test select {fetch -isnull} {
+test select {fetch isnull} {
 	db exec -usefetch {select * from test}
-	db fetch -isnull 3 0
+	db fetch isnull 3 0
 } {0}
 
-test select {fetch -fields} {
+test select {fetch fields} {
 	db exec -usefetch {select * from test}
-	db fetch -fields
+	db fetch fields
 } {ID FIRST_NAME NAME SCORE}
 
-test select {fetch -lines} {
+test select {fetch lines} {
 	db exec -usefetch {select * from test}
-	catch {db fetch -lines}
+	catch {db fetch lines}
 	db fetch
 	db fetch
 } {2 John Doe 17.5}
@@ -391,18 +403,18 @@ test info {table} {
 
 
 test bugfix {crash} {
-catch {db exec {drop table person}}
-db exec {
-create table person (
-        "id" varchar(6) not null primary key,
-        "first_name" varchar(25) ,
-        "last_name" varchar(50) ,
-        "group" varchar(4) )
-}
-db exec {
-insert into person ("id","first_name","last_name","group") values ('peter','Peter','','binf');
-}
-set a 1
+	catch {db exec {drop table person}}
+	db exec {
+	create table person (
+	        "id" varchar(6) not null primary key,
+	        "first_name" varchar(25) ,
+	        "last_name" varchar(50) ,
+	        "group" varchar(4) )
+	}
+	db exec {
+	insert into person ("id","first_name","last_name","group") values ('peter','Peter','','binf');
+	}
+	set a 1
 } 1
 
 test info {access select} {
