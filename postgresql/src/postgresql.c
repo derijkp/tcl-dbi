@@ -47,10 +47,10 @@ int dbi_Postgresql_Open(
 		goto error;
 	}
 	for (i = 3 ; i < objc ; i += 2) {
-		Tcl_AppendToObj(conninfo,"' ",1);
+		Tcl_AppendToObj(conninfo,"' ",2);
 		string = Tcl_GetStringFromObj(objv[i],&len);
 		Tcl_AppendToObj(conninfo,string+1,len-1);
-		Tcl_AppendToObj(conninfo,"='",1);
+		Tcl_AppendToObj(conninfo,"='",2);
 		string = Tcl_GetStringFromObj(objv[i+1],&len);
 		Tcl_AppendToObj(conninfo,string,len);
 	}
@@ -121,7 +121,9 @@ int dbi_Postgresql_Exec(
 	Dbi *db,
 	Tcl_Obj *cmd,
 	int usefetch,
-	Tcl_Obj *nullvalue)
+	Tcl_Obj *nullvalue,
+	int objc,
+	Tcl_Obj **objv)
 {
 	PGresult *res = NULL;
 	ExecStatusType status;
@@ -196,19 +198,24 @@ int dbi_Postgresql_Fetch(
 	} else {
 		dbdata->respos = t;
 	}
-	if (t >= ntuples) {
-		Tcl_Obj *buffer;
-		buffer = Tcl_NewIntObj(t);
-		Tcl_AppendResult(interp, "line ",Tcl_GetStringFromObj(buffer,NULL) ," out of range", NULL);
-		Tcl_DecrRefCount(buffer);
-		return TCL_ERROR;
-	}
-	if (f >= nfields) {
-		Tcl_Obj *buffer;
-		buffer = Tcl_NewIntObj(f);
-		Tcl_AppendResult(interp, "field ",Tcl_GetStringFromObj(buffer,NULL) ," out of range", NULL);
-		Tcl_DecrRefCount(buffer);
-		return TCL_ERROR;
+	switch (fetch_option) {
+		case DBI_FETCH_DATA:
+		case DBI_FETCH_ISNULL:
+		case DBI_FETCH_CURRENTLINE:
+			if (t >= ntuples) {
+				Tcl_Obj *buffer;
+				buffer = Tcl_NewIntObj(t);
+				Tcl_AppendResult(interp, "line ",Tcl_GetStringFromObj(buffer,NULL) ," out of range", NULL);
+				Tcl_DecrRefCount(buffer);
+				return TCL_ERROR;
+			}
+			if (f >= nfields) {
+				Tcl_Obj *buffer;
+				buffer = Tcl_NewIntObj(f);
+				Tcl_AppendResult(interp, "field ",Tcl_GetStringFromObj(buffer,NULL) ," out of range", NULL);
+				Tcl_DecrRefCount(buffer);
+				return TCL_ERROR;
+			}
 	}
 	switch (fetch_option) {
 		case DBI_FETCH_DATA:
@@ -297,11 +304,74 @@ int dbi_Postgresql_Tableinfo(
 	Tcl_Obj *varName)
 {
 	dbi_Postgresql_Data *dbdata = (dbi_Postgresql_Data *)db->dbdata;
+	Tcl_Obj *cmd,*temp;
 	char *name;
 	int error;
 	name = Tcl_GetCommandName(interp,db->token);
-	error = Tcl_VarEval(interp,"::dbi::postgresql_tableinfo ",name," ",Tcl_GetStringFromObj(table,NULL)," ",Tcl_GetStringFromObj(varName,NULL),NULL);
+	cmd = Tcl_NewStringObj("::dbi::postgresql_tableinfo",-1);
+	Tcl_IncrRefCount(cmd);
+	temp = Tcl_NewStringObj(name,-1);
+	error = Tcl_ListObjAppendElement(interp,cmd,temp);
+	if (error) {Tcl_DecrRefCount(cmd);Tcl_DecrRefCount(temp);return error;}
+	error = Tcl_ListObjAppendElement(interp,cmd,table);
+	if (error) {Tcl_DecrRefCount(cmd);return error;}
+	error = Tcl_ListObjAppendElement(interp,cmd,varName);
+	if (error) {Tcl_DecrRefCount(cmd);return error;}
+	error = Tcl_EvalObj(interp,cmd);
+	Tcl_DecrRefCount(cmd);
 	return error;
+}
+
+int dbi_Postgresql_Transaction(
+	Tcl_Interp *interp,
+	Dbi *db,
+	int flag)
+{
+	PGresult *res = NULL;
+	ExecStatusType status;
+	dbi_Postgresql_Data *dbdata = (dbi_Postgresql_Data *)db->dbdata;
+	char *cmd;
+	int error;
+	if (dbdata->conn == NULL) {
+		Tcl_AppendResult(interp,"dbi object has no open database, open a connection first", NULL);
+		goto error;
+	}
+	switch (flag) {
+		case TRANSACTION_BEGIN:
+			cmd = "BEGIN";
+			break;
+		case TRANSACTION_COMMIT:
+			cmd = "COMMIT";
+			break;
+		case TRANSACTION_ROLLBACK:
+			cmd = "ROLLBACK";
+			break;
+	}
+	res = PQexec(dbdata->conn, cmd);
+	if (res == NULL) {
+			Tcl_AppendResult(interp,"database error executing command \"",
+				cmd, "\":\n",
+				PQerrorMessage(dbdata->conn), NULL);
+			goto error;
+	}
+	status = PQresultStatus(res);
+	switch (status) {
+		case PGRES_COMMAND_OK:
+			Tcl_ResetResult(interp);
+			Tcl_AppendResult(interp,PQcmdTuples(res),NULL);
+			break;
+		default:
+			Tcl_AppendResult(interp,"database error executing command \"",
+				cmd, "\":\n",
+				PQresultErrorMessage(res), NULL);
+			goto error;
+	}
+	dbdata->respos = 0;
+	PQclear(res);
+	return TCL_OK;
+	error:
+		if (res != NULL) PQclear(res);
+		return TCL_ERROR;
 }
 
 int dbi_Postgresql_Close(
@@ -339,6 +409,7 @@ int dbi_Postgresql_Create(
 	db->tables = dbi_Postgresql_Tables;
 	db->tableinfo = dbi_Postgresql_Tableinfo;
 	db->fetch = dbi_Postgresql_Fetch;
+	db->transaction = dbi_Postgresql_Transaction;
 	db->close = dbi_Postgresql_Close;
 	db->destroy = dbi_Postgresql_Destroy;
 	return TCL_OK;

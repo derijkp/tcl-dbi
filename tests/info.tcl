@@ -31,7 +31,16 @@ test $what {tableinfo} {
 
 test $what {tableinfo on non existing table} {
 	db tableinfo doesnotexist test
-} {table "doesnotexist" does not exist}
+} {table "doesnotexist" does not exist} 1
+
+test $what {tableinfo error in format} {
+	db tableinfo location
+} {wrong # args: should be "db tableinfo tablename varName"} 1
+
+test $what {tableinfo empty var} {
+	db tableinfo location {}
+	set (fields)
+} {type inhabitant address}
 
 if $fts(datasources) {
 

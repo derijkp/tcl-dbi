@@ -7,10 +7,16 @@ if ![info exists type] {
 	set type [lindex $argv 0]
 	set argv [lrange $argv 1 end]
 }
+if ![string length $type] {set type postgresql}
 
 source tools.tcl
 
 set what dbi-$type
+
+test $what {error} {
+	set db [dbi $::type db]
+	db
+} {wrong # args: should be "db option ?...?"} 1
 
 test $what {create and destroy dbi object} {
 	set db [dbi $::type]
@@ -44,15 +50,14 @@ test $what {open error} {
 # Open test database for further tests
 db open $::testdatabase
 
+test $what {open -user error} {
+	set db [dbi $::type db]
+	db open testdbi -user test -password afsg
+} {} 1
+
 test $what {create table} {
 	cleandb
-	db exec {
-		create table test (
-			id serial primary key,
-			first_name text,
-			name text
-		);
-	}
+	createdb
 } {}
 
 test $what {create and fill table} {

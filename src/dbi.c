@@ -30,7 +30,7 @@ int dbi_DbObjCmd(
 	Dbi *db = (Dbi *)clientdata;
 	char *cmd;
 	int error=TCL_OK,cmdlen,i;
-	if (objc < 1) {
+	if (objc < 2) {
 		Tcl_WrongNumArgs(interp, 1, objv, "option ?...?");
 		return TCL_ERROR;
 	}
@@ -45,7 +45,7 @@ int dbi_DbObjCmd(
 		int usefetch = 0;
 		int objn,stringlen;
 		if (objc < 3) {
-			Tcl_WrongNumArgs(interp, 2, objv, "?options? command");
+			Tcl_WrongNumArgs(interp, 2, objv, "?options? command ?argument? ?...?");
 			return TCL_ERROR;
 		}
 		i = 2;
@@ -80,14 +80,10 @@ int dbi_DbObjCmd(
 			}
 			i++;
 		}
-		if (i != (objc-1)) {
-			Tcl_WrongNumArgs(interp, 2, objv, "?options? command");
-			return TCL_ERROR;
-		}
 		if (command != NULL) {
 			usefetch = 1;
 		}
-		error = db->exec(interp,db,objv[objc-1],usefetch,nullvalue);
+		error = db->exec(interp,db,objv[i],usefetch,nullvalue,objc-i-1,objv+i+1);
 		if (error) {return TCL_ERROR;}
 		return TCL_OK;
 	} else if ((cmdlen == 5)&&(strncmp(cmd,"fetch",5) == 0)) {
@@ -210,7 +206,7 @@ int dbi_DbObjCmd(
 			Tcl_AppendResult(interp,db->type, " type: tableinfo not supported",NULL);
 			return TCL_ERROR;
 		}
-		if (objc <4) {
+		if (objc != 4) {
 			Tcl_WrongNumArgs(interp, 2, objv, "tablename varName");
 			return TCL_ERROR;
 		}
@@ -225,6 +221,42 @@ int dbi_DbObjCmd(
 		error = db->close(interp,db);
 		if (error) {return TCL_ERROR;}
 		return TCL_OK;
+	} else if ((cmdlen == 5)&&(strncmp(cmd,"begin",5) == 0)) {
+		if (objc != 2) {
+			Tcl_WrongNumArgs(interp, 2, objv, "");
+			return TCL_ERROR;
+		}
+		if (db->transaction == NULL) {
+			Tcl_AppendResult(interp,db->type, " type: transactions not supported",NULL);
+			return TCL_ERROR;
+		}
+		error = db->transaction(interp,db,TRANSACTION_BEGIN);
+		if (error) {return TCL_ERROR;}
+		return TCL_OK;
+	} else if ((cmdlen == 6)&&(strncmp(cmd,"commit",6) == 0)) {
+		if (objc != 2) {
+			Tcl_WrongNumArgs(interp, 2, objv, "");
+			return TCL_ERROR;
+		}
+		if (db->transaction == NULL) {
+			Tcl_AppendResult(interp,db->type, " type: transactions not supported",NULL);
+			return TCL_ERROR;
+		}
+		error = db->transaction(interp,db,TRANSACTION_COMMIT);
+		if (error) {return TCL_ERROR;}
+		return TCL_OK;
+	} else if ((cmdlen == 8)&&(strncmp(cmd,"rollback",8) == 0)) {
+		if (objc != 2) {
+			Tcl_WrongNumArgs(interp, 2, objv, "");
+			return TCL_ERROR;
+		}
+		if (db->transaction == NULL) {
+			Tcl_AppendResult(interp,db->type, " type: transactions not supported",NULL);
+			return TCL_ERROR;
+		}
+		error = db->transaction(interp,db,TRANSACTION_ROLLBACK);
+		if (error) {return TCL_ERROR;}
+		return TCL_OK;
 	} else if ((cmdlen == 7)&&(strncmp(cmd,"destroy",7) == 0)) {
 		if (objc != 2) {
 			Tcl_WrongNumArgs(interp, 2, objv, "");
@@ -232,9 +264,38 @@ int dbi_DbObjCmd(
 		}
 		Tcl_DeleteCommandFromToken(interp,db->token);
 		return TCL_OK;
+	} else if ((cmdlen == 6)&&(strncmp(cmd,"serial",6) == 0)) {
+		Tcl_Obj *current = NULL;
+		int type;
+		if (db->serial == NULL) {
+			Tcl_AppendResult(interp,db->type, " type: serial option not supported",NULL);
+			return TCL_ERROR;
+		}
+		if ((objc < 5)||(objc > 6)) {
+			Tcl_WrongNumArgs(interp, 2, objv, "cmd table field ?current?");
+			return TCL_ERROR;
+		}
+		cmd = Tcl_GetStringFromObj(objv[2],&cmdlen);
+		if ((cmdlen == 3)&&(strncmp(cmd,"add",3) == 0)) {
+			type = SERIAL_ADD;
+		} else	if ((cmdlen == 6)&&(strncmp(cmd,"delete",6) == 0)) {
+			type = SERIAL_DELETE;
+		} else	if ((cmdlen == 3)&&(strncmp(cmd,"set",3) == 0)) {
+			type = SERIAL_SET;
+		} else {
+			Tcl_ResetResult(interp);
+			Tcl_AppendResult(interp,"bad suboption \"", cmd, "\" for serial: must be one of add, delete or set", (char *)NULL);
+			return TCL_ERROR;
+		}
+		if (objc == 6) {
+			current = objv[5];
+		}
+		error = db->serial(interp,db,type,objv[3],objv[4],current);
+		if (error) {return TCL_ERROR;}
+		return TCL_OK;
 	}
 	Tcl_ResetResult(interp);
-	Tcl_AppendResult(interp,"bad option \"", cmd, "\": must be one of open, configure, exec, fetch, tables, tableinfo, close", (char *)NULL);
+	Tcl_AppendResult(interp,"bad option \"", cmd, "\": must be one of open, configure, exec, fetch, tables, tableinfo, serial, close", (char *)NULL);
 	return TCL_ERROR;
 }
 
@@ -332,9 +393,11 @@ int dbi_NewDbObjCmd(
 		db->exec = NULL;
 		db->fetch = NULL;
 		db->close = NULL;
+		db->transaction = NULL;
 		db->admin = NULL;
 		db->tables = NULL;
 		db->tableinfo = NULL;
+		db->serial = NULL;
 		error = createf(interp,db);
 		if (error) {return error;}
 		if (objc == 3) {

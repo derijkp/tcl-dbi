@@ -12,7 +12,7 @@
 # See the file "license.terms" for information on usage and redistribution
 # of this file, and for a DISCLAIMER OF ALL WARRANTIES.
 #
-# RCS: @(#) $Id: Makefile 1.2 Wed, 15 Nov 2000 14:18:20 +0100 peter $
+# RCS: @(#) $Id: Makefile 1.1 Wed, 15 Nov 2000 14:18:20 +0100 peter $
 
 #========================================================================
 # Edit the following few lines when writing a new extension
@@ -24,7 +24,7 @@
 # library that we are building.
 #========================================================================
 
-lib_BINARIES=$(dbi_odbc_LIB_FILE)
+lib_BINARIES=$(dbi_interbase_LIB_FILE)
 bin_BINARIES=
 BINARIES=$(lib_BINARIES) $(bin_BINARIES)
 SOURCE_DIR=$(srcdir)/../src
@@ -34,8 +34,8 @@ SOURCE_DIR=$(srcdir)/../src
 # This will be used when a dist target is added to the Makefile.
 #========================================================================
 
-dbi_odbc_SOURCES = $(SOURCE_DIR)/odbc.c $(SOURCE_DIR)/odbc_result.c
-SOURCES = $(dbi_odbc_SOURCES)
+dbi_interbase_SOURCES = $(SOURCE_DIR)/interbase.c
+SOURCES = $(dbi_interbase_SOURCES)
 
 #========================================================================
 # Enumerate the names of the object files included in this package.
@@ -45,8 +45,8 @@ SOURCES = $(dbi_odbc_SOURCES)
 #
 #========================================================================
 
-dbi_odbc_OBJECTS = odbc.$(OBJEXT) odbc_result.$(OBJEXT)
-OBJECTS = $(dbi_odbc_OBJECTS)
+dbi_interbase_OBJECTS = interbase.$(OBJEXT)
+OBJECTS = $(dbi_interbase_OBJECTS)
 
 #========================================================================
 # The substitution of "exampleA_LIB_FILE" into the variable name below
@@ -56,14 +56,14 @@ OBJECTS = $(dbi_odbc_OBJECTS)
 # objects and the library itself in a platform-independent manner.
 #========================================================================
 
-dbi_odbc_LIB_FILE = libdbi_odbc0.1.so
-$(dbi_odbc_LIB_FILE)_OBJECTS = $(dbi_odbc_OBJECTS)
+dbi_interbase_LIB_FILE = libdbi_interbase0.1.so
+$(dbi_interbase_LIB_FILE)_OBJECTS = $(dbi_interbase_OBJECTS)
 
 #========================================================================
 # This is a list of header files to be installed
 #========================================================================
 
-GENERIC_HDRS=
+GENERIC_HDRS=$(SOURCE_DIR)/interbase.h
 
 #========================================================================
 # Add additional lines to handle any additional AC_SUBST cases that
@@ -72,8 +72,9 @@ GENERIC_HDRS=
 
 SAMPLE_NEW_VAR=@SAMPLE_NEW_VAR@
 DBI_INCLUDE=-I"../../src"
-ODBC_INCLUDE=-I"/usr/include"
-ODBC_LIB=-L"/usr/lib" -lodbc
+DBI_LIB=@DBI_LIB@
+INTERBASE_INCLUDE=-I"/usr//include"
+INTERBASE_LIB=-L"/usr/lib" -lgds -lcrypt
 
 #========================================================================
 # Nothing of the variables below this line need to be changed.  Please
@@ -85,7 +86,7 @@ SHELL = /bin/sh
 
 srcdir = .
 top_srcdir = .
-prefix = /opt/tcltk/
+prefix = /usr/
 exec_prefix = ${prefix}
 
 bindir = ${exec_prefix}/bin
@@ -104,17 +105,17 @@ tcllibdir = ${prefix}/lib
 
 DESTDIR =
 
-pkgdatadir = $(datadir)/dbi_odbc0.1
-pkglibdir = $(libdir)/dbi_odbc0.1
-pkgtcllibdir = $(tcllibdir)/dbi_odbc0.1
-pkgincludedir = $(includedir)/dbi_odbc0.1
+pkgdatadir = $(datadir)/dbi_interbase0.1
+pkglibdir = $(libdir)/dbi_interbase0.1
+pkgtcllibdir = $(tcllibdir)/dbi_interbase0.1
+pkgincludedir = $(includedir)/dbi_interbase0.1
 
 top_builddir = .
 
 INSTALL = /usr/bin/install -c
 INSTALL_PROGRAM = ${INSTALL}
 INSTALL_DATA = ${INSTALL} -m 644
-INSTALL_SCRIPT = ${INSTALL}
+INSTALL_SCRIPT = ${INSTALL_PROGRAM}
 INSTALL_STRIP_FLAG =
 transform = s,x,x,
 
@@ -125,7 +126,7 @@ NORMAL_UNINSTALL = :
 PRE_UNINSTALL = :
 POST_UNINSTALL = :
 
-PACKAGE = dbi_odbc
+PACKAGE = dbi_interbase
 VERSION = 0.1
 CC = cc
 CFLAGS_DEBUG = -g
@@ -142,20 +143,20 @@ MAKE_STATIC_LIB = ${STLIB_LD} $@ $($@_OBJECTS)
 OBJEXT = o
 RANLIB = :
 SHLIB_CFLAGS = -fPIC
-SHLIB_LD = cc -shared
+SHLIB_LD = gcc -pipe -shared
 SHLIB_LDFLAGS = 
-SHLIB_LD_LIBS = -L/opt/tcltk/lib -ltclstub8.3${TCL_DBGX}
+SHLIB_LD_LIBS = -L/usr/lib -ltclstub8.3${TCL_DBGX}
 STLIB_LD = ar cr
-TCL_BIN_DIR = /opt/tcltk/lib
-TCL_DEFS =  -DHAVE_UNISTD_H=1 -DHAVE_LIMITS_H=1 -DHAVE_GETCWD=1 -DHAVE_OPENDIR=1 -DHAVE_STRSTR=1 -DHAVE_STRTOL=1 -DHAVE_TMPNAM=1 -DHAVE_WAITPID=1 -DHAVE_UNISTD_H=1 -DHAVE_SYS_PARAM_H=1 -DUSE_TERMIOS=1 -DHAVE_SYS_TIME_H=1 -DTIME_WITH_SYS_TIME=1 -DHAVE_TM_ZONE=1 -DHAVE_TM_GMTOFF=1 -DHAVE_TIMEZONE_VAR=1 -DHAVE_ST_BLKSIZE=1 -DSTDC_HEADERS=1 -DNEED_MATHERR=1 -DHAVE_SIGNED_CHAR=1 -DHAVE_SYS_IOCTL_H=1 
+TCL_BIN_DIR = /usr/lib
+TCL_DEFS =  -DHAVE_UNISTD_H=1 -DHAVE_LIMITS_H=1 -DHAVE_GETCWD=1 -DHAVE_OPENDIR=1 -DHAVE_STRSTR=1 -DHAVE_STRTOL=1 -DHAVE_TMPNAM=1 -DHAVE_WAITPID=1 -DHAVE_UNISTD_H=1 -DHAVE_SYS_PARAM_H=1 -DHAVE_SYS_TIME_H=1 -DTIME_WITH_SYS_TIME=1 -DHAVE_TM_ZONE=1 -DHAVE_TM_GMTOFF=1 -DHAVE_TIMEZONE_VAR=1 -DHAVE_ST_BLKSIZE=1 -DSTDC_HEADERS=1 -DNEED_MATHERR=1 -DHAVE_SIGNED_CHAR=1 -DHAVE_SYS_IOCTL_H=1 
 TCL_EXTRA_CFLAGS = 
 TCL_LD_FLAGS = -rdynamic
 TCL_LIBS = -ldl  -lieee -lm
 TCL_SHLIB_LD_LIBS = ${LIBS}
-TCL_SRC_DIR = /usr/src/redhat/BUILD/tcltk-8.3.2/tcl8.3.2
+TCL_SRC_DIR = /home/flepied/rpm-rebuilder/RPM/BUILD/tcltk-8.3.2/tcl8.3.2
 TCL_DBGX = 
 TCL_STUB_LIB_FILE = libtclstub8.3${TCL_DBGX}.a
-TCL_STUB_LIB_SPEC = -L/opt/tcltk/lib -ltclstub8.3${TCL_DBGX}
+TCL_STUB_LIB_SPEC = -L/usr/lib -ltclstub8.3${TCL_DBGX}
 TCL_TOOL_DIR_NATIVE = @TCL_TOOL_DIR_NATIVE@
 TCL_TOP_DIR_NATIVE = @TCL_TOP_DIR_NATIVE@
 TCL_UNIX_DIR_NATIVE = @TCL_UNIX_DIR_NATIVE@
@@ -164,15 +165,15 @@ INCLUDE_DIR_NATIVE = @INCLUDE_DIR_NATIVE@
 TCL_BMAP_DIR_NATIVE = @TCL_BMAP_DIR_NATIVE@
 TCL_PLATFORM_DIR_NATIVE = @TCL_PLATFORM_DIR_NATIVE@
 TCL_GENERIC_DIR_NATIVE = @TCL_GENERIC_DIR_NATIVE@
-TCLSH_PROG = /opt/tcltk//bin/tclsh8.3
+TCLSH_PROG = /usr//bin/tclsh8.3
 SHARED_BUILD = 1
-TCL_LIB_SPEC = -L/opt/tcltk/lib -ltcl8.3${TCL_DBGX}
+TCL_LIB_SPEC = -L/usr/lib -ltcl8.3${TCL_DBGX}
 
 AUTOCONF = autoconf
 
-LDFLAGS = $(LDFLAGS_DEFAULT)
+LDFLAGS = $(LDFLAGS_DEBUG)
 
-INCLUDES = -I"/opt/tcltk//include" $(ODBC_INCLUDE) $(DBI_INCLUDE)
+INCLUDES = -I"/usr//include" $(INTERBASE_INCLUDE) $(DBI_INCLUDE)
 
 EXTRA_CFLAGS = $(TCL_DEFS) $(PROTO_FLAGS) $(SECURITY_FLAGS) $(MEM_DEBUG_FLAGS) $(KEYSYM_FLAGS) $(NO_DEPRECATED_FLAGS) $(TCL_EXTRA_CFLAGS)
 
@@ -186,7 +187,7 @@ CONFIG_CLEAN_FILES = mkIndex.tcl
 CPPFLAGS = 
 LIBS = 
 AR = ar
-CFLAGS = ${CFLAGS_DEFAULT} ${CFLAGS_WARNING} ${SHLIB_CFLAGS}
+CFLAGS = ${CFLAGS_DEBUG} ${CFLAGS_WARNING} ${SHLIB_CFLAGS} -Wall
 COMPILE = $(CC) $(DEFS) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(AM_CFLAGS) $(CFLAGS)
 CCLD = $(CC)
 LINK = $(CCLD) $(AM_CFLAGS) $(CFLAGS) $(LDFLAGS) -o $@
@@ -236,13 +237,13 @@ install-libraries: libraries
 	echo "Adapting pkgIndex.tcl"
 	$(TCLSH_PROG) $(srcdir)/install-replace.tcl \
 		$(srcdir)/../pkgIndex.tcl $(DESTDIR)$(pkglibdir)/pkgIndex.tcl \
-		@TCLLIBDIR@ "$(DESTDIR)$(tcllibdir)/dbi_odbc0.1" \
+		@TCLLIBDIR@ "$(DESTDIR)$(tcllibdir)/dbi_interbase0.1" \
 	echo "Adapting init.tcl"
 	$(TCLSH_PROG) $(srcdir)/install-replace.tcl \
 		$(srcdir)/../init.tcl $(DESTDIR)$(pkgtcllibdir)/init.tcl \
-		@LIB_LIBRARY@ "$(dbi_LIB_FILE)" \
+		@LIB_LIBRARY@ "$(dbi_interbase_LIB_FILE)" \
 		@LIBDIR@ "$(DESTDIR)$(libdir)" \
-		@TCLLIBDIR@ "$(DESTDIR)$(tcllibdir)/dbi_odbc0.1" \
+		@TCLLIBDIR@ "$(DESTDIR)$(tcllibdir)/dbi_interbase0.1" \
 		@DATADIR@ "$(DESTDIR)$(datadir)" \
 		@BINDIR@ "$(DESTDIR)$(bindir)"
 
@@ -274,7 +275,6 @@ test: binaries libraries
 	PATH="$(BUILD_DIR)":"$(TCL_BIN_DIR)":"$(PATH)" \
 	TCL_TEST_DIR=$(srcdir)/../tests \
 	TCL_TEST_ONLYERRORS=1 \
-	TCL_TEST_DBI_BACKEND= \
 	$(TCLSH_PROG) `echo $(srcdir)/../tests/all.tcl` $(TCLTESTARGS)
 
 depend:
@@ -293,10 +293,10 @@ depend:
 # name from "exampleA" to your package's name.
 #========================================================================
 
-$(dbi_odbc_LIB_FILE): $(dbi_odbc_OBJECTS)
-	-rm -f $(dbi_odbc_LIB_FILE)
-	${SHLIB_LD} -o $@ $($@_OBJECTS) ${SHLIB_LDFLAGS} ${SHLIB_LD_LIBS} $(ODBC_LIB)
-	$(RANLIB) $(dbi_odbc_LIB_FILE)
+$(dbi_interbase_LIB_FILE): $(dbi_interbase_OBJECTS)
+	-rm -f $(dbi_interbase_LIB_FILE)
+	${SHLIB_LD} -o $@ $($@_OBJECTS) ${SHLIB_LDFLAGS} ${SHLIB_LD_LIBS} $(INTERBASE_LIB)
+	$(RANLIB) $(dbi_interbase_LIB_FILE)
 
 #========================================================================
 # We need to enumerate the list of .c to .o lines here.
@@ -312,11 +312,8 @@ $(dbi_odbc_LIB_FILE): $(dbi_odbc_OBJECTS)
 # 	$(COMPILE) -c `echo $(srcdir)/src/win/exampleA.c` -o $@
 #========================================================================
 
-odbc.$(OBJEXT): $(SOURCE_DIR)/odbc.c
-	$(COMPILE) -c `echo $(SOURCE_DIR)/odbc.c` -o $@
-
-odbc_result.$(OBJEXT): $(SOURCE_DIR)/odbc_result.c
-	$(COMPILE) -c `echo $(SOURCE_DIR)/odbc_result.c` -o $@
+interbase.$(OBJEXT): $(SOURCE_DIR)/interbase.c
+	$(COMPILE) -c `echo $(SOURCE_DIR)/interbase.c` -o $@
 
 #========================================================================
 # End of user-definable section

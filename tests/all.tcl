@@ -31,4 +31,5 @@ foreach type $types {
 	puts "Testing $type type"
 	alltest dbi.tcl
 	alltest info.tcl
+	alltest txn.tcl
 }

@@ -75,7 +75,7 @@ proc ::dbi::postgresql_tableinfo {db table var} {
 		lappend data(indices) $indexname
 		foreach num $indkey {
 			incr num -1
-			lappend data(index,$indexname,key) [lindex $data(fields) $num]
+			lappend data(index,[lindex $data(fields) $num],name) $indexname
 		}
 		set data(index,$indexname,isprimary) [? {"$indisprimary" == "t"} 1 0]
 		set data(index,$indexname,isunique) [? {"$indisunique" == "t"} 1 0]

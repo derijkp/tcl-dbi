@@ -7,7 +7,7 @@
 # script is sourced, the variable $dir must contain the
 # full path name of this file's directory.
 
-# $Format: "package ifneeded dbi_odbc 0.$ProjectMajorVersion$ \\"$
-package ifneeded dbi_odbc 0.0 \
-	"[list array set _package_dbi_odbc [list execdir $dir dir {@TCLLIBDIR@} bindir {@BINDIR@} datadir {@DATADIR@} libdir {@LIBDIR@} library {@LIB_LIBRARY@}]] ; \
+# $Format: "package ifneeded dbi_interbase 0.$ProjectMajorVersion$ \\"$
+package ifneeded dbi_interbase 0.0 \
+	"[list array set _package_dbi_interbase [list execdir $dir dir {@TCLLIBDIR@} bindir {@BINDIR@} datadir {@DATADIR@} libdir {@LIBDIR@} library {@LIB_LIBRARY@}]] ; \
 	source [file join $dir lib init.tcl]"

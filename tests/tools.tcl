@@ -7,34 +7,74 @@ set what test
 set testdatabase testdbi
 
 proc cleandb {} {
-	catch {db exec "drop table test"}
-	catch {db exec "drop sequence test_id_seq"}
-	catch {db exec "drop table person"}
-	catch {db exec "drop sequence person_id_seq"}
-	catch {db exec "drop table address"}
-	catch {db exec "drop sequence address_id_seq"}
-	catch {db exec "drop table location"}
+	upvar type type
+	if {"$type" == "interbase"} {
+		catch {db exec "drop table test"}
+		catch {db exec "drop generator test_id_seq"}
+		catch {db exec "drop table person"}
+		catch {db exec "drop sequence person_id_seq"}
+		catch {db exec "drop table address"}
+		catch {db exec "drop sequence address_id_seq"}
+		catch {db exec "drop table location"}
+	} else {
+		catch {db exec "drop table test"}
+		catch {db exec {delete from rdb$generators where rdb$generator_name = 'ADDRESS_ID_SEQ'}}
+		catch {db exec "drop sequence test_id_seq"}
+		catch {db exec "drop table person"}
+		catch {db exec "drop sequence person_id_seq"}
+		catch {db exec "drop table address"}
+		catch {db exec "drop sequence address_id_seq"}
+		catch {db exec "drop table location"}
+	}
 }
 
 proc createdb {} {
-	db exec {
-		create table person (
-			id char(6) primary key,
-			first_name text,
-			name text
-		);
-		create table address (
-			id serial primary key,
-			street text,
-			number text,
-			code text,
-			city text
-		);
-		create table location (
-			type text check (type in ('home','work','leisure')),
-			inhabitant char(6) references person(id),
-			address int4 references address(id)
-		);
+	upvar type type
+	if {"$type" == "interbase"} {
+		db exec {
+			create table person (
+				id char(6) primary key,
+				first_name varchar(100),
+				name varchar(100)
+			);
+			create generator address_id_seq;
+			create trigger address_id_seq for address before insert as
+			begin
+				new.id = gen_id(address_id_seq,1);
+			end
+			create table address (
+				id int not null primary key,
+				street varchar(100),
+				number varchar(20),
+				code varchar(10),
+				city varchar(100)
+			);
+			create table location (
+				type varchar(100) check (type in ('home','work','leisure')),
+				inhabitant char(6) references person(id),
+				address integer references address(id)
+			);
+		}
+	} else {
+		db exec {
+			create table person (
+				id char(6) primary key,
+				first_name text,
+				name text
+			);
+			create table address (
+				id serial primary key,
+				street text,
+				number text,
+				code text,
+				city text
+			);
+			create table location (
+				type text check (type in ('home','work','leisure')),
+				inhabitant char(6) references person(id),
+				address int4 references address(id)
+			);
+		}
 	}
 }
 
