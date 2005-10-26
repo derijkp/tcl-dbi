@@ -2,6 +2,9 @@
 #define DBI_VERSION "1.0"
 
 #define DONT_TD_VOID
+#ifdef __WIN32__
+#include <windows.h>
+#endif
 #include <sql.h>
 #include <sqlext.h>
 #include <sqltypes.h>

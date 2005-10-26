@@ -57,7 +57,7 @@ config stubsEnabled 0
 # Does your package extends Tk as well as Tcl?
 config tkExtension 0
 # Does your package require access to Tcl or Tk's internal interfaces?
-config accessPrivate 0
+config accessPrivate 1
 
 # Extra libraries needed by the extension
 # contains a list of:
@@ -67,7 +67,7 @@ config accessPrivate 0
 # - paths to look in for libs besides in given dir or typical dirs (based on prefix)
 # - base library name to find (without lib in front ie. the one you put in -l<name>)
 config extralibs {
-	odbc {} sql.h {} {odbc {}}
+	odbc {"/c/Program Files/Microsoft Data Access SDK/inc"} sql.h {"/c/Program Files/Microsoft Data Access SDK/lib/x86"} {odbc odbc32}
 }
 
 # An autoconf fragment used to check for additional system features that
@@ -88,7 +88,6 @@ config unixlibraries {
 # Special libraries that autoconf does not detect but which need to be
 # linked on windows systems
 config winlibraries {
-	odbc32.lib odbccp32.lib
 }
 
 # A list of the extra substitutions that autoconf is to put into the

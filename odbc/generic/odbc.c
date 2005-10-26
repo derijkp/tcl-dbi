@@ -10,6 +10,7 @@
 #include <string.h>
 #include <stdlib.h>
 #include "tcl.h"
+#include "tclInt.h"
 #include "odbc.h"
 #include "odbc_getinfo.h"
 
@@ -90,7 +91,10 @@ void dbi_odbc_error(
 			Tcl_AppendResult(interp,"ODBC Error: invalid handle",NULL);
 			return; 
 	}
-	rc = SQLError(dbi_odbc_env, hdbc, hstmt, 
+/*	rc = SQLError(dbi_odbc_env, hdbc, hstmt, 
+		(UCHAR*) SqlState, &NativeError, (UCHAR*) SqlMessage, 
+		SQL_MAX_MESSAGE_LENGTH-1, &Available);*/
+	rc = SQLGetDiagRec(SQL_HANDLE_STMT, hstmt, 1,
 		(UCHAR*) SqlState, &NativeError, (UCHAR*) SqlMessage, 
 		SQL_MAX_MESSAGE_LENGTH-1, &Available);
 	if (rc != SQL_ERROR) {
@@ -264,11 +268,15 @@ int dbi_odbc_Open(
 	dbdata->dbms_ver = Tcl_NewStringObj(buffer,(int)len);
 	Tcl_IncrRefCount(dbdata->dbms_ver);
 	SQLGetInfo(dbdata->hdbc,SQL_DYNAMIC_CURSOR_ATTRIBUTES1,&uint,0,NULL);
+/*
 	if (uint && SQL_CA1_ABSOLUTE) {
 		dbdata->supportpos = 1;
 	} else {
 		dbdata->supportpos = 0;
 	}
+sometimes they lie!!
+*/
+	dbdata->supportpos = 0;
 	return TCL_OK;
 }
 
@@ -284,8 +292,14 @@ int dbi_odbc_Process_statement(
 	SQLHSTMT hstmt = dbdata->hstmt;
 	SQLSMALLINT NumParams;
 	Tcl_Obj *tempstring;
+	char *string, *nullstring;
 	long erg;
-	int error;
+	int error,len,nulllen;
+	if (nullvalue == NULL) {
+		nullstring = NULL; nulllen = 0;
+	} else {
+		nullstring = Tcl_GetStringFromObj(nullvalue,&nulllen);
+	}
 	if (!DB_OPENCONN(dbdata)) {
 		Tcl_AppendResult(interp,"dbi object has no open database, open a connection first", NULL);
 		return TCL_ERROR;
@@ -322,59 +336,71 @@ int dbi_odbc_Process_statement(
 			/* Describe the parameter. */
 			SQLDescribeParam(hstmt, i + 1, &DataType, &ParamSize, &DecimalDigits, &Nullable);
 			argstring = Tcl_GetStringFromObj(objv[(int)i],&arglen);
-			switch (DataType) {
-				case SQL_TYPE_TIMESTAMP:
-					{
-					TIMESTAMP_STRUCT *ts;
-					int number;
-					ts = (TIMESTAMP_STRUCT *)Tcl_Alloc(sizeof(TIMESTAMP_STRUCT));
-					number = sscanf(argstring,"%4d-%2d-%2d %2d:%2d:%2d.%03d",
-						(int *)&(ts->year),(int *)&(ts->month),(int *)&(ts->day),
-						(int *)&(ts->hour),(int *)&(ts->minute),(int *)&(ts->second),
-						(int *)&(ts->fraction));
-					if (number == 7) {
-						ts->fraction *= 1000000;
-						type = SQL_C_TYPE_TIMESTAMP;
-						sqlparam[i].paramdata = (char *)ts;
-						sqlparam[i].arglen = arglen;
+			if (Nullable && (nullstring != NULL) &&(arglen == nulllen)&&(strncmp(argstring,nullstring,len) == 0)) {
+				type = SQL_C_CHAR;
+				sqlparam[i].paramdata = NULL;
+				sqlparam[i].arglen = SQL_NULL_DATA;
+				/* Bind the memory to the parameter. We only have input parameters. */
+				SQLBindParameter(hstmt, i + 1, SQL_PARAM_INPUT, type, DataType, ParamSize,
+				 	  DecimalDigits, "", 0, &(sqlparam[i].arglen));
+			} else {
+				switch (DataType) {
+					case SQL_TYPE_TIMESTAMP:
+						{
+						TIMESTAMP_STRUCT *ts;
+						int number;
+						ts = (TIMESTAMP_STRUCT *)Tcl_Alloc(sizeof(TIMESTAMP_STRUCT));
+						number = sscanf(argstring,"%4d-%2d-%2d %2d:%2d:%2d.%03d",
+							(int *)&(ts->year),(int *)&(ts->month),(int *)&(ts->day),
+							(int *)&(ts->hour),(int *)&(ts->minute),(int *)&(ts->second),
+							(int *)&(ts->fraction));
+						if (number == 7) {
+							ts->fraction *= 1000000;
+							type = SQL_C_TYPE_TIMESTAMP;
+							sqlparam[i].paramdata = (char *)ts;
+							sqlparam[i].arglen = arglen;
+							type = SQL_C_CHAR;
+							sqlparam[i].paramdata = NULL;
+							sqlparam[i].arglen = arglen;
+							DecimalDigits = 3;
+						} else {
+							Tcl_Free((char *)ts);
+							type = SQL_C_CHAR;
+							sqlparam[i].paramdata = NULL;
+							sqlparam[i].arglen = arglen;
+						}
+						}
+					default:
 						type = SQL_C_CHAR;
 						sqlparam[i].paramdata = NULL;
 						sqlparam[i].arglen = arglen;
-						DecimalDigits = 3;
-					} else {
-						Tcl_Free((char *)ts);
-						type = SQL_C_CHAR;
-						sqlparam[i].paramdata = NULL;
-						sqlparam[i].arglen = arglen;
-					}
-					}
-				default:
-					type = SQL_C_CHAR;
-					sqlparam[i].paramdata = NULL;
-					sqlparam[i].arglen = arglen;
-					break;
+						break;
+				}
+				/* Bind the memory to the parameter. We only have input parameters. */
+				SQLBindParameter(hstmt, i + 1, SQL_PARAM_INPUT, type, DataType, ParamSize,
+				 	  DecimalDigits, argstring, arglen, &(sqlparam[i].arglen));
 			}
-			/* Bind the memory to the parameter. We only have input parameters. */
-			SQLBindParameter(hstmt, i + 1, SQL_PARAM_INPUT, type, DataType, ParamSize,
-			 	  DecimalDigits, argstring, arglen, &(sqlparam[i].arglen));
 		}
 		dbdata->rc = SQLExecute(hstmt);
+		if (!SQL_SUCCEEDED(dbdata->rc)) {
+			dbi_odbc_error(interp,erg,SQL_NULL_HDBC,dbdata->hstmt);
+			dbi_odbc_Transaction_Rollback(interp,dbdata);
+		}
 		SQLFreeStmt(hstmt,SQL_RESET_PARAMS);
 		for (i = 0; i < NumParams; i++) {
 			if (sqlparam[i].paramdata != NULL) {Tcl_Free((char *)sqlparam[i].paramdata);}
 		}
 		Tcl_Free((char *)sqlparam);
+		if (!SQL_SUCCEEDED(dbdata->rc)) {
+			goto error;
+		}
 	} else {
 		dbdata->rc = SQLExecute(hstmt);
-	}
-	switch (dbdata->rc) {
-		case SQL_SUCCESS:
-		case SQL_SUCCESS_WITH_INFO: 
-			break;
-		default:
+		if (!SQL_SUCCEEDED(dbdata->rc)) {
 			dbi_odbc_error(interp,erg,SQL_NULL_HDBC,dbdata->hstmt);
 			dbi_odbc_Transaction_Rollback(interp,dbdata);
 			goto error;
+		}
 	}
 	return TCL_OK;
 	error:
@@ -909,7 +935,7 @@ int dbi_odbc_Tables(
 	while(1) {
 		rc = SQLFetch(hstmt);
 /*
-fprintf(stdout,"typebuffer: %c, type: %c\n",typebuffer[0],type);fflush(stdout);
+fprintf(stdout,"%s: %c, type: %c\n",buffer,typebuffer[0],type);fflush(stdout);
 fprintf(stdout,"typebuffer: %s\n",typebuffer);fflush(stdout);
 */
 		if (rc == SQL_NO_DATA_FOUND) {
@@ -1345,19 +1371,19 @@ int dbi_odbc_Interface(
 		}
 		return TCL_OK;
 	} else {
-		char *interface;
+		char *interface_name;
 		int len;
-		interface = Tcl_GetStringFromObj(objv[2],&len);
+		interface_name = Tcl_GetStringFromObj(objv[2],&len);
 		i = 0;
 		while (interfaces[i] != NULL) {
-			if ((strlen(interfaces[i]) == len) && (strncmp(interfaces[i],interface,len) == 0)) {
+			if ((strlen(interfaces[i]) == len) && (strncmp(interfaces[i],interface_name,len) == 0)) {
 				Tcl_AppendResult(interp,interfaces[i+1],NULL);
 				return TCL_OK;
 			}
 			i+=2;
 		}
 		Tcl_AppendResult(interp, Tcl_GetStringFromObj(objv[0],NULL), 
-			" does not support interface ", interface, NULL);
+			" does not support interface ", interface_name, NULL);
 		return TCL_ERROR;
 	}
 }

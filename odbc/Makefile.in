@@ -66,6 +66,7 @@ GENERIC_HDRS	=
 #========================================================================
 
 ODBC_LIB = @ODBC_LIB@
+ODBCCPP_LIB = @ODBCCPP_LIB@
 
 
 #========================================================================
@@ -133,7 +134,7 @@ TCL_DEFS	= @TCL_DEFS@
 TCL_BIN_DIR	= @TCL_BIN_DIR@
 TCL_SRC_DIR	= @TCL_SRC_DIR@
 # This is necessary for packages that use private Tcl headers
-#TCL_TOP_DIR_NATIVE	= @TCL_TOP_DIR_NATIVE@
+TCL_TOP_DIR_NATIVE	= @TCL_TOP_DIR_NATIVE@
 # Not used, but retained for reference of what libs Tcl required
 TCL_LIBS	= @TCL_LIBS@
 
@@ -161,9 +162,9 @@ WISH_PROG	= @WISH_PROG@
 TCLSH		= $(TCLSH_ENV) $(TCLSH_PROG)
 SHARED_BUILD	= @SHARED_BUILD@
 
-INCLUDES	= @TCL_INCLUDES@ @ODBC_INCLUDE@
+INCLUDES	= @TCL_INCLUDES@ @ODBC_INCLUDE@ @ODBCCPP_INCLUDE@
 # when using tk
-#INCLUDES	= @TCL_INCLUDES@ @ODBC_INCLUDE@ @TK_INCLUDES@ @TK_XINCLUDES@
+#INCLUDES	= @TCL_INCLUDES@ @ODBC_INCLUDE@ @ODBCCPP_INCLUDE@ @TK_INCLUDES@ @TK_XINCLUDES@
 
 EXTRA_CFLAGS	= $(MEM_DEBUG_FLAGS) @EXTRA_CFLAGS@
 

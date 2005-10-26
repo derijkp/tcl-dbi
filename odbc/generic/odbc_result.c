@@ -127,8 +127,14 @@ int dbi_odbc_bindresult(
 			switch(resultbuffer[i].fSqlType) {
 				case SQL_DOUBLE:
 				case SQL_FLOAT:
+				case SQL_REAL:
 					size = sizeof(double);
 					type = SQL_C_DOUBLE;
+					break;
+				case SQL_INTEGER:
+				case SQL_SMALLINT:
+					size = sizeof(long);
+					type = SQL_C_LONG;
 					break;
 				case SQL_TYPE_DATE:
 					size = sizeof(DATE_STRUCT);
@@ -188,9 +194,17 @@ int dbi_odbc_GetOne(
 			switch(resultbuffer[i].fSqlType) {
 				case SQL_DOUBLE:
 				case SQL_FLOAT:
+				case SQL_REAL:
 					{
 					double *dtemp = (double *)(resultbuffer[i].strResult);
 					*resultPtr = Tcl_NewDoubleObj((double)*dtemp);
+					return TCL_OK;
+					}
+				case SQL_INTEGER:
+				case SQL_SMALLINT:
+					{
+					int *dtemp = (int *)(resultbuffer[i].strResult);
+					*resultPtr = Tcl_NewIntObj((int)*dtemp);
 					return TCL_OK;
 					}
 				case SQL_TYPE_DATE:

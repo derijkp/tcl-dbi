@@ -12,7 +12,8 @@ set object2 [dbi_odbc]
 array set opt [subst {
 	-columnperm 0
 	-testdb testdbi
-	-user2 PDR
+-openargs {-user test -password test}
+	-user2 peter
 	-object2 $object2
 }]
 
