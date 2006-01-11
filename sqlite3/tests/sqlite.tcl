@@ -205,6 +205,14 @@ interface::test {unset error} {
 	$object unset {person test} name
 } {object {person test} not found} error
 
+interface::test {DICT collation} {
+	catch {$object exec {delete from types}}
+	foreach v {a20 a2 a1 a2b a4 a22 a10} {
+		$object exec {insert into types(t) values(?)} $v
+	}
+	$object exec {select t from types order by t collate DICT}
+} {a1 a2 a2b a4 a10 a20 a22}
+
 $object destroy
 $object2 destroy
 

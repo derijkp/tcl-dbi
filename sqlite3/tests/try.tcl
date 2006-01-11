@@ -31,12 +31,11 @@ db create $opt(-testdb)
 ::dbi::filldb
 
 
-interface::test {get field field} {
-	$object get {person pdr} first_name name
-} {Peter {De Rijk}}
-
-interface::test {set field} {
-	$object set {person pdr} first_name Pe
-	$object get {person pdr} first_name
-} {Pe}
+interface::test {unset error} {
+	catch {$object exec {delete from types}}
+	foreach v {a20 a2 a1 a2b a4 a22 a10} {
+		$object exec {insert into types(t) values(?)} $v
+	}
+	$object exec {select t from types order by t collate DICT}
+} {a1 a2 a2b a4 a10 a20 a22}
 
