@@ -13,8 +13,8 @@ set ::dbi::interbase::version 1.0
 set ::dbi::interbase::patchlevel 0
 package provide dbi_interbase $::dbi::interbase::version
 
-source $dbi::interbase::dir/lib/package.tcl
-package::init $dbi::interbase::dir dbi_interbase
+package require pkgtools
+pkgtools::init $dbi::interbase::dir dbi_interbase
 
 array set ::dbi::interbase::typetrans {261 blob 14 char 40 cstring 11 d_float 27 double 10 float 16 int64 8 integer 9 quad 7 smallint 12 date 13 time 35 timestamp 37 varchar}
 

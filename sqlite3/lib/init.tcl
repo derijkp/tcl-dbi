@@ -13,8 +13,8 @@ set ::dbi::sqlite3::version 1.0
 set ::dbi::sqlite3::patchlevel 0
 package provide dbi_sqlite3 $::dbi::sqlite3::version
 
-source $dbi::sqlite3::dir/lib/package.tcl
-package::init $dbi::sqlite3::dir dbi_sqlite3
+package require pkgtools
+pkgtools::init $dbi::sqlite3::dir dbi_sqlite3 dbi_sqlite3 {} Dbi_sqlite3
 
 #
 # Procs

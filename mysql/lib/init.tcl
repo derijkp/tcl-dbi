@@ -13,8 +13,8 @@ set ::dbi::mysql::version 1.0
 set ::dbi::mysql::patchlevel 0
 package provide dbi_mysql $::dbi::mysql::version
 
-source $dbi::mysql::dir/lib/package.tcl
-package::init $dbi::mysql::dir dbi_mysql
+package require pkgtools
+pkgtools::init $dbi::mysql::dir dbi_mysql
 
 #
 # Procs

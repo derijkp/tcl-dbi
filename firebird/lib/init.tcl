@@ -13,8 +13,8 @@ set ::dbi::firebird::version 1.0
 set ::dbi::firebird::patchlevel 0
 package provide dbi_firebird $::dbi::firebird::version
 
-source $dbi::firebird::dir/lib/package.tcl
-package::init $dbi::firebird::dir dbi_firebird
+package require pkgtools
+pkgtools::init $dbi::firebird::dir dbi_firebird
 
 array set ::dbi::firebird::typetrans {261 blob 14 char 40 cstring 11 d_float 27 double 10 float 16 int64 8 integer 9 quad 7 smallint 12 date 13 time 35 timestamp 37 varchar}
 

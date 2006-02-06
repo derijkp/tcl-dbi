@@ -13,8 +13,8 @@ set ::dbi::odbc::version 1.0
 set ::dbi::odbc::patchlevel 0
 package provide dbi_odbc $::dbi::odbc::version
 
-source $dbi::odbc::dir/lib/package.tcl
-package::init $dbi::odbc::dir dbi_odbc
+package require pkgtools
+pkgtools::init $dbi::odbc::dir dbi_odbc
 
 lappend auto_path [file join $::dbi::odbc::dir lib]
 

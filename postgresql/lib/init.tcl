@@ -13,8 +13,8 @@ set ::dbi::postgresql::version 1.0
 set ::dbi::postgresql::patchlevel 0
 package provide dbi_postgresql $::dbi::postgresql::version
 
-source $dbi::postgresql::dir/lib/package.tcl
-package::init $dbi::postgresql::dir dbi_postgresql
+package require pkgtools
+pkgtools::init $dbi::postgresql::dir dbi_postgresql
 
 proc ::dbi::postgresql::string_split {string splitstring} {
 	set result ""
