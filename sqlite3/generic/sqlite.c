@@ -13,6 +13,12 @@
 #include <time.h>
 #include "dbi_sqlite.h"
 
+int dbi_Sqlite3_getrow(
+	Tcl_Interp *interp,
+	sqlite3_stmt *stmt,
+	Tcl_Obj *nullvalue,
+	Tcl_Obj **result);
+
 typedef struct vary {
 	short vary_length;
 	char vary_string[1];
@@ -179,7 +185,6 @@ int dbi_Sqlite3_bindarg(
 	char *nullstring,
 	int nulllen)
 {
-	unsigned char *data;
 	char *zType, c;
 	int n;
 	if (nullstring != NULL) {
@@ -198,6 +203,7 @@ int dbi_Sqlite3_bindarg(
 	if (c=='N' && strcmp(zType,"N")==0) {
 		sqlite3_bind_null(stmt, i);
 	} else if (c=='b' && strcmp(zType,"bytearray")==0) {
+		unsigned char *data;
 		data = Tcl_GetByteArrayFromObj(pVar, &n);
 		sqlite3_bind_blob(stmt, i, data, n, SQLITE_STATIC);
 	} else if ((c=='b' && strcmp(zType,"boolean")==0) || (c=='i' && strcmp(zType,"int")==0)) {
@@ -208,6 +214,7 @@ int dbi_Sqlite3_bindarg(
 		Tcl_GetDoubleFromObj(interp, pVar, &r);
 		sqlite3_bind_double(stmt, i, r);
 	} else {
+		char *data;
 		data = Tcl_GetStringFromObj(pVar, &n);
 		sqlite3_bind_text(stmt, i, data, n, SQLITE_STATIC);
 	}
@@ -244,7 +251,6 @@ int dbi_Sqlite3_Open(
 	int objc,
 	Tcl_Obj *objv[])
 {
-	char *errormsg;
 	int error;
 	if (dbdata->db != NULL) {
 		Tcl_AppendResult(interp,"dbi object has open connection, close first", NULL);
@@ -650,9 +656,9 @@ int dbi_Sqlite3_Get(
 {
 	sqlite3_stmt *stmt = NULL;
 	const char *nextsql;
-	Tcl_Obj *table,*id,*line,**valuev,**fieldv;
+	Tcl_Obj *table,*id,*line;
 	char *buffer = NULL,*idstring,*tablestring,*tempstring,*pos;
-	int valuec,fieldc,i,j,error,len,idlen,tablelen,templen;
+	int i,j,error,len,idlen,tablelen,templen;
 	if (objc == 1) {
 		error = Tcl_ListObjGetElements(interp,objv[0],&objc,&objv);
 		if (error) {return TCL_ERROR;}
@@ -767,7 +773,7 @@ int dbi_Sqlite3_Insert(
 	const char *nextsql;
 	Tcl_Obj *fid = NULL,*result;
 	char *buffer = NULL,*tablestring,*tempstring,*pos,*nullstring = NULL;
-	int i,j,error,len,tablelen,templen,changes,nulllen;
+	int i,j,error,len,tablelen,templen,nulllen;
 	if (objc == 1) {
 		error = Tcl_ListObjGetElements(interp,objv[0],&objc,&objv);
 		if (error) {return TCL_ERROR;}
@@ -879,8 +885,8 @@ int dbi_Sqlite3_Set(
 	sqlite3_stmt *stmt = NULL;
 	const char *nextsql;
 	Tcl_Obj *table,*id;
-	char *buffer = NULL,*idstring,*tablestring,*fieldstring,*valuestring,*pos,*nullstring = NULL;
-	int i,j,error,len,idlen,tablelen,fieldlen,valuelen,changes,nulllen;
+	char *buffer = NULL,*idstring,*tablestring,*fieldstring,*pos,*nullstring = NULL;
+	int i,j,error,len,idlen,tablelen,fieldlen,changes,nulllen;
 	if (objc == 1) {
 		error = Tcl_ListObjGetElements(interp,objv[0],&objc,&objv);
 		if (error) {return TCL_ERROR;}
@@ -1086,7 +1092,7 @@ int dbi_Sqlite3_getrow(
 	Tcl_Obj **result)
 {
 	Tcl_Obj *line = NULL, *pVal = NULL;
-	int i,error,len,nCol;
+	int i,error,nCol;
 	if (stmt == NULL) {
 		Tcl_AppendResult(interp,"error in getrow: empty stmt", NULL);
 		return TCL_ERROR;
@@ -1119,8 +1125,8 @@ int dbi_Sqlite3_preparenext(
 	sqlite3_stmt **stmtPtr,
 	char **sql)
 {
-	sqlite3_stmt *stmt=NULL, *stmt2=NULL;
-	const char *nextsql, *nextsql2;
+	sqlite3_stmt *stmt=NULL;
+	const char *nextsql;
 	int error;
 	*stmtPtr = NULL;
 	nextsql = *sql;
@@ -1151,10 +1157,9 @@ int dbi_Sqlite3_Exec(
 	sqlite3_stmt *stmt;
 	char *cmdstring = NULL, *nullstring;
 	char *nextsql = NULL;
-	int *parsedstatement;
 	int error,error2,cmdlen,nulllen;
-	int usefetch;
-	int numargs,i,nCol;
+	int usefetch,changes=-1,cols=0;
+	int numargs,i;
 	usefetch = flags & EXEC_USEFETCH;
 	if (usefetch) {
 		dbdata->resultflat = 0;
@@ -1204,18 +1209,21 @@ int dbi_Sqlite3_Exec(
 	if (dbi_Sqlite3_autocommit_state(dbdata)) sqlite3_exec(dbdata->db,"begin transaction _dbi_exec",NULL,NULL,&(dbdata->errormsg));
 	if (numargs > 0) {
 		/* the SQL takes arguments */
-		Tcl_Obj *pVar;
-		int n;
-		unsigned char *data;
-		char *zType, c;
 		for(i = 1; i <= numargs; i++){
 			dbi_Sqlite3_bindarg(interp,dbdata->stmt,i,objv[i-1],nullstring,nulllen);
 		}
 		error = sqlite3_step(dbdata->stmt);
+		if ((error == SQLITE_ERROR) || (error == SQLITE_MISUSE)) {
+			error = sqlite3_finalize(dbdata->stmt); dbdata->stmt = NULL;
+		}
 	} else {
 		/* no arguments, multiple commands are possible */
 		while (1) {
 			error = sqlite3_step(dbdata->stmt);
+			if ((error == SQLITE_ERROR) || (error == SQLITE_MISUSE)) {
+				error = sqlite3_finalize(dbdata->stmt); dbdata->stmt = NULL;
+				break;
+			}
 			error2 = dbi_Sqlite3_preparenext(interp,dbdata,&stmt,&nextsql);
 			if (error2) {
 				sqlite3_finalize(dbdata->stmt); dbdata->stmt = NULL;
@@ -1226,19 +1234,25 @@ int dbi_Sqlite3_Exec(
 			if (stmt == NULL) {
 				break;
 			} else {
-				error = sqlite3_finalize(dbdata->stmt);
+				error2 = sqlite3_finalize(dbdata->stmt);
+				if (error2) {
+					return TCL_ERROR;
+				}
 				dbdata->stmt = stmt;
 			}
 		}
 	}
 	switch (error) {
 		case SQLITE_DONE:
+			cols = sqlite3_column_count(dbdata->stmt);
+			changes = sqlite3_changes(dbdata->db);
 			if (dbi_Sqlite3_autocommit_state(dbdata)) sqlite3_exec(dbdata->db,"end transaction _dbi_exec",NULL,NULL,&(dbdata->errormsg));
 			error2 = dbi_Sqlite3_getcolnames(interp,dbdata);
 			if (error2) {goto error;}
 			dbdata->result = Tcl_NewListObj(0,NULL);
 			break;
 		case SQLITE_ROW:
+			cols = sqlite3_column_count(dbdata->stmt);
 			error2 = dbi_Sqlite3_getcolnames(interp,dbdata);
 			if (error2) {goto error;}
 			dbdata->result = Tcl_NewListObj(0,NULL);
@@ -1258,12 +1272,6 @@ int dbi_Sqlite3_Exec(
 			error = sqlite3_finalize(dbdata->stmt);dbdata->stmt = NULL;
 			if (error) {Tcl_DecrRefCount(dbdata->result);dbdata->result=NULL;return error;}
 			break;
-		case SQLITE_CONSTRAINT:
-			Tcl_AppendResult(interp,"database error executing command \"",
-				cmdstring, "\":\n",	"violation of PRIMARY or UNIQUE KEY constraint", NULL);
-			if (dbi_Sqlite3_autocommit_state(dbdata)) sqlite3_exec(dbdata->db,"rollback transaction _dbi_exec",NULL,NULL,&(dbdata->errormsg));
-			goto error;
-			break;
 		default:
 			Tcl_AppendResult(interp,"database error executing command \"",
 				cmdstring, "\":\n",	sqlite3_errmsg(dbdata->db), NULL);
@@ -1271,13 +1279,14 @@ int dbi_Sqlite3_Exec(
 			goto error;
 	}
 	if (!usefetch) {
-		if (dbdata->result != NULL) {
+		if (cols != 0) {
 			Tcl_SetObjResult(interp,dbdata->result);
 			dbdata->result = NULL;
-			dbi_Sqlite3_ClearResult(dbdata);
-		} else {
-			/* Tcl_SetObjResult(interp,Tcl_NewIntObj(sqlite3_changes(dbdata->db)));*/
+		} else if (changes != -1) {
+			Tcl_SetObjResult(interp,Tcl_NewIntObj(changes));
+			dbdata->tuple = -1;
 		}
+		dbi_Sqlite3_ClearResult(dbdata);
 	} else {
 		dbdata->tuple = -1;
 	}
@@ -1445,7 +1454,7 @@ int dbi_Sqlite3_Createdb(
 {
 	static CONST char *switches[] = {"-sync", (char *) NULL};
 	enum switchesIdx {Sync};
-	char *errormsg,*syncstring = "PRAGMA default_synchronous = OFF";
+	char *syncstring = "PRAGMA default_synchronous = OFF";
 	int i,index,error;
 	if (dbdata->db != NULL) {
 		Tcl_AppendResult(interp,"dbi object has open connection, close first", NULL);

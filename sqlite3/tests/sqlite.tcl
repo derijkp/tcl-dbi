@@ -213,6 +213,16 @@ interface::test {DICT collation} {
 	$object exec {select t from types order by t collate DICT}
 } {a1 a2 a2b a4 a10 a20 a22}
 
+interface::test {set and transactions} {
+	catch {$object delete {person test}}
+	catch {$object delete {person test2}}
+	$object begin
+	$object set {person test} first_name first name test score 19.5
+	$object set {person test2} first_name first2
+	$object rollback
+	$object get {person test}
+} {object {person test} not found} error
+
 $object destroy
 $object2 destroy
 

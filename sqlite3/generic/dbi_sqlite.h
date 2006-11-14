@@ -20,7 +20,7 @@ typedef struct dbi_Sqlite3_Data {
 	Tcl_Obj **resultlines;
 	int resultflat;
 	int ntuples;
-	int nfields;
+	int nfields; 
 	int tuple;
 	int autocommit;
 	int intransaction;

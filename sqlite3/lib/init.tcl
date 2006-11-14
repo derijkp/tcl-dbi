@@ -11,10 +11,11 @@ namespace eval dbi::sqlite3 {}
 set ::dbi::sqlite3::version 1.0
 # $Format: "set ::dbi::sqlite3::patchlevel $ProjectPatchLevel$"$
 set ::dbi::sqlite3::patchlevel 0
-package provide dbi_sqlite3 $::dbi::sqlite3::version
 
 package require pkgtools
 pkgtools::init $dbi::sqlite3::dir dbi_sqlite3 dbi_sqlite3 {} Dbi_sqlite3
+
+package provide dbi_sqlite3 $::dbi::sqlite3::version
 
 #
 # Procs
@@ -104,7 +105,9 @@ proc ::dbi::sqlite3::info {db args} {
 				set table [lindex $args 1]
 				set fields {}
 				set result ""
-				foreach {pos name type nullable default temp} [$db exec -flat "pragma table_info(\"$table\")"] {
+				set list [$db exec -flat "pragma table_info(\"$table\")"]
+				if {[llength $list] == 1} {set list ""}
+				foreach {pos name type nullable default temp} $list {
 					lappend fields $name
 					if {[regexp {^(.*)\(([0-9]+)\)$} $type temp type size]} {
 						lappend result type,$name $type
@@ -124,7 +127,9 @@ proc ::dbi::sqlite3::info {db args} {
 					}
 				}
 				lappend result fields $fields
-				foreach {seq name unique} [$db exec -flat "pragma index_list(\"$table\")"] {
+				set list [$db exec -flat "pragma index_list(\"$table\")"]
+				if {[llength $list] == 1} {set list ""}
+				foreach {seq name unique} $list {
 					set columns {}
 					foreach {seqno cid cname} [$db exec -flat "pragma index_info('$name')"] {
 						lappend columns $cname

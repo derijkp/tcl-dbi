@@ -338,6 +338,7 @@ interface::test {char parameter} {
 
 interface::test {parameters} {
 	$object exec {select * from "person" where "name" = ? and "score" = ?} {De Rijk} 19
+	set a {}
 } {}
 
 interface::test {parameters error} {
@@ -492,7 +493,7 @@ interface::test {table info} {
 interface::test {table info 2} {
 	array set a [$object info table types]
 	set result ""
-	array set trans {doubleprecision double float double char varchar smallint integer}
+	array set trans {doubleprecision double {double precision} double float double char varchar smallint integer}
 	foreach name [lsort [array names a type,*]] {
 		set type $a($name)
 		if {[info exists trans($type)]} {set type $trans($type)}

@@ -30,12 +30,13 @@ db create $opt(-testdb)
 ::dbi::initdb
 ::dbi::filldb
 
-
-interface::test {unset error} {
-	catch {$object exec {delete from types}}
-	foreach v {a20 a2 a1 a2b a4 a22 a10} {
-		$object exec {insert into types(t) values(?)} $v
-	}
-	$object exec {select t from types order by t collate DICT}
-} {a1 a2 a2b a4 a10 a20 a22}
-
+package require dbi
+package require dbi_sqlite3
+dbi_sqlite3 db
+db close
+file delete test.db
+db create test.db
+db open test.db
+db exec {create table test(a char(6) not null primary key,b)}
+db exec {insert into test(a,b) values(1,2)}
+db exec {insert into test(a,b) values(1,2)}
