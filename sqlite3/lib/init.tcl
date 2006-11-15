@@ -196,8 +196,13 @@ proc ::dbi::sqlite3::serial_basic {db table field} {
 				serial integer,
 				sharedtable text,
 				sharedfield text,
+				locked integer default 0,
 				unique(stable,sfield)
 			)
+		}
+	} elseif {[lsearch [$db fields _dbi_serials] locked] == -1} {
+		$db exec {
+			alter table _dbi_serials add column locked integer default 0
 		}
 	}
 }
@@ -277,10 +282,38 @@ proc ::dbi::sqlite3::serial_set {db table field args} {
 proc ::dbi::sqlite3::serial_next {db table field} {
 	set db [privatedb $db]
 	foreach {stable sfield} [::dbi::sqlite3::serial_shared $db $table $field] break
-	$db begin
-	$db exec [subst {update _dbi_serials set serial = serial+1 where stable = ? and sfield = ?}] $stable $field
-	set current [$db exec {select serial from _dbi_serials where stable = ? and sfield = ?} $stable $field]
-	$db commit
+	set num 1
+	while {$num < 200} {
+		set changed [$db exec {
+			update _dbi_serials set serial = serial+1, locked = 1
+			where stable = ? and sfield = ? and locked = 0
+		} $stable $field]
+		if {$changed} break
+		after 3
+		incr num
+	}
+	if {$changed} {
+		set current [$db exec {
+			select serial from _dbi_serials where stable = ? and sfield = ?
+		} $stable $field]
+		$db exec {
+			update _dbi_serials set locked = 0
+			where stable = ? and sfield = ?
+		} $stable $field
+	} else {
+		$db begin
+		$db exec {
+			update _dbi_serials set serial = serial+1 where stable = ? and sfield = ?
+		} $stable $field
+		set current [$db exec {
+			select serial from _dbi_serials where stable = ? and sfield = ?
+		} $stable $field]
+		$db exec {
+			update _dbi_serials set locked = 0
+			where stable = ? and sfield = ?
+		} $stable $field
+		$db commit
+	}
 	return $current
 }
 

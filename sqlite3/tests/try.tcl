@@ -28,7 +28,16 @@ db create $opt(-testdb)
 
 ::dbi::opendb
 ::dbi::initdb
-::dbi::filldb
+
+interface::test {serial next} {
+	$object exec {delete from "types"}
+	catch {$object serial delete types i}
+	$object serial add types i
+	$object exec {insert into "types" ("d") values (19.5)}
+	set i [$object serial next types i]
+	$object exec {insert into "types" ("d") values (20.1)}
+	list $i [$object exec {select "i" from "types" order by "d"}]
+} {2 {1 3}} {skipon {![$object supports serials]}}
 
 package require dbi
 package require dbi_sqlite3
