@@ -145,38 +145,6 @@ int dbi_Sqlite3_Error(
 	return TCL_ERROR;
 }
 
-int dbi_Sqlite3_autocommit_state(
-	dbi_Sqlite3_Data *dbdata)
-{
-	if (dbdata->parent != NULL) {
-		return dbdata->parent->autocommit;
-	} else {
-		return dbdata->autocommit;
-	}
-}
-
-int dbi_Sqlite3_autocommit(
-	dbi_Sqlite3_Data *dbdata,
-	int state)
-{
-	if (dbdata->parent != NULL) {
-		dbdata->parent->autocommit = state;
-	} else {
-		dbdata->autocommit = state;
-	}
-	return state;
-}
-
-int *dbi_Sqlite3_intrans(
-	dbi_Sqlite3_Data *dbdata)
-{
-	if (dbdata->parent != NULL) {
-		return &(dbdata->parent->intransaction);
-	} else {
-		return &(dbdata->intransaction);
-	}
-}
-
 int dbi_Sqlite3_bindarg(
 	Tcl_Interp *interp,
 	sqlite3_stmt *stmt,
@@ -264,7 +232,6 @@ int dbi_Sqlite3_Open(
 	if (error) {return error;}
 	dbdata->database = Tcl_GetObjResult(interp);
 	Tcl_IncrRefCount(dbdata->database);
-	dbdata->autocommit = 1;
 	error = sqlite3_open(Tcl_GetStringFromObj(dbdata->database,NULL), &(dbdata->db));
 	if (error != SQLITE_OK) {
 		Tcl_AppendResult(interp,"connection to database \"",
@@ -274,7 +241,8 @@ int dbi_Sqlite3_Open(
 		goto error;
 	}
 	sqlite3_create_collation(dbdata->db,"DICT",SQLITE_UTF8,(void *)NULL,Dbi_sqlite3_collate_dictionary);
-	sqlite3_exec(dbdata->db,"PRAGMA empty_result_callbacks = ON",NULL,NULL,&(dbdata->errormsg));
+	error = sqlite3_exec(dbdata->db,"PRAGMA empty_result_callbacks = ON",NULL,NULL,&(dbdata->errormsg));
+	if (error) {sqlite3_free(dbdata->errormsg); dbdata->errormsg=NULL;}
 	return TCL_OK;
 	error:
 		return TCL_ERROR;
@@ -505,12 +473,17 @@ int dbi_Sqlite3_Transaction_Commit(
 	dbi_Sqlite3_Data *dbdata,
 	int noretain)
 {
-	int *intrans = dbi_Sqlite3_intrans(dbdata);
 	int error;
-	if (*intrans == 0) {return TCL_OK;}
+/*fprintf(stdout,":commit\n");fflush(stdout);*/
 	error = sqlite3_exec(dbdata->db,"commit transaction _dbi",NULL,NULL,&(dbdata->errormsg));
-	if (error) {return TCL_ERROR;}
-	*intrans = 0;
+	if (error) {
+		if (strcmp("cannot commit - no transaction is active",dbdata->errormsg) == 0) {
+			sqlite3_free(dbdata->errormsg); dbdata->errormsg=NULL;
+			return TCL_OK;
+		} else {
+			return TCL_ERROR;
+		}
+	}
 	return TCL_OK;
 }
 
@@ -518,12 +491,17 @@ int dbi_Sqlite3_Transaction_Rollback(
 	Tcl_Interp *interp,
 	dbi_Sqlite3_Data *dbdata)
 {
-	int *intrans = dbi_Sqlite3_intrans(dbdata);
 	int error;
-	if (*intrans == 0) {return TCL_OK;}
+/*fprintf(stdout,":rollback\n");fflush(stdout);*/
 	error = sqlite3_exec(dbdata->db,"rollback transaction _dbi",NULL,NULL,&(dbdata->errormsg));
-	if (error) {return TCL_ERROR;}
-	*intrans = 0;
+	if (error) {
+		if (strcmp("cannot rollback - no transaction is active",dbdata->errormsg) == 0) {
+			sqlite3_free(dbdata->errormsg); dbdata->errormsg=NULL;
+			return TCL_OK;
+		} else {
+			return TCL_ERROR;
+		}
+	}
 	return TCL_OK;
 }
 
@@ -531,11 +509,10 @@ int dbi_Sqlite3_Transaction_Start(
 	Tcl_Interp *interp,
 	dbi_Sqlite3_Data *dbdata)
 {
-	int *intrans = dbi_Sqlite3_intrans(dbdata);
 	int error;
+/*fprintf(stdout,":begin\n");fflush(stdout);*/
 	error = sqlite3_exec(dbdata->db,"begin transaction _dbi",NULL,NULL,&(dbdata->errormsg));
 	if (error) {return TCL_ERROR;}
-	*intrans = 1;
 	return TCL_OK;
 }
 
@@ -1206,7 +1183,6 @@ int dbi_Sqlite3_Exec(
 	if (usefetch) {
 		dbdata->nullvalue = dbdata->defnullvalue;
 	}
-	if (dbi_Sqlite3_autocommit_state(dbdata)) sqlite3_exec(dbdata->db,"begin transaction _dbi_exec",NULL,NULL,&(dbdata->errormsg));
 	if (numargs > 0) {
 		/* the SQL takes arguments */
 		for(i = 1; i <= numargs; i++){
@@ -1218,6 +1194,21 @@ int dbi_Sqlite3_Exec(
 		}
 	} else {
 		/* no arguments, multiple commands are possible */
+		int toclose=0;
+		if (*nextsql != '\0') {
+			error = dbi_Sqlite3_Transaction_Start(interp,dbdata);
+/*fprintf(stdout,"transaction start:%s: %d\n%s\n",nextsql,error,dbdata->errormsg);fflush(stdout);*/
+			if (error) {
+				if (strcmp("cannot start a transaction within a transaction",dbdata->errormsg) == 0) {
+					sqlite3_free(dbdata->errormsg); dbdata->errormsg=NULL;
+					toclose = 0;
+				} else {
+					return TCL_ERROR;
+				}
+			} else {
+				toclose = 1;
+			}
+		}
 		while (1) {
 			error = sqlite3_step(dbdata->stmt);
 			if ((error == SQLITE_ERROR) || (error == SQLITE_MISUSE)) {
@@ -1228,7 +1219,10 @@ int dbi_Sqlite3_Exec(
 			if (error2) {
 				sqlite3_finalize(dbdata->stmt); dbdata->stmt = NULL;
 				Tcl_AppendResult(interp," while executing command: \"",	cmdstring, "\"", NULL);
-				if (dbi_Sqlite3_autocommit_state(dbdata)) sqlite3_exec(dbdata->db,"rollback transaction _dbi_exec",NULL,NULL,&(dbdata->errormsg));
+				if (toclose) {
+					error = dbi_Sqlite3_Transaction_Rollback(interp,dbdata);
+					if (error) {dbi_Sqlite3_Error(interp,dbdata,"autorollback transaction");}
+				}
 				return TCL_ERROR;
 			}
 			if (stmt == NULL) {
@@ -1236,17 +1230,24 @@ int dbi_Sqlite3_Exec(
 			} else {
 				error2 = sqlite3_finalize(dbdata->stmt);
 				if (error2) {
+					if (toclose) {
+						error = dbi_Sqlite3_Transaction_Rollback(interp,dbdata);
+						if (error) {dbi_Sqlite3_Error(interp,dbdata,"autorollback transaction");}
+					}
 					return TCL_ERROR;
 				}
 				dbdata->stmt = stmt;
 			}
+		}
+		if (toclose) {
+			error2 = dbi_Sqlite3_Transaction_Commit(interp,dbdata,1);
+			if (error2) {dbi_Sqlite3_Error(interp,dbdata,"autocommitting transaction");return error2;}
 		}
 	}
 	switch (error) {
 		case SQLITE_DONE:
 			cols = sqlite3_column_count(dbdata->stmt);
 			changes = sqlite3_changes(dbdata->db);
-			if (dbi_Sqlite3_autocommit_state(dbdata)) sqlite3_exec(dbdata->db,"end transaction _dbi_exec",NULL,NULL,&(dbdata->errormsg));
 			error2 = dbi_Sqlite3_getcolnames(interp,dbdata);
 			if (error2) {goto error;}
 			dbdata->result = Tcl_NewListObj(0,NULL);
@@ -1267,7 +1268,6 @@ int dbi_Sqlite3_Exec(
 				if (error) {Tcl_DecrRefCount(line);Tcl_DecrRefCount(dbdata->result);dbdata->result=NULL;return error;}
 				error = sqlite3_step(dbdata->stmt);
 			}
-			if (dbi_Sqlite3_autocommit_state(dbdata)) sqlite3_exec(dbdata->db,"end transaction _dbi_exec",NULL,NULL,&(dbdata->errormsg));
 			if (error != SQLITE_DONE) {Tcl_DecrRefCount(dbdata->result);dbdata->result=NULL;return error;}
 			error = sqlite3_finalize(dbdata->stmt);dbdata->stmt = NULL;
 			if (error) {Tcl_DecrRefCount(dbdata->result);dbdata->result=NULL;return error;}
@@ -1275,7 +1275,6 @@ int dbi_Sqlite3_Exec(
 		default:
 			Tcl_AppendResult(interp,"database error executing command \"",
 				cmdstring, "\":\n",	sqlite3_errmsg(dbdata->db), NULL);
-			if (dbi_Sqlite3_autocommit_state(dbdata)) sqlite3_exec(dbdata->db,"rollback transaction _dbi_exec",NULL,NULL,&(dbdata->errormsg));
 			goto error;
 	}
 	if (!usefetch) {
@@ -1466,7 +1465,6 @@ int dbi_Sqlite3_Createdb(
 	}
 	dbdata->database = objv[2];
 	Tcl_IncrRefCount(dbdata->database);
-	dbdata->autocommit = 1;
 	error = sqlite3_open(Tcl_GetStringFromObj(dbdata->database,NULL), &(dbdata->db));
 	if (error != SQLITE_OK) {
 		Tcl_AppendResult(interp,"connection to database \"",
@@ -1489,7 +1487,8 @@ int dbi_Sqlite3_Createdb(
 				break;
 		}
 	}
-	sqlite3_exec(dbdata->db,syncstring,NULL,dbdata,&(dbdata->errormsg));
+	error = sqlite3_exec(dbdata->db,syncstring,NULL,dbdata,&(dbdata->errormsg));
+	if (error) {sqlite3_free(dbdata->errormsg); dbdata->errormsg=NULL;}
 	sqlite3_close(dbdata->db);
 	dbdata->db = NULL;
 	return TCL_OK;
@@ -1784,10 +1783,9 @@ int Dbi_sqlite3_DbObjCmd(
 			return error;
 		}
 		error = dbi_Sqlite3_Transaction_Commit(interp,dbdata,1);
-		if (error) {dbi_Sqlite3_Error(interp,dbdata,"committing transaction");return error;}
+		if (error) {sqlite3_free(dbdata->errormsg); dbdata->errormsg=NULL;}
 		error = dbi_Sqlite3_Transaction_Start(interp,dbdata);
 		if (error) {dbi_Sqlite3_Error(interp,dbdata,"starting transaction");return error;}
-		dbi_Sqlite3_autocommit(dbdata,0);
 		return TCL_OK;
 	case Commit:
 		if (objc != 2) {
@@ -1798,7 +1796,6 @@ int Dbi_sqlite3_DbObjCmd(
 			Tcl_AppendResult(interp,"dbi object has no open database, open a connection first", NULL);
 			return error;
 		}
-		dbi_Sqlite3_autocommit(dbdata,1);
 		error = dbi_Sqlite3_Transaction_Commit(interp,dbdata,1);
 		if (error) {dbi_Sqlite3_Error(interp,dbdata,"committing transaction");return error;}
 		return TCL_OK;
@@ -1811,7 +1808,6 @@ int Dbi_sqlite3_DbObjCmd(
 			Tcl_AppendResult(interp,"dbi object has no open database, open a connection first", NULL);
 			return error;
 		}
-		dbi_Sqlite3_autocommit(dbdata,1);
 		error = dbi_Sqlite3_Transaction_Rollback(interp,dbdata);
 		if (error) {dbi_Sqlite3_Error(interp,dbdata,"rolling back transaction");return error;}
 		return TCL_OK;
@@ -1941,7 +1937,6 @@ int Dbi_sqlite3_DoNewDbObjCmd(
 	dbdata->interp = interp;
 	dbdata->db = NULL;
 	dbdata->stmt = NULL;
-	dbdata->autocommit = 1;
 	dbdata->database=NULL;
 	dbdata->defnullvalue = NULL;
 	dbdata->result = NULL;
@@ -1951,7 +1946,7 @@ int Dbi_sqlite3_DoNewDbObjCmd(
 	dbdata->clones = NULL;
 	dbdata->clonesnum = 0;
 	dbdata->parent = NULL;
-	dbdata->intransaction = 0;
+	dbdata->errormsg = NULL;
 	if (dbi_nameObj == NULL) {
 		dbi_num++;
 		sprintf(buffer,"::dbi::sqlite3::dbi%d",dbi_num);
@@ -2009,13 +2004,14 @@ int Dbi_sqlite3_Clone(
 	parent->clones[parent->clonesnum-1] = clone_dbdata;
 	clone_dbdata->parent = parent;
 	clone_dbdata->db = parent->db;
+	clone_dbdata->stmt = NULL;
 	clone_dbdata->database = parent->database;
+	clone_dbdata->defnullvalue = parent->defnullvalue;
 	clone_dbdata->result = NULL;
 	clone_dbdata->resultfields = NULL;
-	dbdata->resultflat = 0;
+	clone_dbdata->resultflat = 0;
 	clone_dbdata->nullvalue = NULL;
-	clone_dbdata->defnullvalue = parent->defnullvalue;
-	clone_dbdata->intransaction = 0;
+	clone_dbdata->errormsg = NULL;
 	clone_dbdata->stmt = NULL;
 	return TCL_OK;
 }

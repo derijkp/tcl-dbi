@@ -22,8 +22,6 @@ typedef struct dbi_Sqlite3_Data {
 	int ntuples;
 	int nfields; 
 	int tuple;
-	int autocommit;
-	int intransaction;
 	char *errormsg;
 	struct dbi_Sqlite3_Data *parent;
 	struct dbi_Sqlite3_Data **clones;

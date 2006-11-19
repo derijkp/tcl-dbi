@@ -29,15 +29,10 @@ db create $opt(-testdb)
 ::dbi::opendb
 ::dbi::initdb
 
-interface::test {serial next} {
-	$object exec {delete from "types"}
-	catch {$object serial delete types i}
-	$object serial add types i
-	$object exec {insert into "types" ("d") values (19.5)}
-	set i [$object serial next types i]
-	$object exec {insert into "types" ("d") values (20.1)}
-	list $i [$object exec {select "i" from "types" order by "d"}]
-} {2 {1 3}} {skipon {![$object supports serials]}}
+set db [::dbi::sqlite3::privatedb $object]
+$db exec {drop trigger _dbi_trigger_types_i}
+
+if 0 {
 
 package require dbi
 package require dbi_sqlite3
@@ -49,3 +44,4 @@ db open test.db
 db exec {create table test(a char(6) not null primary key,b)}
 db exec {insert into test(a,b) values(1,2)}
 db exec {insert into test(a,b) values(1,2)}
+}
