@@ -71,20 +71,20 @@ interface::test {create and fill table} {
 ::dbi::initdb
 
 interface::test {select} {
-	$object exec {select * from "person"}
-} {{pdr Peter {De Rijk} 19.5} {jd John Do 17.5} {o Oog {} {}}}
+	$object exec {select * from "person" order by "id"}
+} {{jd John Do 17.5} {o Oog {} {}} {pdr Peter {De Rijk} 19.5}}
 
 interface::test {select again} {
-	$object exec {select * from "person"}
-} {{pdr Peter {De Rijk} 19.5} {jd John Do 17.5} {o Oog {} {}}}
+	$object exec {select * from "person" order by "id"}
+} {{jd John Do 17.5} {o Oog {} {}} {pdr Peter {De Rijk} 19.5}}
 
 interface::test {select with -flat} {
-	$object exec -flat {select * from "person"}
-} {pdr Peter {De Rijk} 19.5 jd John Do 17.5 o Oog {} {}}
+	$object exec -flat {select * from "person" order by "id"}
+} {jd John Do 17.5 o Oog {} {} pdr Peter {De Rijk} 19.5}
 
 interface::test {select with -nullvalue} {
-	$object exec -nullvalue NULL {select * from "person"}
-} {{pdr Peter {De Rijk} 19.5} {jd John Do 17.5} {o Oog NULL NULL}}
+	$object exec -nullvalue NULL {select * from "person" order by "id"}
+} {{jd John Do 17.5} {o Oog NULL NULL} {pdr Peter {De Rijk} 19.5}}
 
 interface::test {non select query with -nullvalue parameter} {
 	catch {$object exec {delete from "person" where "id" = 'nul'}}
@@ -117,29 +117,29 @@ interface::test {error: select "try" from "person"} {
 } {* while executing command: "select "try" from "person""} error match
 
 interface::test {select fetch} {
-	$object exec -usefetch {select * from "person"}
+	$object exec -usefetch {select * from "person" order by "id"}
 } {}
 
 interface::test {1 fetch} {
-	$object exec -usefetch {select * from "person"}
-	$object fetch
-} {pdr Peter {De Rijk} 19.5}
-
-interface::test {2 fetch} {
-	$object exec -usefetch {select * from "person"}
-	$object fetch
+	$object exec -usefetch {select * from "person" order by "id"}
 	$object fetch
 } {jd John Do 17.5}
 
-interface::test {3 fetch} {
-	$object exec -usefetch {select * from "person"}
-	$object fetch
+interface::test {2 fetch} {
+	$object exec -usefetch {select * from "person" order by "id"}
 	$object fetch
 	$object fetch
 } {o Oog {} {}}
 
+interface::test {3 fetch} {
+	$object exec -usefetch {select * from "person" order by "id"}
+	$object fetch
+	$object fetch
+	$object fetch
+} {pdr Peter {De Rijk} 19.5}
+
 interface::test {4 fetch, end} {
-	$object exec -usefetch {select * from "person"}
+	$object exec -usefetch {select * from "person" order by "id"}
 	$object fetch
 	$object fetch
 	$object fetch
@@ -147,7 +147,7 @@ interface::test {4 fetch, end} {
 } {line 3 out of range} error
 
 interface::test {5 fetch, end} {
-	$object exec -usefetch {select * from "person"}
+	$object exec -usefetch {select * from "person" order by "id"}
 	$object fetch
 	$object fetch
 	$object fetch
@@ -160,122 +160,121 @@ interface::test {fetch and two objects} {
 		error "no -object2 option given"
 	}
 	eval {$opt(-object2) open $opt(-testdb)} $opt(-openargs)
-	$object exec -usefetch {select * from "person"}
+	$object exec -usefetch {select * from "person" order by "id"}
 	$opt(-object2) info table person
 	$opt(-object2) close
 	$object fetch
-} {pdr Peter {De Rijk} 19.5}
+} {jd John Do 17.5}
 
 # testing for fetching by number: is not always supported
 # -------------------------------------------------------
 
 interface::test {fetch 1} {
-	$object exec -usefetch {select * from "person"}
+	$object exec -usefetch {select * from "person" order by "id"}
 	$object fetch 1
-} {jd John Do 17.5}
-
-interface::test {repeat fetch 1} {
-	$object exec -usefetch {select * from "person"}
-	$object fetch 1
-	$object fetch 1
-} {jd John Do 17.5}
-
-interface::test {fetch 1 1} {
-	$object exec -usefetch {select * from "person"}
-	$object fetch 1 1
-} {John}
-
-interface::test {fetch with NULL} {
-	$object exec -usefetch {select * from "person"}
-	$object fetch 2
 } {o Oog {} {}}
 
+interface::test {repeat fetch 1} {
+	$object exec -usefetch {select * from "person" order by "id"}
+	$object fetch 1
+	$object fetch 1
+} {o Oog {} {}}
+
+interface::test {fetch 1 1} {
+	$object exec -usefetch {select * from "person" order by "id"}
+	$object fetch 1 1
+} {Oog}
+
+interface::test {fetch with NULL} {
+	$object exec -usefetch {select * from "person" order by "id"}
+	$object fetch 2
+} {pdr Peter {De Rijk} 19.5}
+
 interface::test {fetch with -nullvalue} {
-	$object exec -usefetch {select * from "person"}
-	$object fetch -nullvalue NULL 2
+	$object exec -usefetch {select * from "person" order by "id"}
+	$object fetch -nullvalue NULL 1
 } {o Oog NULL NULL}
 
 interface::test {fetch lines} {
-	$object exec -usefetch {select * from "person"}
+	$object exec -usefetch {select * from "person" order by "id"}
 	$object fetch lines
 } {3} {skipon {![$object supports lines]}}
 
 interface::test {fetch isnull 1} {
-	$object exec -usefetch {select * from "person"}
-	$object fetch isnull 2 2
+	$object exec -usefetch {select * from "person" order by "id"}
+	$object fetch isnull 1 2
 } 1
 
 interface::test {fetch isnull 1} {
-	$object exec -usefetch {select * from "person"}
+	$object exec -usefetch {select * from "person" order by "id"}
 	$object fetch isnull current 2
 } {line -1 out of range} error
 
 interface::test {fetch isnull 1} {
-	$object exec -usefetch {select * from "person"}
-	$object fetch
+	$object exec -usefetch {select * from "person" order by "id"}
 	$object fetch
 	$object fetch
 	$object fetch isnull current 2
 } 1
 
 interface::test {fetch isnull 0} {
-	$object exec -usefetch {select * from "person"}
+	$object exec -usefetch {select * from "person" order by "id"}
 	$object fetch isnull 2 1
 } 0
 
 interface::test {fetch field out of range} {
-	$object exec -usefetch {select * from "person"}
+	$object exec -usefetch {select * from "person" order by "id"}
 	$object fetch 2 4
 } {field 4 out of range} error
 
 interface::test {fetch line out of range} {
-	$object exec -usefetch {select * from "person"}
+	$object exec -usefetch {select * from "person" order by "id"}
 	$object fetch 3
 } {line 3 out of range} error
 
 interface::test {fetch isnull field out of range} {
-	$object exec -usefetch {select * from "person"}
+	$object exec -usefetch {select * from "person" order by "id"}
 	$object fetch isnull 2 5
 } {field 5 out of range} error
 
 interface::test {fetch pos} {
-	$object exec -usefetch {select * from "person"}
+	$object exec -usefetch {select * from "person" order by "id"}
 	$object fetch pos
 } -1
 
 interface::test {fetch pos 2} {
-	$object exec -usefetch {select * from "person"}
+	$object exec -usefetch {select * from "person" order by "id"}
 	$object fetch 0
 	$object fetch pos
 } 0
 
 interface::test {fetch pos 3} {
-	$object exec -usefetch {select * from "person"}
+	$object exec -usefetch {select * from "person" order by "id"}
 	$object fetch
 	$object fetch pos
 } 0
 
 interface::test {fetch current after fetch 0} {
-	$object exec -usefetch {select * from "person"}
+	$object exec -usefetch {select * from "person" order by "id"}
 	$object fetch 0
 	$object fetch current
 	$object fetch current
-} {pdr Peter {De Rijk} 19.5}
+} {jd John Do 17.5}
 
 interface::test {fetch current after fetch} {
-	$object exec -usefetch {select * from "person"}
+	$object exec -usefetch {select * from "person" order by "id"}
 	$object fetch
 	$object fetch current
 	$object fetch current
-} {pdr Peter {De Rijk} 19.5}
+} {jd John Do 17.5}
 
 interface::test {fetch fields} {
-	$object exec -usefetch {select * from "person"}
+	$object exec -usefetch {select * from "person" order by "id"}
 	$object fetch fields
 } {id first_name name score}
 
 interface::test {fetch fields limited select} {
-	$object exec -usefetch {select "id","score" from "person"}
+	$object exec -usefetch {select "id","score" from "person" order by "id"}
 	$object fetch fields
 } {id score}
 
@@ -285,27 +284,27 @@ interface::test {fetch fields when no result} {
 } {id first_name name score}
 
 interface::test {fetch with no fetch result available} {
-	$object exec {select * from "person"}
+	$object exec {select * from "person" order by "id"}
 	$object fetch
 } {no result available: invoke exec method with -usefetch option first} error
 
 interface::test {deal with error in fetch lines} {
-	$object exec -usefetch {select * from "person"}
+	$object exec -usefetch {select * from "person" order by "id"}
 	catch {$object fetch lines}
 	$object fetch
 	$object fetch
-} {jd John Do 17.5}
+} {o Oog {} {}}
 
 interface::test {backfetch} {
-	$object exec -usefetch {select * from "person"}
+	$object exec -usefetch {select * from "person" order by "id"}
 	catch {$object fetch lines}
 	$object fetch
 	$object fetch
 	$object fetch 0
-} {pdr Peter {De Rijk} 19.5} {skipon {![$object supports backfetch]}}
+} {jd John Do 17.5} {skipon {![$object supports backfetch]}}
 
 interface::test {fetch and begin/rollback} {
-	$object exec -usefetch {select * from "person"}
+	$object exec -usefetch {select * from "person" order by "id"}
 	$object fetch
 	$object begin
 	$object exec {
@@ -549,11 +548,11 @@ interface::test {info views should not mess up a resultset} {
 } {v_test {jd John Do 17.5}} {skipon {![$object supports views]}}
 
 interface::test {info fields should not mess up a resultset} {
-	$object exec -usefetch {select * from "person"}
+	$object exec -usefetch {select * from "person" order by "id"}
 	$object fetch
 	set fields [$object info fields person]
 	list $fields [$object fetch]
-} {{id first_name name score} {jd John Do 17.5}}
+} {{id first_name name score} {o Oog {} {}}}
 
 interface::test {error when info on closed object} {
 	$object close
@@ -714,13 +713,13 @@ interface::test {clone with some fetching} {
 	foreach clone [$object clones] {$clone close}
 	set clone [$object clone]
 	set olist [$object tables]
-	$object exec -usefetch {select * from "person"}
+	$object exec -usefetch {select * from "person" order by "id"}
 	set l1 [$object fetch]
 	set clist [$clone tables]
 	set l2 [$object fetch]
 	$clone close
 	list $l1 $l2 [string equal $clist $olist]
-} {{pdr Peter {De Rijk} 19.5} {jd John Do 17.5} 1}
+} {{jd John Do 17.5} {o Oog {} {}} 1}
 
 interface::test {clone of clone goes to parent} {
 	foreach clone [$object clones] {$clone close}
@@ -746,22 +745,22 @@ interface::test {clones error} {
 interface::test {clone and object must be able to mix fetches} {
 	set clone [$object clone]
 	set result {}
-	$object exec -usefetch {select * from "person"}
-	$clone exec -usefetch {select * from "location"}
+	$object exec -usefetch {select * from "person" order by "id"}
+	$clone exec -usefetch {select * from "location" order by "address"}
 	lappend result [$object fetch]
 	lappend result [$clone fetch]
 	lappend result [$object fetch]
 	lappend result [$clone fetch]
 	$clone close
 	set result
-} {{pdr Peter {De Rijk} 19.5} {work pdr 1} {jd John Do 17.5} {home pdr 2}}
+} {{jd John Do 17.5} {work pdr 1} {o Oog {} {}} {home pdr 2}}
 
 interface::test {clone and object must be able to mix fetches within a transaction} {
 	set clone [$object clone]
 	set result {}
 	$object begin
-	$object exec -usefetch {select * from "person"}
-	$clone exec -usefetch {select * from "location"}
+	$object exec -usefetch {select * from "person" order by "id"}
+	$clone exec -usefetch {select * from "location" order by "address"}
 	lappend result [$object fetch]
 	lappend result [$clone fetch]
 	lappend result [$object fetch]
@@ -769,7 +768,7 @@ interface::test {clone and object must be able to mix fetches within a transacti
 	$object rollback
 	$clone close
 	set result
-} {{pdr Peter {De Rijk} 19.5} {work pdr 1} {jd John Do 17.5} {home pdr 2}}
+} {{jd John Do 17.5} {work pdr 1} {o Oog {} {}} {home pdr 2}}
 
 interface::test {info may be implemented using a clone, see if it is respawned ok} {
 	set fields [$object info fields person]

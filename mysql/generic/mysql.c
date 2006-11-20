@@ -229,6 +229,9 @@ int dbi_Mysql_GetOne(
 						sprintf(buffer,"%4.4s-%2.2s-%2.2s %2.2s:%2.2s:%2.2s.000",
 							string,string+4,string+6,string+8,string+10,string+12);
 						break;
+					case 19:
+						sprintf(buffer,"%s.000",string);
+						break;
 				}
 				Tcl_SetStringObj(*result,buffer,-1);
 				break;
@@ -999,7 +1002,7 @@ int dbi_Mysql_Supports(
 		(char *) NULL};
 	static int supports[] = {
 		1,1,0,0,0,0,
-		0,0,0,0,0,
+		1,1,1,1,1,
 		0,0,0,0};
 	enum keywordsIdx {
 		Lines,Backfetch,Serials,Sharedserials,Blobparams, Blobids,
