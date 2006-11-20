@@ -18,7 +18,8 @@ set object2 [dbi_firebird]
 #	-testdb /home/ib/testdbi.gdb
 # cs
 interface test dbi_admin-$version $object \
-	-testdb localhost:/home/ib/testdbi.gdb -openargs {-user test -password blabla}
+	-testdb localhost:/home/ib/testdbi.gdb \
+	-openargs {-user test -password blabla}
 
 interface::test {destroy without opening a database} {
 	dbi_firebird	db

@@ -114,7 +114,6 @@ AC_DEFUN(SC_SQLITE3_LIB, [
 	    fi
 	])
     fi
-    AC_ARG_ENABLE(static, [  --enable-static         link sqlite3 library statically [--disable-static]],[tcl_ok=$enableval], [tcl_ok=no])
 	case "`uname -s`" in
 		*win32* | *WIN32* | *CYGWIN_NT* |*CYGWIN_98*|*CYGWIN_95*)
 		    if test x"${ac_cv_c_sqlite3}" = x ; then
@@ -137,11 +136,10 @@ AC_DEFUN(SC_SQLITE3_LIB, [
 		    # Convert to a native path and substitute into the output files.
 		
 		    LIB_DIR_NATIVE=`${CYGPATH} "${ac_cv_c_sqlite3}"`
-		
-		    if test "$tcl_ok" = "no"; then
+		    if test "$dostatic" == "no" ; then
 			    SQLITE3_LIB="-L\"${LIB_DIR_NATIVE}\" -lsqlite3"
 		    else
-			    SQLITE3_LIB=" ${LIB_DIR_NATIVE}/libsqlite3.a "
+			    SQLITE3_LIB="\"${LIB_DIR_NATIVE}/libsqlite3.a\""
 		    fi
 		;;
 	esac

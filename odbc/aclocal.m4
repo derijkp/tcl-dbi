@@ -9,4 +9,3 @@ builtin(include,tclconfig/tcl.m4)
 #
 
 builtin(include,odbc.m4)
-builtin(include,odbccpp.m4)

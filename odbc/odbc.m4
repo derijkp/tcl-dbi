@@ -81,88 +81,65 @@ AC_DEFUN(SC_ODBC_INCLUDE, [
 AC_DEFUN(SC_ODBC_LIB, [
     AC_MSG_CHECKING(for odbc library files)
     AC_ARG_WITH(odbc, [ --with-odbc      directory containing the odbc library files.], with_odbc=${withval})
-	case "`uname -s`" in
-		*win32* | *WIN32* | *CYGWIN_NT* |*CYGWIN_98*|*CYGWIN_95*|*MINGW*)
-		    if test x"odbc32" == x ; then
-			ODBC_LIB=""
-		    else
-			    if test x"${with_odbc}" != x ; then
-				if test -f "${with_odbc}/odbc32.lib" ; then
-				    ac_cv_c_odbc=${with_odbc}
-				else
-				    AC_MSG_ERROR([${with_odbc} directory does not contain odbc public library file $libzfile])
-				fi
-			    else
-				AC_CACHE_VAL(ac_cv_c_odbc, [
-				    # Use the value from --with-odbc, if it was given
-				    if test x"${with_odbc}" != x ; then
-					ac_cv_c_odbc=${with_odbc}
-				    else
-					# Check in the libdir, if --prefix was specified
-					eval "temp_libdir=${libdir}"
-					for i in  `ls -d ${temp_libdir} 2>/dev/null`  /usr/local/lib /usr/lib "/c/Program Files/Microsoft Data Access SDK/lib/x86" ; do
-					    if test -f "$i/odbc32.lib" ; then
-							ac_cv_c_odbc=$i
-							break
-					    fi
-					done
-				    fi
-				])
-			    fi
-			    if test x"${ac_cv_c_odbc}" = x ; then
-				AC_MSG_ERROR(odbc.lib not found.  Please specify its location with --with-odbc)
-			    else
-				AC_MSG_RESULT(${ac_cv_c_odbc})
-			    fi
-			
-			    # Convert to a native path and substitute into the output files.
-			
-			    ODBC_LIB=\"`${CYGPATH} "${ac_cv_c_odbc}/odbc32.lib"`\"
+    if test x"${with_odbc}" != x ; then
+	if test -f "${with_odbc}/libodbc.so" ; then
+	    ac_cv_c_odbc=${with_odbc}
+	elif test -f "${with_odbc}/libodbc.a" ; then
+	    ac_cv_c_odbc=${with_odbc}
+	elif test -f "${with_odbc}/odbc32.lib" ; then
+	    ac_cv_c_odbc=${with_odbc}
+	else
+	    AC_MSG_ERROR([${with_odbc} directory does not contain odbc public library file $libzfile])
+	fi
+    else
+	AC_CACHE_VAL(ac_cv_c_odbc, [
+	    # Use the value from --with-odbc, if it was given
+	    if test x"${with_odbc}" != x ; then
+		ac_cv_c_odbc=${with_odbc}
+	    else
+		# Check in the libdir, if --prefix was specified
+		eval "temp_libdir=${libdir}"
+		for i in  `ls -d ${temp_libdir} 2>/dev/null`  /usr/local/lib /usr/lib "/c/Program Files/Microsoft Data Access SDK/lib/x86" ; do
+		    if test -f "$i/libodbc.so" ; then
+				ac_cv_c_odbc=$i
+				break
+		    elif test -f "$i/libodbc.a" ; then
+				ac_cv_c_odbc=$i
+				break
+		    elif test -f "$i/odbc32.lib" ; then
+				ac_cv_c_odbc=$i
+				break
 		    fi
+		done
+	    fi
+	])
+    fi
+	case "`uname -s`" in
+		*win32* | *WIN32* | *CYGWIN_NT* |*CYGWIN_98*|*CYGWIN_95*)
+		    if test x"${ac_cv_c_odbc}" = x ; then
+			AC_MSG_ERROR(odbc.lib not found.  Please specify its location with --with-odbc)
+		    else
+			AC_MSG_RESULT(${ac_cv_c_odbc})
+		    fi
+		
+		    # Convert to a native path and substitute into the output files.
+		
+		    ODBC_LIB=\"`${CYGPATH} "${ac_cv_c_odbc}/odbc32.lib"`\"
 		;;
 		*)
-		    if test x"odbc" == x ; then
-			ODBC_LIB=""
+		    if test x"${ac_cv_c_odbc}" = x ; then
+			AC_MSG_ERROR(libodbc.so or libodbc.a not found.  Please specify its location with --with-odbc)
 		    else
-			    if test x"${with_odbc}" != x ; then
-				if test -f "${with_odbc}/libodbc.so" ; then
-				    ac_cv_c_odbc=${with_odbc}
-				elif test -f "${with_odbc}/libodbc.a" ; then
-				    ac_cv_c_odbc=${with_odbc}
-				else
-				    AC_MSG_ERROR([${with_odbc} directory does not contain odbc public library file $libzfile])
-				fi
-			    else
-				AC_CACHE_VAL(ac_cv_c_odbc, [
-				    # Use the value from --with-odbc, if it was given
-				    if test x"${with_odbc}" != x ; then
-					ac_cv_c_odbc=${with_odbc}
-				    else
-					# Check in the libdir, if --prefix was specified
-					eval "temp_libdir=${libdir}"
-					for i in  `ls -d ${temp_libdir} 2>/dev/null`  /usr/local/lib /usr/lib "/c/Program Files/Microsoft Data Access SDK/lib/x86" ; do
-					    if test -f "$i/libodbc.so" ; then
-							ac_cv_c_odbc=$i
-							break
-					    elif test -f "$i/libodbc.a" ; then
-							ac_cv_c_odbc=$i
-							break
-					    fi
-					done
-				    fi
-				])
-			    fi
-			    if test x"${ac_cv_c_odbc}" = x ; then
-				AC_MSG_ERROR(libodbc.so or libodbc.a not found.  Please specify its location with --with-odbc)
-			    else
-				AC_MSG_RESULT(${ac_cv_c_odbc})
-			    fi
-			
-			    # Convert to a native path and substitute into the output files.
-			
-			    LIB_DIR_NATIVE=`${CYGPATH} "${ac_cv_c_odbc}"`
-			
+			AC_MSG_RESULT(${ac_cv_c_odbc})
+		    fi
+		
+		    # Convert to a native path and substitute into the output files.
+		
+		    LIB_DIR_NATIVE=`${CYGPATH} "${ac_cv_c_odbc}"`
+		    if test "$dostatic" == "no" ; then
 			    ODBC_LIB="-L\"${LIB_DIR_NATIVE}\" -lodbc"
+		    else
+			    ODBC_LIB="\"${LIB_DIR_NATIVE}/libodbc.a\""
 		    fi
 		;;
 	esac

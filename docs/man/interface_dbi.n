@@ -2,7 +2,7 @@
 '\" Generated from docs/xml/interface_dbi.xml
 '\"
 .so man.macros
-.TH interface_dbi n "" Tcl ""
+.TH interface_dbi n "" dbi ""
 .BS
 .SH NAME
 interface_dbi \- interface for SQL database access
@@ -190,7 +190,7 @@ get information about them. Some options that should be avaiable are:
 \&\fIaccesstype\fR determines the type of access that is queried and can be one of:
 .RS
 .nf
-.ta 5c 10c
+.ta 5.5c 11c
 \&\fB
 select
 insert
@@ -341,10 +341,10 @@ Closing a clone will also destroy it. A clone can be eg. be created for using ex
 keeping open a resultset for fetching data line by line, or to compare different resultsets
 using fetch. Creating a clone has several advantages to creating a new connection:
 .RS
-.IP "\(em"
+.IP "\(bu"
 The user of the interface does not have to know the parameters of the connection to
 temporarily spawn a clone
-.IP "\(em"
+.IP "\(bu"
 If the backend database api allows it, a clone actually shares the connection with its
 parent, making the creation of a clone a lot faster then creating a new connection.
 .PP

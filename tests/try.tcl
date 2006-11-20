@@ -3,6 +3,67 @@
 exec tclsh "$0" "$@"
 puts "source [info script]"
 
+set type sqlite3
+set dbfile /tmp/test.db
+set type embmysql
+set dbfile test
+
+package require dbi
+package require dbi_$type
+dbi_$type db
+file delete $dbfile
+db create $dbfile
+db open $dbfile
+#db create /tmp/test.db
+#db open /tmp/test.db
+db exec {create table "region" (
+	"id" integer not null primary key,
+	"start" integer,
+	"end" integer
+)}
+db exec {create index "region_index" on "region"("start")}
+set pre 1
+
+set table [list num\tinsert\tupdate\tquery1\tquery2]
+for {set j 1} {$j < 20} {incr j} {
+	db begin
+	set line [list $j]
+	lappend line [lindex [time {
+		for {set i 1} {$i < 100000} {incr i} {
+			set s [expr {round(rand()*1000000)}]
+			set e [expr {round(rand()*1000000)}]
+			db exec {
+				insert into "region"("id","start","end")
+				values(?,?,?)
+			} [expr {$pre+$i}] $s $e
+		}
+		set pre [expr {$pre+$i}]
+	}] 0]
+	db commit
+	lappend line [lindex [time {
+		db exec {update "region" set "start" = ?, "end" = ? where "id" = ?} [expr {round(rand()*1000000)}] [expr {round(rand()*1000000)}] 100000
+	}] 0]
+	lappend line [lindex [time {
+		db exec {select * from "region" where "start" = ? and "end" =? } $s $e
+	}] 0]
+	lappend line [lindex [time {
+		db exec {select * from "region" where "start" between ? and ? and "end" between ? and ?} [expr {$s-5}] [expr {$s+5}] [expr {$e-5}] [expr {$e+5}]
+	}] 0]
+	lappend table [join $line \t]
+	puts ----------$j----------
+	puts [join $table \n]
+}
+
+set f [open ~/dev/dbi/tests/timings_$type.csv w]
+puts $f [join $table \n]
+close $f
+
+
+catch {
+	db drop
+}
+
+
 package require interface
 namespace eval interface {}
 set type postgresql

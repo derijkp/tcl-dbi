@@ -2,7 +2,7 @@
 '\" Generated from docs/xml/dbi.xml
 '\"
 .so man.macros
-.TH dbi n "" Tcl ""
+.TH dbi n "" dbi ""
 .BS
 .SH NAME
 dbi \- package with interface for SQL database access in Tcl

@@ -771,7 +771,7 @@ int dbi_Firebird_Fetch_One(
 		switch (dtype) {
 			case SQL_VARYING:
 				{
-				VARY *vary;
+				PARAMVARY *vary;
 				vary = (VARY*) var->sqldata;
 				textend = vary->vary_length;
 				element = Tcl_NewStringObj(vary->vary_string,vary->vary_length);

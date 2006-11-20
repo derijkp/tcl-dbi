@@ -34,14 +34,20 @@ $db exec {drop trigger _dbi_trigger_types_i}
 
 if 0 {
 
-package require dbi
-package require dbi_sqlite3
-dbi_sqlite3 db
-db close
-file delete test.db
-db create test.db
-db open test.db
-db exec {create table test(a char(6) not null primary key,b)}
-db exec {insert into test(a,b) values(1,2)}
-db exec {insert into test(a,b) values(1,2)}
+# full compile and install linux
+cd /home/peter/dev/dbi/sqlite3/Linux-i686
+make distclean
+../configure --prefix=/home/peter/tcl/dirtcl --enable-static
+make
+rm -rf /home/peter/build/tca/Linux-i686/exts/dbi_sqlite3-1.0.0
+/home/peter/dev/dbi/sqlite3/build/install.tcl /home/peter/build/tca/Linux-i686/exts
+
+# full cross-compile and install windows
+cd /home/peter/dev/dbi/sqlite3/windows-intel
+make distclean
+cross-bconfigure.sh --prefix=/home/peter/tcl/win-dirtcl --enable-static --with-sqlite3=/home/peter/lib/win/lib
+cross-make.sh
+rm -rf /home/peter/build/tca/Windows-intel/exts/dbi_sqlite3-1.0.0
+wine /home/peter/build/tca/Windows-intel/tclsh84.exe /home/peter/dev/dbi/sqlite3/build/install.tcl /home/peter/build/tca/Windows-intel/exts
+
 }

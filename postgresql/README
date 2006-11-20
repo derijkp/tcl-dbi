@@ -25,6 +25,9 @@ Compiled packages should be created using the following steps in the package dir
 make
 make install
 
+Some of the make targets (such as install) need a working Tcl, and a package called pkgtools,
+also available from http://tcl-dbi.sourceforge.net/
+
 The configure command has several options that can be examined using
 /configure --help
 eg. the option --disable-stubs can be used to build the extension for a version of 

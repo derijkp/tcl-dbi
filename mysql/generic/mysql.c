@@ -1576,6 +1576,21 @@ int Dbi_mysql_Clone(
 	return TCL_OK;
 }
 
+int Dbi_embmysql_Init(interp)
+	Tcl_Interp *interp;		/* Interpreter to add extra commands */
+{
+#ifdef USE_TCL_STUBS
+	if (Tcl_InitStubs(interp, "8.1", 0) == NULL) {
+		return TCL_ERROR;
+	}
+#endif
+	mysql_server_init(0, NULL, NULL);
+	Tcl_CreateObjCommand(interp,"dbi_embmysql",(Tcl_ObjCmdProc *)Dbi_mysql_NewDbObjCmd,
+		(ClientData)NULL,(Tcl_CmdDeleteProc *)NULL);
+	Tcl_Eval(interp,"");
+	return TCL_OK;
+}
+
 int Dbi_mysql_Init(interp)
 	Tcl_Interp *interp;		/* Interpreter to add extra commands */
 {

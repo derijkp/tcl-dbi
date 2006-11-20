@@ -3,7 +3,7 @@ dnl	This file is an input file used by the GNU "autoconf" program to
 dnl	generate the file "configure", which is run during Tcl installation
 dnl	to configure the system for the local environment.
 #
-# RCS: @(#) $Id: configure.in,v 1.33 2002/10/15 18:43:39 hobbs Exp $
+# RCS: @(#) $Id: configure.in,v 1.46 2006/01/23 19:18:55 hobbs Exp $
 
 #-----------------------------------------------------------------------
 # Sample configure.in for Tcl Extensions.  The only places you should
@@ -12,56 +12,28 @@ dnl	to configure the system for the local environment.
 
 #-----------------------------------------------------------------------
 # __CHANGE__
-# This very first macro is used to verify that the configure script can 
-# find the sources.  The argument to AC_INIT should be a unique filename
-# for this package, and can be a relative path, such as:
+# Set your package name and version numbers here.
 #
-# AC_INIT(generic/tcl.h)
+# This initializes the environment with PACKAGE_NAME and PACKAGE_VERSION
+# set as provided.  These will also be added as -D defs in your Makefile
+# so you can encode the package version directly into the source files.
 #-----------------------------------------------------------------------
 
-AC_INIT(generic/sqlite.c)
-
-AC_CONFIG_AUX_DIR(tclconfig)
-CONFIGDIR=${srcdir}/tclconfig
-AC_SUBST(CONFIGDIR)
-
-#----------------------------------------------------------------------
-# __CHANGE__
-# Set your package name and version numbers here.  The NODOT_VERSION is
-# required for constructing the library name on systems that don't like
-# dots in library names (Windows).  The VERSION variable is used on the
-# other systems.
-#----------------------------------------------------------------------
-
-PACKAGE=dbi_sqlite
-
-MAJOR_VERSION=1
-MINOR_VERSION=0
-PATCHLEVEL=0
-
-VERSION=${MAJOR_VERSION}.${MINOR_VERSION}.${PATCHLEVEL}
-NODOT_VERSION=${MAJOR_VERSION}_${MINOR_VERSION}
-
-AC_SUBST(PACKAGE)
-AC_SUBST(VERSION)
-# This package name must be replaced statically for AC_SUBST to work
-AC_SUBST(dbi_sqlite_LIB_FILE)
-# Substitute stub_LIB_FILE if your package creates a stub library too.
-#AC_SUBST(dbi_sqlitestub_LIB_FILE)
-
-#--------------------------------------------------------------------
-# We put this here so that you can compile with -DVERSION="1.2" to
-# encode the package version directly into the source files.
-#--------------------------------------------------------------------
-
-eval AC_DEFINE_UNQUOTED(VERSION, "${VERSION}")
+AC_INIT([dbi_sqlite], [1.0.0])
 
 #--------------------------------------------------------------------
 # Call TEA_INIT as the first TEA_ macro to set up initial vars.
-# This will define a ${TEA_PLATFORM} variable == "unix" or "windows".
+# This will define a ${TEA_PLATFORM} variable == "unix" or "windows"
+# as well as PKG_LIB_FILE and PKG_STUB_LIB_FILE.
 #--------------------------------------------------------------------
 
-TEA_INIT
+TEA_INIT([3.5])
+
+AC_CONFIG_AUX_DIR(tclconfig)
+			AC_MSG_CHECKING([if external libraries should be statically linked])
+			AC_ARG_ENABLE(static,[  --enable-static         link external libraries statically], [dostatic=$enableval], [dostatic=no])
+			AC_MSG_RESULT([$dostatic])
+		
 
 #--------------------------------------------------------------------
 # Load the tclConfig.sh file
@@ -93,6 +65,55 @@ TEA_PREFIX
 
 TEA_SETUP_COMPILER
 
+#-----------------------------------------------------------------------
+# __CHANGE__
+# Specify the C source files to compile in TEA_ADD_SOURCES,
+# public headers that need to be installed in TEA_ADD_HEADERS,
+# stub library C source files to compile in TEA_ADD_STUB_SOURCES,
+# and runtime Tcl library files in TEA_ADD_TCL_SOURCES.
+# This defines PKG(_STUB)_SOURCES, PKG(_STUB)_OBJECTS, PKG_HEADERS
+# and PKG_TCL_SOURCES.
+#-----------------------------------------------------------------------
+
+TEA_ADD_SOURCES([
+	sqlite.c encode.c
+])
+TEA_ADD_HEADERS([
+])
+TEA_ADD_INCLUDES(@SQLITE_INCLUDE@)
+TEA_ADD_LIBS([])
+TEA_ADD_CFLAGS([])
+TEA_ADD_STUB_SOURCES([])
+TEA_ADD_TCL_SOURCES([])
+
+#--------------------------------------------------------------------
+# __CHANGE__
+# A few miscellaneous platform-specific items:
+#
+# Define a special symbol for Windows (BUILD_sample in this case) so
+# that we create the export library with the dll.
+#
+# Windows creates a few extra files that need to be cleaned up.
+# You can add more files to clean if your extension creates any extra
+# files.
+#
+# TEA_ADD_* any platform specific compiler/build info here.
+#--------------------------------------------------------------------
+
+if test "${TEA_PLATFORM}" = "windows" ; then
+    AC_DEFINE(BUILD_sample, 1, [Build windows export dll])
+    CLEANFILES="*.lib *.dll *.exp *.ilk *.pdb vc*.pch"
+TEA_ADD_LIBS( ${SQLITE_LIB})
+    #TEA_ADD_SOURCES([win/winFile.c])
+    #TEA_ADD_INCLUDES([-I\"$(${CYGPATH} ${srcdir}/win)\"])
+else
+    CLEANFILES=""
+TEA_ADD_LIBS( ${SQLITE_LIB})
+    #TEA_ADD_SOURCES([unix/unixFile.c])
+    #TEA_ADD_LIBS([-lsuperfly])
+fi
+AC_SUBST(CLEANFILES)
+
 #--------------------------------------------------------------------
 # __CHANGE__
 # Choose which headers you need.  Extension authors should try very
@@ -107,37 +128,11 @@ TEA_PRIVATE_TCL_HEADERS
 
 #TEA_PUBLIC_TK_HEADERS
 #TEA_PRIVATE_TK_HEADERS
-
-#--------------------------------------------------------------------
-# __CHANGE__
-# A few miscellaneous platform-specific items:
-#
-# Define a special symbol for Windows (BUILD_dbi_sqlite in this case) so
-# that we create the export library with the dll.  See sha1.h on how
-# to use this.
-#
-# Windows creates a few extra files that need to be cleaned up.
-# You can add more files to clean if your extension creates any extra
-# files.
-#
-# Define any extra compiler flags in the PACKAGE_CFLAGS variable.
-# These will be appended to the current set of compiler flags for
-# your system.
-#--------------------------------------------------------------------
-
-if test "${TEA_PLATFORM}" = "windows" ; then
-    AC_DEFINE(BUILD_dbi_sqlite)
-    CLEANFILES="pkgIndex.tcl *.lib *.dll *.exp *.ilk *.pdb vc*.pch"
-    EXTRA_SOURCES='$(WIN_SOURCES)'
-else
-    CLEANFILES="pkgIndex.tcl"
-    EXTRA_SOURCES='$(UNIX_SOURCES)'
-fi
-AC_SUBST(CLEANFILES)
-AC_SUBST(EXTRA_SOURCES)
+#TEA_PATH_X
 
 #--------------------------------------------------------------------
 # Check whether --enable-threads or --disable-threads was given.
+# This auto-enables if Tcl was compiled threaded.
 #--------------------------------------------------------------------
 
 TEA_ENABLE_THREADS
@@ -170,8 +165,8 @@ TEA_ENABLE_SYMBOLS
 # link against the non-stubbed Tcl library.  Add Tk too if necessary.
 #--------------------------------------------------------------------
 
-AC_DEFINE(USE_TCL_STUBS)
-#AC_DEFINE(USE_TK_STUBS)
+AC_DEFINE(USE_TCL_STUBS, 1, [Use Tcl stubs])
+#AC_DEFINE(USE_TK_STUBS, 1, [Use Tk stubs])
 
 #--------------------------------------------------------------------
 # This macro generates a line to use when building a library.  It
@@ -188,27 +183,11 @@ SC_SQLITE
 
 
 #--------------------------------------------------------------------
-# __CHANGE__
-# Add platform libs to LIBS or SHLIB_LD_LIBS as necessary.
-#--------------------------------------------------------------------
-
-
-if test "${TEA_PLATFORM}" = "windows" ; then
-    LIBS="${LIBS}  ${SQLITE_LIB} "
-    SHLIB_LD_LIBS="${SHLIB_LD_LIBS}  ${SQLITE_LIB} "
-else
-    LIBS="${LIBS}  ${SQLITE_LIB} "
-	SHLIB_LD_LIBS="${SHLIB_LD_LIBS}  ${SQLITE_LIB} "
-fi
-			
-
-#--------------------------------------------------------------------
-# Find tclsh so that we can run pkg_mkIndex to generate the pkgIndex.tcl
-# file during the install process.  Don't run the TCLSH_PROG through
-# ${CYGPATH} because it's being used directly by make.
-# Require that we use a tclsh shell version 8.2 or later since earlier
-# versions have bugs in the pkg_mkIndex routine.
-# Add WISH as well if this is a Tk extension.
+# Determine the name of the tclsh and/or wish executables in the
+# Tcl and Tk build directories or the location they were installed
+# into. These paths are used to support running test cases only,
+# the Makefile should not be making use of these paths to generate
+# a pkgIndex.tcl file or anything else at extension build time.
 #--------------------------------------------------------------------
 
 TEA_PROG_TCLSH

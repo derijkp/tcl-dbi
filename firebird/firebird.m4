@@ -39,7 +39,7 @@ AC_DEFUN(SC_FIREBIRD_INCLUDE, [
 	    else
 		# Check in the includedir, if --prefix was specified
 		eval "temp_includedir=${includedir}"
-		for i in  `ls -d ${temp_includedir} 2>/dev/null`  /usr/local/include /usr/include "/Program Files/Firebird/include"; do
+		for i in  `ls -d ${temp_includedir} 2>/dev/null`  /usr/local/include /usr/include "/Program Files/Firebird/include /usr/lib/firebird2/lib"; do
 		    if test -f "$i/ibase.h" ; then
 				ac_cv_c_firebirdinclude=$i
 				break
@@ -99,7 +99,7 @@ AC_DEFUN(SC_FIREBIRD_LIB, [
 	    else
 		# Check in the libdir, if --prefix was specified
 		eval "temp_libdir=${libdir}"
-		for i in  `ls -d ${temp_libdir} 2>/dev/null`  /usr/local/lib /usr/lib "/Program Files/Firebird/lib" ; do
+		for i in  `ls -d ${temp_libdir} 2>/dev/null`  /usr/local/lib /usr/lib "/Program Files/Firebird/lib /usr/lib/firebird2/include" ; do
 		    if test -f "$i/libfbclient.so" ; then
 				ac_cv_c_firebird=$i
 				break
@@ -114,7 +114,6 @@ AC_DEFUN(SC_FIREBIRD_LIB, [
 	    fi
 	])
     fi
-    AC_ARG_ENABLE(static, [  --enable-static         link firebird library statically [--disable-static]],[tcl_ok=$enableval], [tcl_ok=no])
 	case "`uname -s`" in
 		*win32* | *WIN32* | *CYGWIN_NT* |*CYGWIN_98*|*CYGWIN_95*)
 		    if test x"${ac_cv_c_firebird}" = x ; then
@@ -137,11 +136,10 @@ AC_DEFUN(SC_FIREBIRD_LIB, [
 		    # Convert to a native path and substitute into the output files.
 		
 		    LIB_DIR_NATIVE=`${CYGPATH} "${ac_cv_c_firebird}"`
-		
-		    if test "$tcl_ok" = "no"; then
+		    if test "$dostatic" == "no" ; then
 			    FIREBIRD_LIB="-L\"${LIB_DIR_NATIVE}\" -lfbclient"
 		    else
-			    FIREBIRD_LIB=" ${LIB_DIR_NATIVE}/libfbclient.a "
+			    FIREBIRD_LIB="\"${LIB_DIR_NATIVE}/libfbclient.a\""
 		    fi
 		;;
 	esac
