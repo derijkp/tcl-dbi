@@ -223,6 +223,21 @@ interface::test {set and transactions} {
 	$object get {person test}
 } {object {person test} not found} error
 
+interface::test {function} {
+	proc tfunc {a b} {return [list $a $b]}
+	$object function tfunc tfunc
+	$object exec -flat {select tfunc(1,2)}
+} {{1 2}}
+
+interface::test {collate} {
+	$object exec {delete from "person" where "id" = 'blabla'}
+	proc nocase_compare {a b} {
+		return [string compare [string tolower $a] [string tolower $b]]
+	}
+	$object exec {insert into "person" values('jd2','john','do',18)}
+	$object exec -flat {select "first_name" from "person" order by "first_name" collate nocase}
+} {John john Oog Peter}
+
 $object destroy
 $object2 destroy
 

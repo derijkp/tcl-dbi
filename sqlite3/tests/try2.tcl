@@ -30,37 +30,15 @@ db create $opt(-testdb)
 ::dbi::createdb
 ::dbi::filldb
 
-interface::test {transactions: syntax error in exec within transaction} {
-	$object exec {delete from "location";}
-	$object exec {delete from "person";}
-	set r1 [$object exec {select "first_name" from "person";}]
-	$object begin
-	catch {$object exec {
-		insert into "person" values(1,'Peter','De Rijk',19.5);
-	}} error
-	catch {$object exec -error {
-		insert into "person" values(2,'John','Doe',18.5);
-	}} error
-	set r2 [$object exec {select "first_name" from "person";}]
-	$object rollback
-	set r3 [$object exec {select "first_name" from "person";}]
-	list $r1 $r2 $r3 [string range $error 0 27]
-} {{} Peter {} {bad option "-error": must be}} {skipon {![$object supports transactions]}}
+proc test {a b} {return [list $a $b]}
+$object function test test
+$object exec {select test(1,2)}
 
-interface::test {transactions: sql error in exec within transaction, seperate calls} {
-	$object exec {delete from "location";}
-	$object exec {delete from "person";}
-	set r1 [$object exec {select "first_name" from "person";}]
-	$object begin
-	catch {$object exec {
-		insert into "person" values(1,'Peter','De Rijk',19.5);
-	}} error
-	catch {$object exec {
-		insert into "person" values(1,'John','Doe',error);
-		insert into "person" ("id","first_name") values(3,'Jane');
-	}} error
-	set r2 [$object exec {select "first_name" from "person";}]
-	$object rollback
-	set r3 [$object exec {select "first_name" from "person";}]
-	list $r1 $r2 $r3
-} {{} Peter {}} {skipon {![$object supports transactions]}}
+proc nocase_compare {a b} {
+	return [string compare [string tolower $a] [string tolower $b]]
+}
+$object collate nocase nocase_compare
+$object exec {insert into "person" values('jd2','john','do',18)}
+$object exec {select * from "person" order by "first_name"}
+$object exec {select * from "person" order by "first_name" collate nocase}
+

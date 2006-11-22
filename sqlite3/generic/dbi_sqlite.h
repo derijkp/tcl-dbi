@@ -7,6 +7,30 @@
 
 #define SEGM_SIZE 8192
 
+/*
+** New SQL functions can be created as TCL scripts.  Each such function
+** is described by an instance of the following structure.
+*/
+typedef struct SqlFunc SqlFunc;
+struct SqlFunc {
+  Tcl_Interp *interp;   /* The TCL interpret to execute the function */
+  Tcl_Obj *pScript;     /* The Tcl_Obj representation of the script */
+  int useEvalObjv;      /* True if it is safe to use Tcl_EvalObjv */
+  char *zName;          /* Name of this function */
+  SqlFunc *pNext;       /* Next function on the list of them all */
+};
+
+/*
+** New collation sequences function can be created as TCL scripts.  Each such
+** function is described by an instance of the following structure.
+*/
+typedef struct SqlCollate SqlCollate;
+struct SqlCollate {
+  Tcl_Interp *interp;   /* The TCL interpret to execute the function */
+  char *zScript;        /* The script to be run */
+  SqlCollate *pNext;    /* Next function on the list of them all */
+};
+
 typedef struct dbi_Sqlite3_Data {
 	Tcl_Command token;
 	Tcl_Interp *interp;
@@ -26,6 +50,8 @@ typedef struct dbi_Sqlite3_Data {
 	struct dbi_Sqlite3_Data *parent;
 	struct dbi_Sqlite3_Data **clones;
 	int clonesnum;
+	SqlFunc *pFunc;
+	SqlCollate *pCollate;
 } dbi_Sqlite3_Data;
 
 EXTERN int dbi_sqlite3_Init(Tcl_Interp *interp);
