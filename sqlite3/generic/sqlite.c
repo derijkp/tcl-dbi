@@ -163,6 +163,25 @@ int Dbi_sqlite3_collate_dictionary(void *userdata,int llen,const void *s1,int rl
     return diff;	
 }
 
+void Dbi_sqlite3_regexp(sqlite3_context *context,int argc,sqlite3_value **argv)
+{
+	dbi_Sqlite3_Data *dbdata = sqlite3_user_data(context);
+	int result;
+	if (argc != 2) {
+		sqlite3_result_error(context, "wrong number of arguments to function regexp, must be: pattern string", -1);
+		return;
+	}
+	result = Tcl_RegExpMatch(dbdata->interp, (char *)sqlite3_value_text(argv[1]), (char *)sqlite3_value_text(argv[0]));
+	if (result == -1) {
+		sqlite3_result_error(context, Tcl_GetStringResult(dbdata->interp), -1);
+	} else if (result == 1) {
+		sqlite3_result_int(context, 1);
+	} else {
+		sqlite3_result_int(context, 0);
+	}
+	return;
+}
+
 /* following function slightly adapted from tclsqlite */
 static void Dbi_sqlite3_tclSqlFunc(sqlite3_context *context, int argc, sqlite3_value**argv){
 	SqlFunc *p = sqlite3_user_data(context);
@@ -416,6 +435,7 @@ int dbi_Sqlite3_Open(
 		goto error;
 	}
 	sqlite3_create_collation(dbdata->db,"DICT",SQLITE_UTF8,(void *)NULL,Dbi_sqlite3_collate_dictionary);
+	sqlite3_create_function(dbdata->db,"regexp",2,SQLITE_UTF8,dbdata,Dbi_sqlite3_regexp,(void *)NULL,(void *)NULL);
 	error = sqlite3_exec(dbdata->db,"PRAGMA empty_result_callbacks = ON",NULL,NULL,&(dbdata->errormsg));
 	if (error) {sqlite3_free(dbdata->errormsg); dbdata->errormsg=NULL;}
 	return TCL_OK;

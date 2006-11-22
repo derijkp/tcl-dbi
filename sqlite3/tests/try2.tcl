@@ -42,3 +42,5 @@ $object exec {insert into "person" values('jd2','john','do',18)}
 $object exec {select * from "person" order by "first_name"}
 $object exec {select * from "person" order by "first_name" collate nocase}
 
+$object exec {select regexp('[pt]est','test')}
+$object exec {select "first_name" from "person" where "first_name" regexp 'ohn'}

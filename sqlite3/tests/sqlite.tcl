@@ -238,6 +238,10 @@ interface::test {collate} {
 	$object exec -flat {select "first_name" from "person" order by "first_name" collate nocase}
 } {John john Oog Peter}
 
+interface::test {regexp} {
+$object exec {select "first_name" from "person" where "first_name" regexp 'ohn'}
+} {John john}
+
 $object destroy
 $object2 destroy
 
