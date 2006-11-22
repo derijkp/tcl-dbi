@@ -180,6 +180,15 @@ proc ::dbi::sqlite3::fieldsinfo {db table} {
 	return $result
 }
 
+proc ::dbi::sqlite3::update {db} {
+	if {![llength [$db exec {select name from sqlite_master where name = '_dbi_serials'}]]} {
+	} elseif {[lsearch [$db fields _dbi_serials] locked] == -1} {
+		$db exec {
+			alter table _dbi_serials add column locked integer default 0
+		}
+	}
+}
+
 proc ::dbi::sqlite3::serial_basic {db table field} {
 	if {![llength [$db exec [subst {select name from sqlite_master where name = '$table'}]]]} {
 		return -code error "table \"$table\" does not exist"

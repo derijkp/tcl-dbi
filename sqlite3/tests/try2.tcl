@@ -7,9 +7,16 @@ set interface dbi
 # $Format: "set version $ProjectMajorVersion$.$ProjectMinorVersion$"$
 set version 1.0
 
+cp /data/peter/novosnp/smalltest/test.nvs /tmp/test.nvs
+
 package require interface
 package require dbi
 package require dbi_sqlite3
+
+dbi_sqlite3 db
+db open /tmp/test.nvs
+
+db serial next snp id
 
 set object [dbi_sqlite3]
 set object2 [dbi_sqlite3]

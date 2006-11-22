@@ -438,7 +438,8 @@ int dbi_Sqlite3_Open(
 	sqlite3_create_function(dbdata->db,"regexp",2,SQLITE_UTF8,dbdata,Dbi_sqlite3_regexp,(void *)NULL,(void *)NULL);
 	error = sqlite3_exec(dbdata->db,"PRAGMA empty_result_callbacks = ON",NULL,NULL,&(dbdata->errormsg));
 	if (error) {sqlite3_free(dbdata->errormsg); dbdata->errormsg=NULL;}
-	return TCL_OK;
+	error = dbi_Sqlite3_TclEval(interp,dbdata,"::dbi::sqlite3::update",0,NULL);	
+	return error;
 	error:
 		return TCL_ERROR;
 }
