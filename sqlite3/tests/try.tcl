@@ -27,27 +27,19 @@ dbi_sqlite3 db
 db create $opt(-testdb)
 
 ::dbi::opendb
-::dbi::initdb
 
-set db [::dbi::sqlite3::privatedb $object]
-$db exec {drop trigger _dbi_trigger_types_i}
-
-if 0 {
-
-# full compile and install linux
-cd /home/peter/dev/dbi/sqlite3/Linux-i686
-make distclean
-../configure --prefix=/home/peter/tcl/dirtcl --enable-static
-make
-rm -rf /home/peter/build/tca/Linux-i686/exts/dbi_sqlite3-1.0.0
-/home/peter/dev/dbi/sqlite3/build/install.tcl /home/peter/build/tca/Linux-i686/exts
-
-# full cross-compile and install windows
-cd /home/peter/dev/dbi/sqlite3/windows-intel
-make distclean
-cross-bconfigure.sh --prefix=/home/peter/tcl/win-dirtcl --enable-static --with-sqlite3=/home/peter/lib/win/lib
-cross-make.sh
-rm -rf /home/peter/build/tca/Windows-intel/exts/dbi_sqlite3-1.0.0
-wine /home/peter/build/tca/Windows-intel/tclsh84.exe /home/peter/dev/dbi/sqlite3/build/install.tcl /home/peter/build/tca/Windows-intel/exts
-
-}
+	$object exec {
+		create table "person" (
+			"id" char(6) not null primary key,
+			"first_name" varchar(100),
+			"name" varchar(100),
+			"score" double precision
+		);
+		create table "address" (
+			"id" int not null primary key,
+			"street" varchar(100),
+			"number" varchar(20),
+			"code" varchar(10),
+			"city" varchar(100)
+		);
+	}

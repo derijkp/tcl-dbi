@@ -1327,7 +1327,7 @@ int dbi_Sqlite3_Exec(
 	Tcl_Obj **objv)
 {
 	Tcl_Obj *line;
-	sqlite3_stmt *stmt;
+	sqlite3_stmt *stmt=NULL;
 	char *cmdstring = NULL, *nullstring;
 	char *nextsql = NULL;
 	int error,error2,cmdlen,nulllen;
@@ -1346,17 +1346,15 @@ int dbi_Sqlite3_Exec(
 	dbi_Sqlite3_ClearResult(dbdata);
 	cmdstring = Tcl_GetStringFromObj(cmd,&cmdlen);
 	nextsql = cmdstring;
-	error = dbi_Sqlite3_preparenext(interp,dbdata,&stmt,&nextsql);
-	dbdata->stmt = stmt;
+	error = dbi_Sqlite3_preparenext(interp,dbdata,&(dbdata->stmt),&nextsql);
 	if (error) {
 		Tcl_AppendResult(interp," while executing command: \"",	cmdstring, "\"", NULL);
 		return TCL_ERROR;
 	}
 	numargs = sqlite3_bind_parameter_count(dbdata->stmt);
 	if ((numargs != 0) && (*nextsql != '\0')) {
-		error = dbi_Sqlite3_preparenext(interp,dbdata,&stmt,&nextsql);
-		if (stmt != NULL) {
-			sqlite3_finalize(stmt); stmt = NULL;
+		error = dbi_Sqlite3_preparenext(interp,dbdata,&(dbdata->stmt),&nextsql);
+		if (dbdata->stmt != NULL) {
 			sqlite3_finalize(dbdata->stmt); dbdata->stmt = NULL;
 			Tcl_AppendResult(interp,"only one SQL command can be given when parameters are used", NULL);
 			Tcl_AppendResult(interp," while executing command: \"",	cmdstring, "\"", NULL);
@@ -1399,7 +1397,7 @@ int dbi_Sqlite3_Exec(
 					sqlite3_free(dbdata->errormsg); dbdata->errormsg=NULL;
 					toclose = 0;
 				} else {
-					return TCL_ERROR;
+					dbi_Sqlite3_ClearResult(dbdata); return TCL_ERROR;
 				}
 			} else {
 				toclose = 1;
@@ -1425,6 +1423,7 @@ int dbi_Sqlite3_Exec(
 				break;
 			} else {
 				error2 = sqlite3_finalize(dbdata->stmt);
+				dbdata->stmt = stmt;
 				if (error2) {
 					if (toclose) {
 						error = dbi_Sqlite3_Transaction_Rollback(interp,dbdata);
@@ -1432,12 +1431,14 @@ int dbi_Sqlite3_Exec(
 					}
 					return TCL_ERROR;
 				}
-				dbdata->stmt = stmt;
 			}
 		}
 		if (toclose) {
 			error2 = dbi_Sqlite3_Transaction_Commit(interp,dbdata,1);
-			if (error2) {dbi_Sqlite3_Error(interp,dbdata,"autocommitting transaction");return error2;}
+			if (error2) {
+				dbi_Sqlite3_ClearResult(dbdata);
+				dbi_Sqlite3_Error(interp,dbdata,"autocommitting transaction");return error2;
+			}
 		}
 	}
 	switch (error) {
@@ -1455,20 +1456,30 @@ int dbi_Sqlite3_Exec(
 			dbdata->result = Tcl_NewListObj(0,NULL);
 			while (error == SQLITE_ROW) {
 				error = dbi_Sqlite3_getrow(interp,dbdata->stmt,dbdata->nullvalue,&line);
-				if (error) {Tcl_DecrRefCount(dbdata->result);dbdata->result=NULL;return error;}
+				if (error) {
+					dbi_Sqlite3_ClearResult(dbdata); return error;
+				}
 				if (dbdata->resultflat) {
 					error = Tcl_ListObjAppendList(interp,dbdata->result,line);
+					Tcl_DecrRefCount(line);
 				} else {
 					error = Tcl_ListObjAppendElement(interp,dbdata->result,line);
 				}
-				if (error) {Tcl_DecrRefCount(line);Tcl_DecrRefCount(dbdata->result);dbdata->result=NULL;return error;}
+				if (error) {
+					Tcl_DecrRefCount(line);
+					dbi_Sqlite3_ClearResult(dbdata);
+					return error;
+				}
 				error = sqlite3_step(dbdata->stmt);
 			}
-			if (error != SQLITE_DONE) {Tcl_DecrRefCount(dbdata->result);dbdata->result=NULL;return error;}
+			if (error != SQLITE_DONE) {
+				dbi_Sqlite3_ClearResult(dbdata);return error;
+			}
 			error = sqlite3_finalize(dbdata->stmt);dbdata->stmt = NULL;
 			if (error) {Tcl_DecrRefCount(dbdata->result);dbdata->result=NULL;return error;}
 			break;
 		default:
+			sqlite3_finalize(dbdata->stmt); dbdata->stmt = NULL;
 			Tcl_AppendResult(interp,"database error executing command \"",
 				cmdstring, "\":\n",	sqlite3_errmsg(dbdata->db), NULL);
 			goto error;
@@ -1487,7 +1498,7 @@ int dbi_Sqlite3_Exec(
 	}
 	return TCL_OK;
 	error:
-/*		dbi_Sqlite3_ClearResult(dbdata);*/
+		dbi_Sqlite3_ClearResult(dbdata);
 		return TCL_ERROR;
 }
 

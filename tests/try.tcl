@@ -5,24 +5,23 @@ puts "source [info script]"
 
 set type sqlite3
 set dbfile /tmp/test.db
-set type embmysql
-set dbfile test
 
 package require dbi
 package require dbi_$type
 dbi_$type db
-file delete $dbfile
-db create $dbfile
-db open $dbfile
+#file delete $dbfile
+#db create $dbfile
+#db open $dbfile
 #db create /tmp/test.db
 #db open /tmp/test.db
-db exec {create table "region" (
-	"id" integer not null primary key,
-	"start" integer,
-	"end" integer
-)}
-db exec {create index "region_index" on "region"("start")}
-set pre 1
+db close
+db open /data/peter/molgen-project/skea/skea.pdv
+set ids [db exec {select id from ind}]
+
+set result [db exec -flat [subst {
+	select "group" from "ind"
+	where "id" in ('[join $ids \',\']')
+}]]
 
 set table [list num\tinsert\tupdate\tquery1\tquery2]
 for {set j 1} {$j < 20} {incr j} {
