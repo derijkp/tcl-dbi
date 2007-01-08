@@ -868,7 +868,7 @@ int dbi_Sqlite3_Get(
 		}
 		sprintf(pos," from \"%s\" where \"id\" = '%s'",tablestring,idstring);
 	}
-	error = sqlite3_prepare(dbdata->db,buffer,-1,&stmt,&nextsql);
+	error = sqlite3_prepare_v2(dbdata->db,buffer,-1,&stmt,&nextsql);
 	if (error != SQLITE_OK) {
 		dbi_Sqlite3_Error(interp,dbdata,"preparing set statement");
 		goto error;
@@ -1000,7 +1000,7 @@ int dbi_Sqlite3_Insert(
 	*pos++ = ')';
 	*pos++ = '\0';
 	/* run sql */
-	error = sqlite3_prepare(dbdata->db,buffer,-1,&stmt,&nextsql);
+	error = sqlite3_prepare_v2(dbdata->db,buffer,-1,&stmt,&nextsql);
 	if (error != SQLITE_OK) {
 		dbi_Sqlite3_Error(interp,dbdata,"preparing set statement");
 		goto error;
@@ -1095,7 +1095,7 @@ int dbi_Sqlite3_Set(
 	}
 	sprintf(pos," where \"id\" = '%s'",idstring);
 	/* run sql */
-	error = sqlite3_prepare(dbdata->db,buffer,-1,&stmt,&nextsql);
+	error = sqlite3_prepare_v2(dbdata->db,buffer,-1,&stmt,&nextsql);
 	if (error != SQLITE_OK) {
 		dbi_Sqlite3_Error(interp,dbdata,"preparing set statement");
 		goto error;
@@ -1174,7 +1174,7 @@ int dbi_Sqlite3_Unset(
 		pos += (11 + fieldlen);
 	}
 	sprintf(pos," where \"id\" = '%s'",idstring);
-	error = sqlite3_prepare(dbdata->db,buffer,-1,&stmt,&nextsql);
+	error = sqlite3_prepare_v2(dbdata->db,buffer,-1,&stmt,&nextsql);
 	if (error != SQLITE_OK) {
 		dbi_Sqlite3_Error(interp,dbdata,"preparing delete statement");
 		goto error;
@@ -1224,7 +1224,7 @@ int dbi_Sqlite3_Delete(
 	len = 31 + tablelen + idlen;
 	buffer = Tcl_Alloc(len*sizeof(char));
 	sprintf(buffer,"delete from \"%s\" where \"id\" = '%s'",tablestring,idstring);
-	error = sqlite3_prepare(dbdata->db,buffer,-1,&stmt,&nextsql);
+	error = sqlite3_prepare_v2(dbdata->db,buffer,-1,&stmt,&nextsql);
 	if (error != SQLITE_OK) {
 		dbi_Sqlite3_Error(interp,dbdata,"preparing delete statement");
 		goto error;
@@ -1304,7 +1304,7 @@ int dbi_Sqlite3_preparenext(
 	*stmtPtr = NULL;
 	nextsql = *sql;
 	while (stmt == NULL) {
-		error = sqlite3_prepare(dbdata->db,nextsql,-1,&stmt,&nextsql);
+		error = sqlite3_prepare_v2(dbdata->db,nextsql,-1,&stmt,&nextsql);
 		if (error != SQLITE_OK) {
 			sqlite3_finalize(stmt); stmt = NULL;
 			dbi_Sqlite3_Error(interp,dbdata,"preparing statement");
