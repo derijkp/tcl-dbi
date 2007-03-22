@@ -2263,8 +2263,8 @@ int dbi_Firebird_Createdb(
 	int objc,
 	Tcl_Obj *objv[])
 {
-	const static char *switches[] = {"-user","-password","-pagesize","-extra", (char *) NULL};
-    enum switchesIdx {User, Password, Pagesize, Extra};
+	const static char *switches[] = {"-user","-password","-pagesize","-defaultcharset","-extra", (char *) NULL};
+    enum switchesIdx {User, Password, Pagesize, Defaultcharset, Extra};
 	ISC_STATUS *status_vector = dbdata->status;
 	Tcl_Obj *cmd = NULL;
 	char *string=NULL;
@@ -2314,9 +2314,18 @@ int dbi_Firebird_Createdb(
 				Tcl_AppendObjToObj(cmd,objv[i+1]);
 				i++;
 				break;
+			case Defaultcharset:
+				if (i == (objc-1)) {
+					Tcl_AppendResult(interp,"\"-defaultcharset\" option must be followed by the default character set",NULL);
+					return TCL_ERROR;
+				}
+				Tcl_AppendToObj(cmd," default character set ",-1);
+				Tcl_AppendObjToObj(cmd,objv[i+1]);
+				i++;
+				break;
 			case Extra:
 				if (i == (objc-1)) {
-					Tcl_AppendResult(interp,"\"-extra\" option must be followed by the pagesize",NULL);
+					Tcl_AppendResult(interp,"\"-extra\" option must be followed by the extra parameters",NULL);
 					return TCL_ERROR;
 				}
 				Tcl_AppendToObj(cmd," ",-1);
