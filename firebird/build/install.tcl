@@ -18,5 +18,5 @@ set extname dbi_firebird
 
 # standard
 # --------
-install $argv
+pkgtools::install $argv
 
