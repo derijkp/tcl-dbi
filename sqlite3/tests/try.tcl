@@ -27,19 +27,13 @@ dbi_sqlite3 db
 db create $opt(-testdb)
 
 ::dbi::opendb
+::dbi::initdb
 
-	$object exec {
-		create table "person" (
-			"id" char(6) not null primary key,
-			"first_name" varchar(100),
-			"name" varchar(100),
-			"score" double precision
-		);
-		create table "address" (
-			"id" int not null primary key,
-			"street" varchar(100),
-			"number" varchar(20),
-			"code" varchar(10),
-			"city" varchar(100)
-		);
+interface::test {DICTREAL collation} {
+	catch {$object exec {delete from types}}
+	foreach v {a20 a2.5 a1 a2b a4 a2.08 a10 a2.081 a2.0555} {
+		$object exec {insert into types(t) values(?)} $v
 	}
+	$object exec {select t from types order by t collate DICTREAL}
+} {a1 a2.0555 a2.08 a2.081 a2.5 a2b a4 a10 a20}
+

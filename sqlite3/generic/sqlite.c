@@ -163,6 +163,139 @@ int Dbi_sqlite3_collate_dictionary(void *userdata,int llen,const void *s1,int rl
     return diff;	
 }
 
+int Dbi_sqlite3_collate_dictreal(void *userdata,int llen,const void *s1,int rlen,const void *s2)
+{
+    char *left = (char *)s1;
+    char *right = (char *)s2;
+    int diff, zeros,l = 0,r = 0;
+    int secondaryDiff = 0;
+    while (1) {
+	if (isdigit(UCHAR(right[r])) && isdigit(UCHAR(left[l]))) {
+	    /*
+	     * There are decimal numbers embedded in the two
+	     * strings.  Compare them as numbers, rather than
+	     * strings.  If one number has more leading zeros than
+	     * the other, the number with more leading zeros sorts
+	     * later, but only as a secondary choice.
+	     */
+	    zeros = 0;
+	    while ((right[r] == '0') && (r < rlen)) {
+		r++;
+		zeros--;
+	    }
+	    while ((left[l] == '0') && (l < llen)) {
+		l++;
+		zeros++;
+	    }
+	    if (secondaryDiff == 0) {
+		secondaryDiff = zeros;
+	    }
+	    /*
+	     * The code below compares the numbers in the two
+	     * strings without ever converting them to integers.  It
+	     * does this by first comparing the lengths of the
+	     * numbers and then comparing the digit values.
+	     */
+	    diff = 0;
+	    while (1) {
+		if (diff == 0) {
+		    diff = left[l] - right[r];
+		}
+		r++;
+		l++;
+		if (left[l] == '.') {
+			if (isdigit(UCHAR(right[r]))) {
+				return -1;
+			}
+			if (right[r] != '.') {
+				if (diff != 0) {return diff;}
+				return -1;
+			} else {
+				/*
+				 * The two numbers have the same length. See
+				 * if their values are different.
+				 */
+				if (diff != 0) {
+				    return diff;
+				} else {
+					/*
+					* check the numbers after the .
+					*/
+					while (1) {
+						r++;
+						l++;
+						if (!isdigit(UCHAR(right[r]))) {
+							if (!isdigit(UCHAR(left[l]))) {
+								break;
+							} else {
+								return 1;
+							}
+						} else if (!isdigit(UCHAR(left[l]))) {
+							return -1;
+						}
+						diff = left[l] - right[r];
+						if (diff != 0) {return diff;}
+					}
+				}
+				break;
+			}
+		} else if (right[r] == '.') {
+			if (isdigit(UCHAR(left[l]))) {
+				return 1;
+			}
+			if (diff != 0) {return diff;}
+			return 1;
+		} else if (!isdigit(UCHAR(right[r]))) {
+			if (isdigit(UCHAR(left[l]))) {
+				return 1;
+			} else {
+				/*
+				 * The two numbers have the same length. See
+				 * if their values are different.
+				 */
+				if (diff != 0) {
+					return diff;
+				}
+				break;
+			}
+		} else if (!isdigit(UCHAR(left[l]))) {
+		    return -1;
+		}
+	    }
+	    continue;
+	}
+        diff = left[l] - right[r];
+        if (diff) {
+            if (isupper(UCHAR(left[l])) && islower(UCHAR(right[r]))) {
+                diff = tolower(left[l]) - right[r];
+                if (diff) {
+		    return diff;
+                } else if (secondaryDiff == 0) {
+		    secondaryDiff = -1;
+                }
+            } else if (isupper(UCHAR(right[r])) && islower(UCHAR(left[l]))) {
+                diff = left[l] - tolower(UCHAR(right[r]));
+                if (diff) {
+		    return diff;
+                } else if (secondaryDiff == 0) {
+		    secondaryDiff = 1;
+                }
+            } else {
+                return diff;
+            }
+        }
+        if (left[l] == 0) {
+	    break;
+	}
+        l++;
+        r++;
+    }
+    if (diff == 0) {
+	diff = secondaryDiff;
+    }
+    return diff;	
+}
+
 void Dbi_sqlite3_regexp(sqlite3_context *context,int argc,sqlite3_value **argv)
 {
 	dbi_Sqlite3_Data *dbdata = sqlite3_user_data(context);
@@ -435,6 +568,7 @@ int dbi_Sqlite3_Open(
 		goto error;
 	}
 	sqlite3_create_collation(dbdata->db,"DICT",SQLITE_UTF8,(void *)NULL,Dbi_sqlite3_collate_dictionary);
+	sqlite3_create_collation(dbdata->db,"DICTREAL",SQLITE_UTF8,(void *)NULL,Dbi_sqlite3_collate_dictreal);
 	sqlite3_create_function(dbdata->db,"regexp",2,SQLITE_UTF8,dbdata,Dbi_sqlite3_regexp,(void *)NULL,(void *)NULL);
 	error = sqlite3_exec(dbdata->db,"PRAGMA empty_result_callbacks = ON",NULL,NULL,&(dbdata->errormsg));
 	if (error) {sqlite3_free(dbdata->errormsg); dbdata->errormsg=NULL;}

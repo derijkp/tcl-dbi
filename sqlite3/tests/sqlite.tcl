@@ -213,6 +213,22 @@ interface::test {DICT collation} {
 	$object exec {select t from types order by t collate DICT}
 } {a1 a2 a2b a4 a10 a20 a22}
 
+interface::test {DICT collation vs DICTREAL} {
+	catch {$object exec {delete from types}}
+	foreach v {a20 a2.5 a1 a2b a4 a2.08 a10 a2.081 a2.0555} {
+		$object exec {insert into types(t) values(?)} $v
+	}
+	$object exec {select t from types order by t collate DICT}
+} {a1 a2.5 a2.08 a2.081 a2.0555 a2b a4 a10 a20}
+
+interface::test {DICTREAL collation} {
+	catch {$object exec {delete from types}}
+	foreach v {a20 a2.5 a1 a2b a4 a2.08 a10 a2.081 a2.0555} {
+		$object exec {insert into types(t) values(?)} $v
+	}
+	$object exec {select t from types order by t collate DICTREAL}
+} {a1 a2.0555 a2.08 a2.081 a2.5 a2b a4 a10 a20}
+
 interface::test {set and transactions} {
 	catch {$object delete {person test}}
 	catch {$object delete {person test2}}
