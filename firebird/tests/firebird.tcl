@@ -3,9 +3,13 @@
 exec tclsh "$0" "$@"
 puts "source [info script]"
 
+set f [open ~/.password]
+array set config_pw [split [read $f] "\n\t "]
+close $f
+
 set interface dbi
 # $Format: "set version $ProjectMajorVersion$.$ProjectMinorVersion$"$
-set version 1.0
+set version 2.0
 
 package require interface
 package require dbi
@@ -19,7 +23,7 @@ set object2 [dbi_firebird]
 # cs
 interface test dbi_admin-$version $object \
 	-testdb localhost:/home/ib/testdbi.gdb \
-	-openargs {-user test -password blabla}
+	-openargs [list -user test -password $config_pw(test)]
 
 interface::test {destroy without opening a database} {
 	dbi_firebird	db
@@ -35,13 +39,13 @@ interface::test {destroy without opening a database} {
 # cs
 array set opt [subst {
 	-testdb localhost:/home/ib/testdbi.gdb
-	-openargs {-user test -password blabla}
-	-user2 PDR
+	-openargs {-user test -password $config_pw(test)}
+	-user2 test2
 	-object2 $object2
 }]
 
 # $Format: "eval interface test dbi-$ProjectMajorVersion$.$ProjectMinorVersion$ $object [array get opt]"$
-eval interface test dbi-1.0 $object [array get opt]
+eval interface test dbi-2.0 $object [array get opt]
 
 ::dbi::opendb
 ::dbi::initdb

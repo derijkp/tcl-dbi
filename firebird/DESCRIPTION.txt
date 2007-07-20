@@ -1,8 +1,8 @@
 Identifier: dbi_firebird
-Version: 1.0.0
+Version: 2.0.0
 Title: firebird database access
 Creator: Peter De Rijk <Peter.DeRijk@ua.ac.be>
-Description: firebird > 1.5 database access using the dbi interface
+Description: firebird > 2.0 database access using the dbi interface
 Rights: BSD
 URL: http://tcl-dbi.sourceforge.net/
 Subject: database

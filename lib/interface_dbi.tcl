@@ -989,10 +989,11 @@ proc ::dbi::cleandb {} {
 	catch {$object exec {
 		alter table "useof" drop constraint use_htest
 	}} result
-	foreach table {duse useof test types location address person bl multi t} {
+	catch {$object exec [subst {drop view "vtest"}]} result
+	foreach table {duse useof BL test types location address person bl multi t} {
 		catch {$object exec [subst {delete from "$table"}]} result
 		catch {$object exec [subst {drop table "$table"}]} result
-		catch {$object exec [subst {drop table "$table" cascade}]} result
+		# catch {$object exec [subst {drop table "$table" cascade}]} result
 		append fresult $result\n
 	}
 	return $fresult
@@ -1033,7 +1034,7 @@ proc ::dbi::createdb {} {
 	$object exec [subst {
 		create table "useof" (
 			"id" integer not null primary key,
-			"person" integer not null unique[ifsupp foreignkeys { references "person"("id")}],
+			"person" char(6) not null unique[ifsupp foreignkeys { references "person"("id")}],
 			"place" varchar(100),
 			"usetime" timestamp,
 			"score" float[ifsupp check { check ("score" < 20.0)}],

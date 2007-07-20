@@ -8,7 +8,7 @@ package require dbi
 namespace eval dbi::firebird {}
 
 # $Format: "set ::dbi::firebird::version $ProjectMajorVersion$.$ProjectMinorVersion$"$
-set ::dbi::firebird::version 1.0
+set ::dbi::firebird::version 2.0
 # $Format: "set ::dbi::firebird::patchlevel $ProjectPatchLevel$"$
 set ::dbi::firebird::patchlevel 0
 package provide dbi_firebird $::dbi::firebird::version
