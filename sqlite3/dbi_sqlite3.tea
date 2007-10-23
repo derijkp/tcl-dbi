@@ -23,7 +23,7 @@ config locator generic/sqlite.c
 # are conventionally held in either the top-level directory or
 # in the 'generic' subdirectory.
 config genericSources {
-	sqlite.c
+	sqlite.c sqlite3.c
 }
 
 # The list of additional source files that are to be built on UNIX platforms.
@@ -63,9 +63,9 @@ config accessPrivate 1
 # - include file to find in include dir
 # - paths to look in for libs besides in given dir or typical dirs (based on prefix)
 # - base library name to find (without lib in front ie. the one you put in -l<name>)
-config extralibs {
-	sqlite3 {} sqlite3.h {/usr/local/lib} sqlite3
-}
+#config extralibs {
+#	sqlite3 {} sqlite3.h {/usr/local/lib} sqlite3
+#}
 
 # An autoconf fragment used to check for additional system features that
 # the standard TEA configuration does not detect. Any extra

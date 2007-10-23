@@ -30,10 +30,6 @@ AC_INIT([dbi_sqlite3], [1.0.0])
 TEA_INIT([3.5])
 
 AC_CONFIG_AUX_DIR(tclconfig)
-			AC_MSG_CHECKING([if external libraries should be statically linked])
-			AC_ARG_ENABLE(static,[  --enable-static         link external libraries statically], [dostatic=$enableval], [dostatic=no])
-			AC_MSG_RESULT([$dostatic])
-		
 
 #--------------------------------------------------------------------
 # Load the tclConfig.sh file
@@ -76,11 +72,11 @@ TEA_SETUP_COMPILER
 #-----------------------------------------------------------------------
 
 TEA_ADD_SOURCES([
-	sqlite.c
+	sqlite.c sqlite3.c
 ])
 TEA_ADD_HEADERS([
 ])
-TEA_ADD_INCLUDES(@SQLITE3_INCLUDE@)
+TEA_ADD_INCLUDES([])
 TEA_ADD_LIBS([])
 TEA_ADD_CFLAGS([])
 TEA_ADD_STUB_SOURCES([])
@@ -103,12 +99,12 @@ TEA_ADD_TCL_SOURCES([])
 if test "${TEA_PLATFORM}" = "windows" ; then
     AC_DEFINE(BUILD_sample, 1, [Build windows export dll])
     CLEANFILES="*.lib *.dll *.exp *.ilk *.pdb vc*.pch"
-TEA_ADD_LIBS( ${SQLITE3_LIB})
+
     #TEA_ADD_SOURCES([win/winFile.c])
     #TEA_ADD_INCLUDES([-I\"$(${CYGPATH} ${srcdir}/win)\"])
 else
     CLEANFILES=""
-TEA_ADD_LIBS( ${SQLITE3_LIB})
+
     #TEA_ADD_SOURCES([unix/unixFile.c])
     #TEA_ADD_LIBS([-lsuperfly])
 fi
@@ -175,12 +171,6 @@ AC_DEFINE(USE_TCL_STUBS, 1, [Use Tcl stubs])
 #--------------------------------------------------------------------
 
 TEA_MAKE_LIB
-
-# extra code
-SC_SQLITE3
-
-
-
 
 #--------------------------------------------------------------------
 # Determine the name of the tclsh and/or wish executables in the
