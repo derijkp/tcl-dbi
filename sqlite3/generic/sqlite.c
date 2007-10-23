@@ -2380,7 +2380,7 @@ int Dbi_sqlite3_NewDbObjCmd(
 	dbi_Sqlite3_Data *dbdata;
 	int error;
 	if ((objc < 1)||(objc > 2)) {
-		Tcl_WrongNumArgs(interp,2,objv,"?dbName?");
+		Tcl_WrongNumArgs(interp,1,objv,"?dbName?");
 		return TCL_ERROR;
 	}
 	dbdata = (dbi_Sqlite3_Data *)Tcl_Alloc(sizeof(dbi_Sqlite3_Data));
