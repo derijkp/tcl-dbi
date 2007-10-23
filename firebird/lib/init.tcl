@@ -3,8 +3,6 @@
 # ---------
 #
 
-package require dbi
-
 namespace eval dbi::firebird {}
 
 # $Format: "set ::dbi::firebird::version $ProjectMajorVersion$.$ProjectMinorVersion$"$

@@ -3,8 +3,6 @@
 # ---------
 #
 
-package require dbi
-
 namespace eval dbi::interbase {}
 
 # $Format: "set ::dbi::interbase::version $ProjectMajorVersion$.$ProjectMinorVersion$"$

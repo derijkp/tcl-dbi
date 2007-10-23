@@ -3,8 +3,6 @@
 # ---------
 #
 
-package require dbi
-
 namespace eval dbi::sqlite {}
 
 # $Format: "set ::dbi::sqlite::version $ProjectMajorVersion$.$ProjectMinorVersion$"$

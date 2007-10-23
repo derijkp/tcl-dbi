@@ -3,8 +3,6 @@
 # ---------
 #
 
-package require dbi
-
 namespace eval dbi::postgresql {}
 
 # $Format: "set ::dbi::postgresql::version $ProjectMajorVersion$.$ProjectMinorVersion$"$

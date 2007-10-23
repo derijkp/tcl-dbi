@@ -3,8 +3,6 @@
 # ---------
 #
 
-package require dbi
-
 namespace eval dbi::odbc {}
 
 # $Format: "set ::dbi::odbc::version $ProjectMajorVersion$.$ProjectMinorVersion$"$

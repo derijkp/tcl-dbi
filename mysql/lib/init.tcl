@@ -3,8 +3,6 @@
 # ---------
 #
 
-package require dbi
-
 namespace eval dbi::mysql {}
 
 # $Format: "set ::dbi::mysql::version $ProjectMajorVersion$.$ProjectMinorVersion$"$
