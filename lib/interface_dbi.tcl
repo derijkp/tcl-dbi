@@ -558,6 +558,7 @@ interface::test {error when info on closed object} {
 	$object close
 	set fields [$object info fields person]
 } {dbi object has no open database, open a connection first} error
+
 catch {::dbi::opendb}
 
 # caching

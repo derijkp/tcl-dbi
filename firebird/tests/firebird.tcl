@@ -8,8 +8,7 @@ array set config_pw [split [read $f] "\n\t "]
 close $f
 
 set interface dbi
-# $Format: "set version $ProjectMajorVersion$.$ProjectMinorVersion$"$
-set version 2.0
+set version 1.0
 
 package require interface
 package require dbi
@@ -44,8 +43,7 @@ array set opt [subst {
 	-object2 $object2
 }]
 
-# $Format: "eval interface test dbi-$ProjectMajorVersion$.$ProjectMinorVersion$ $object [array get opt]"$
-eval interface test dbi-2.0 $object [array get opt]
+eval interface test dbi-$version $object [array get opt]
 
 ::dbi::opendb
 ::dbi::initdb
