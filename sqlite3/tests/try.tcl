@@ -29,11 +29,11 @@ db create $opt(-testdb)
 ::dbi::opendb
 ::dbi::initdb
 
-interface::test {DICTREAL collation} {
-	catch {$object exec {delete from types}}
-	foreach v {a20 a2.5 a1 a2b a4 a2.08 a10 a2.081 a2.0555} {
-		$object exec {insert into types(t) values(?)} $v
-	}
-	$object exec {select t from types order by t collate DICTREAL}
-} {a1 a2.0555 a2.08 a2.081 a2.5 a2b a4 a10 a20}
+proc lconcat args {return $args}
+$object function lconcat lconcat
 
+	$object exec {insert into "person" ("id","first_name","name") values ('jd3','John',"Test Case")}
+	$object exec {
+		select "first_name",list_concat("name")
+		from "person" where "first_name" regexp 'ohn' group by "first_name"
+	}

@@ -255,8 +255,16 @@ interface::test {collate} {
 } {John john Oog Peter}
 
 interface::test {regexp} {
-$object exec {select "first_name" from "person" where "first_name" regexp 'ohn'}
+	$object exec {select "first_name" from "person" where "first_name" regexp 'ohn'}
 } {John john}
+
+$object exec {insert into "person" ("id","first_name","name") values ('jd3','John',"Test Case")}
+interface::test {list_concat} {
+	$object exec {
+		select "first_name",list_concat("name")
+		from "person" where "first_name" regexp 'ohn' group by "first_name"
+	}
+} {{John {Do {Test Case}}}}
 
 $object destroy
 $object2 destroy

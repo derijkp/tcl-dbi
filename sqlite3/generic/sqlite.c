@@ -315,6 +315,49 @@ void Dbi_sqlite3_regexp(sqlite3_context *context,int argc,sqlite3_value **argv)
 	return;
 }
 
+typedef struct Dbi_sqlite3_Aggregate_State {
+	int count;
+	Tcl_Obj *result;
+} Dbi_sqlite3_Aggregate_State;
+
+void Dbi_sqlite3_listconcat_step(sqlite3_context *context,int argc,sqlite3_value **argv)
+{
+	dbi_Sqlite3_Data *dbdata = sqlite3_user_data(context);
+	Dbi_sqlite3_Aggregate_State *state = (Dbi_sqlite3_Aggregate_State *) sqlite3_aggregate_context(context, sizeof(Dbi_sqlite3_Aggregate_State));
+	Tcl_Obj *tempObj;
+	int error;
+	if (state->count == 0) {
+		state->result = Tcl_NewObj();
+	}
+	state->count++;
+	if (argc != 1) {
+		sqlite3_result_error(context, "Wrong number of arguments to function list_concat (must be 1)", -1);
+		if (state->result != NULL) {Tcl_DecrRefCount(state->result);}
+	}
+	tempObj = Tcl_NewStringObj((char *)sqlite3_value_text(argv[0]),-1);
+	error = Tcl_ListObjAppendElement(dbdata->interp,state->result,tempObj);
+	if (error) {
+		Tcl_DecrRefCount(state->result); state->result = NULL;
+		sqlite3_result_error(context, Tcl_GetStringResult(dbdata->interp), -1);
+	}
+	return;
+}
+
+void Dbi_sqlite3_listconcat_final(sqlite3_context *context)
+{
+	Dbi_sqlite3_Aggregate_State *state = (Dbi_sqlite3_Aggregate_State *) sqlite3_aggregate_context(context, sizeof(Dbi_sqlite3_Aggregate_State));
+	char *result;
+	int size;
+	if (state->result != NULL) {
+		result = Tcl_GetStringFromObj(state->result,&size);
+		sqlite3_result_text(context, result, size, SQLITE_TRANSIENT);
+		Tcl_DecrRefCount(state->result);
+	} else {
+		sqlite3_result_text(context, "", 0, SQLITE_TRANSIENT);
+	}
+	return;
+}
+
 /* following function slightly adapted from tclsqlite */
 static void Dbi_sqlite3_tclSqlFunc(sqlite3_context *context, int argc, sqlite3_value**argv){
 	SqlFunc *p = sqlite3_user_data(context);
@@ -570,6 +613,7 @@ int dbi_Sqlite3_Open(
 	sqlite3_create_collation(dbdata->db,"DICT",SQLITE_UTF8,(void *)NULL,Dbi_sqlite3_collate_dictionary);
 	sqlite3_create_collation(dbdata->db,"DICTREAL",SQLITE_UTF8,(void *)NULL,Dbi_sqlite3_collate_dictreal);
 	sqlite3_create_function(dbdata->db,"regexp",2,SQLITE_UTF8,dbdata,Dbi_sqlite3_regexp,(void *)NULL,(void *)NULL);
+	sqlite3_create_function(dbdata->db,"list_concat",-1,SQLITE_UTF8,dbdata,(void *)NULL,Dbi_sqlite3_listconcat_step,Dbi_sqlite3_listconcat_final);
 	error = sqlite3_exec(dbdata->db,"PRAGMA empty_result_callbacks = ON",NULL,NULL,&(dbdata->errormsg));
 	if (error) {sqlite3_free(dbdata->errormsg); dbdata->errormsg=NULL;}
 	error = dbi_Sqlite3_TclEval(interp,dbdata,"::dbi::sqlite3::update",0,NULL);	
