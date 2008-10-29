@@ -264,7 +264,7 @@ interface::test {list_concat} {
 		select "first_name",list_concat("name")
 		from "person" where "first_name" regexp 'ohn' group by "first_name"
 	}
-} {{John {Do {Test Case}}}}
+} {{John {Do {Test Case}}} {john do}}
 
 $object destroy
 $object2 destroy
