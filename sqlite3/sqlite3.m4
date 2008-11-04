@@ -39,7 +39,7 @@ AC_DEFUN(SC_SQLITE3_INCLUDE, [
 	    else
 		# Check in the includedir, if --prefix was specified
 		eval "temp_includedir=${includedir}"
-		for i in  `ls -d ${temp_includedir} 2>/dev/null`  /usr/local/include /usr/include ""; do
+		for i in  `ls -d ${temp_includedir} 2>/dev/null`  /usr/local/include /usr/include "/usr/local/lib"; do
 		    if test -f "$i/sqlite3.h" ; then
 				ac_cv_c_sqlite3include=$i
 				break

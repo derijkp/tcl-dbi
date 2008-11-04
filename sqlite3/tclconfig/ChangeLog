@@ -1,3 +1,84 @@
+2008-08-12  Daniel Steffen  <das@users.sourceforge.net>
+
+	* tcl.m4 (Darwin): link shlib with current and compatiblity version
+	flags; look for libX11.dylib when searching for X11 libraries.
+
+2008-06-12  Daniel Steffen  <das@users.sourceforge.net>
+
+	* tcl.m4 (SunOS-5.11): fix 64bit amd64 support with gcc & Sun cc.
+
+2008-03-27  Daniel Steffen  <das@users.sourceforge.net>
+
+	* tcl.m4 (SunOS-5.1x): fix 64bit support for Sun cc. [Bug 1921166]
+
+2008-02-01  Donal K. Fellows  <donal.k.fellows@man.ac.uk>
+
+	* tcl.m4 (TEA_CONFIG_CFLAGS): Updated to work at least in part with
+	more modern VC versions. Currently just made the linker flags more
+	flexible; more work may be needed.
+
+2007-10-26  Daniel Steffen  <das@users.sourceforge.net>
+
+	* tcl.m4 (Darwin): add support for 64-bit X11.
+
+2007-10-23  Jeff Hobbs  <jeffh@ActiveState.com>
+
+	*** Tagged tea-3-branch to start TEA 4 development on HEAD ***
+
+2007-09-17  Joe English  <jenglish@users.sourceforge.net>
+
+	* tcl.m4: use '${CC} -shared' instead of 'ld -Bshareable' 
+	to build shared libraries on current NetBSDs [Bug 1749251].
+
+2007-09-15  Daniel Steffen  <das@users.sourceforge.net>
+
+	* tcl.m4: 	replace all direct references to compiler by ${CC} to
+			enable CC overriding at configure & make time.
+	(SunOS-5.1x):	replace direct use of '/usr/ccs/bin/ld' in SHLIB_LD by
+			'cc' compiler driver.
+
+2007-08-08  Jeff Hobbs  <jeffh@ActiveState.com>
+
+	* tcl.m4: check Ttk dir for Tk private headers (8.5).
+	Add some comments to other bits.
+
+2007-06-25  Jeff Hobbs  <jeffh@ActiveState.com>
+
+	* tcl.m4 (TEA_PROG_TCLSH, TEA_PROG_WISH): move where / is added.
+
+2007-06-13  Jeff Hobbs  <jeffh@ActiveState.com>
+
+	* tcl.m4: fix --with-tkinclude alignment. [Bug 1506111]
+
+2007-06-06  Daniel Steffen  <das@users.sourceforge.net>
+
+	* tcl.m4 (Darwin): fix 64bit arch removal in fat 32&64bit builds. 
+
+2007-05-18  Donal K. Fellows  <donal.k.fellows@man.ac.uk>
+
+	* tcl.m4: Added quoting so that paths with spaces cause fewer
+	problems.
+
+2007-03-07  Daniel Steffen  <das@users.sourceforge.net>
+
+	* tcl.m4 (Darwin): s/CFLAGS/CPPFLAGS/ in -mmacosx-version-min check.
+
+2007-02-15  Jeff Hobbs  <jeffh@ActiveState.com>
+
+	* tcl.m4: correct private header check to search in generic subdir
+
+2007-02-09  Jeff Hobbs  <jeffh@ActiveState.com>
+
+	*** Bump to TEA_VERSION 3.6 ***
+
+	* tcl.m4: correct -d to -f
+	(TEA_CONFIG_CFLAGS): SHLIB_SUFFIX is .so on HP ia64 [Bug 1615058]
+	
+2007-02-08  Jeff Hobbs  <jeffh@ActiveState.com>
+
+	* tcl.m4 (TEA_PRIVATE_TCL_HEADERS, TEA_PRIVATE_TK_HEADERS): check
+	that the dirs actually have private headers. [Bug 1631922]
+
 2007-02-04  Daniel Steffen  <das@users.sourceforge.net>
 
 	* tcl.m4: add caching to -pipe check.
