@@ -33,6 +33,32 @@ int dbi_Sqlite3_Free_Stmt(
 	dbi_Sqlite3_Data *dbdata,
 	int action);
 
+int dbi_Sqlite3_preparecached(
+	Tcl_Interp *interp,
+	dbi_Sqlite3_Data *dbdata,
+	char *buffer,
+	sqlite3_stmt **rstmt,
+	char const **nextsql)
+{
+	sqlite3_stmt *stmt;
+	Tcl_HashEntry *entry=NULL;
+	int new,error;
+	entry = Tcl_CreateHashEntry(&(dbdata->preparedhash), buffer, &new);
+	if (!new) {
+		stmt = (sqlite3_stmt *)Tcl_GetHashValue(entry);
+		sqlite3_reset(stmt);	sqlite3_clear_bindings(stmt);
+	} else {
+		error = sqlite3_prepare_v2(dbdata->db,buffer,-1,&stmt,nextsql);
+		if (error != SQLITE_OK) {
+			Tcl_DeleteHashEntry(entry);
+			return error;
+		}
+		Tcl_SetHashValue(entry,(ClientData)stmt);
+	}
+	*rstmt = stmt;
+	return SQLITE_OK;
+}
+
 /* following function slightly adapted from tclsqlite */
 static SqlFunc *findSqlFunc(dbi_Sqlite3_Data *pDb, const char *zName){
   SqlFunc *p, *pNew;
@@ -1045,13 +1071,14 @@ int dbi_Sqlite3_Get(
 			}
 			*pos++ = '\"';
 		}
-		sprintf(pos," from \"%s\" where \"id\" = '%s'",tablestring,idstring);
+		sprintf(pos," from \"%s\" where \"id\" = ?",tablestring);
 	}
-	error = sqlite3_prepare_v2(dbdata->db,buffer,-1,&stmt,&nextsql);
+	error = dbi_Sqlite3_preparecached(interp,dbdata,buffer,&stmt,&nextsql);
 	if (error != SQLITE_OK) {
 		dbi_Sqlite3_Error(interp,dbdata,"preparing set statement");
 		goto error;
 	}
+	dbi_Sqlite3_bindarg(interp,stmt,1,id,NULL,0);
 	error = sqlite3_step(stmt);
 	Tcl_Free(buffer); buffer = NULL;
 	switch (error) {
@@ -1102,12 +1129,12 @@ int dbi_Sqlite3_Get(
 		if (error) {goto error;}
 		Tcl_SetObjResult(interp, result);
 	}
-	sqlite3_finalize(stmt); stmt = NULL;
+	if (stmt) {sqlite3_reset(stmt);	sqlite3_clear_bindings(stmt);}
 	dbi_Sqlite3_ClearResult(dbdata);
 	return TCL_OK;
 	error:
 		if (buffer != NULL) {Tcl_Free(buffer);}
-		if (stmt != NULL) {sqlite3_finalize(stmt);}
+		if (stmt) {sqlite3_reset(stmt);	sqlite3_clear_bindings(stmt);}
 		dbi_Sqlite3_ClearResult(dbdata);
 		return TCL_ERROR;
 }
@@ -1179,7 +1206,7 @@ int dbi_Sqlite3_Insert(
 	*pos++ = ')';
 	*pos++ = '\0';
 	/* run sql */
-	error = sqlite3_prepare_v2(dbdata->db,buffer,-1,&stmt,&nextsql);
+	error = dbi_Sqlite3_preparecached(interp,dbdata,buffer,&stmt,&nextsql);
 	if (error != SQLITE_OK) {
 		dbi_Sqlite3_Error(interp,dbdata,"preparing set statement");
 		goto error;
@@ -1193,19 +1220,15 @@ int dbi_Sqlite3_Insert(
 		dbi_Sqlite3_bindarg(interp,stmt,j,id,nullstring,nulllen);
 	}
 	error = sqlite3_step(stmt);
-	if (error != SQLITE_DONE) {
-		dbi_Sqlite3_Error(interp,dbdata,"processing insert statement");
-		goto error;
-	}
-	error = sqlite3_finalize(stmt); stmt = NULL;
-	Tcl_Free(buffer); buffer = NULL;
 	switch (error) {
 		case SQLITE_OK:
+		case SQLITE_DONE:
 			break;
 		default:
 			Tcl_AppendResult(interp,"error inserting object in table \"",	Tcl_GetStringFromObj(table,NULL), "\":\n",sqlite3_errmsg(dbdata->db), NULL);
 			goto error;
 	}
+	Tcl_Free(buffer); buffer = NULL;
 	if (id != NULL) {fid = id;}
 	result = Tcl_DuplicateObj(table);
 	if (fid == NULL) {
@@ -1217,11 +1240,12 @@ int dbi_Sqlite3_Insert(
 		if (error) {Tcl_DecrRefCount(result); return error;}
 	}
 	Tcl_SetObjResult(interp,result);
+	if (stmt) {sqlite3_reset(stmt);	sqlite3_clear_bindings(stmt);}
 	dbi_Sqlite3_ClearResult(dbdata);
 	return TCL_OK;
 	error:
 		if (buffer != NULL) {Tcl_Free(buffer);}
-		if (stmt != NULL) {sqlite3_finalize(stmt);}
+	if (stmt) {sqlite3_reset(stmt);	sqlite3_clear_bindings(stmt);}
 		dbi_Sqlite3_ClearResult(dbdata);
 		return TCL_ERROR;
 }
@@ -1274,7 +1298,7 @@ int dbi_Sqlite3_Set(
 	}
 	sprintf(pos," where \"id\" = '%s'",idstring);
 	/* run sql */
-	error = sqlite3_prepare_v2(dbdata->db,buffer,-1,&stmt,&nextsql);
+	error = dbi_Sqlite3_preparecached(interp,dbdata,buffer,&stmt,&nextsql);
 	if (error != SQLITE_OK) {
 		dbi_Sqlite3_Error(interp,dbdata,"preparing set statement");
 		goto error;
@@ -1285,32 +1309,25 @@ int dbi_Sqlite3_Set(
 		j++;
 	}
 	error = sqlite3_step(stmt);
-	if (error != SQLITE_DONE) {
-		dbi_Sqlite3_Error(interp,dbdata,"processing set statement");
-		goto error;
-	}
-	error = sqlite3_finalize(stmt); stmt = NULL;
-	changes = sqlite3_changes(dbdata->db);
-	Tcl_Free(buffer); buffer = NULL;
 	switch (error) {
 		case SQLITE_OK:
+		case SQLITE_DONE:
 			break;
 		default:
 			Tcl_AppendResult(interp,"error setting object identified by id = '",Tcl_GetStringFromObj(id,NULL), 
 			"' in table \"",	Tcl_GetStringFromObj(table,NULL), "\":\n",sqlite3_errmsg(dbdata->db), NULL);
 			goto error;
 	}
+	Tcl_Free(buffer); buffer = NULL;
+	changes = sqlite3_changes(dbdata->db);
 	if (changes != 1) {
-		if (buffer != NULL) {Tcl_Free(buffer);}
-		if (stmt != NULL) {sqlite3_finalize(stmt);}
 		return dbi_Sqlite3_Insert(interp,dbdata,table,id,NULL,objc,objv);
 	}
-	dbi_Sqlite3_ClearResult(dbdata);
+	if (stmt) {sqlite3_reset(stmt);	sqlite3_clear_bindings(stmt);}
 	return TCL_OK;
 	error:
 		if (buffer != NULL) {Tcl_Free(buffer);}
-		if (stmt != NULL) {sqlite3_finalize(stmt);}
-		dbi_Sqlite3_ClearResult(dbdata);
+		if (stmt) {sqlite3_reset(stmt);	sqlite3_clear_bindings(stmt);}
 		return TCL_ERROR;
 }
 
@@ -1352,36 +1369,34 @@ int dbi_Sqlite3_Unset(
 		sprintf(pos,", \"%s\" = NULL",fieldstring);
 		pos += (11 + fieldlen);
 	}
-	sprintf(pos," where \"id\" = '%s'",idstring);
-	error = sqlite3_prepare_v2(dbdata->db,buffer,-1,&stmt,&nextsql);
+	sprintf(pos," where \"id\" = ?");
+	error = dbi_Sqlite3_preparecached(interp,dbdata,buffer,&stmt,&nextsql);
 	if (error != SQLITE_OK) {
-		dbi_Sqlite3_Error(interp,dbdata,"preparing delete statement");
+		dbi_Sqlite3_Error(interp,dbdata,"preparing unset statement");
 		goto error;
 	}
+	dbi_Sqlite3_bindarg(interp,stmt,1,id,NULL,0);
 	error = sqlite3_step(stmt);
-	if (error != SQLITE_DONE) {
-		dbi_Sqlite3_Error(interp,dbdata,"processing delete statement");
-		goto error;
-	}
-	error = sqlite3_finalize(stmt); stmt = NULL;
-	changes = sqlite3_changes(dbdata->db);
 	Tcl_Free(buffer); buffer = NULL;
 	switch (error) {
 		case SQLITE_OK:
+		case SQLITE_DONE:
 			break;
 		default:
-			Tcl_AppendResult(interp,"error setting object identified by id = '",Tcl_GetStringFromObj(id,NULL), 
+			Tcl_AppendResult(interp,"error unsetting fields on object identified by id = '",Tcl_GetStringFromObj(id,NULL), 
 			"' in table \"",	Tcl_GetStringFromObj(table,NULL), "\":\n",sqlite3_errmsg(dbdata->db), NULL);
 			goto error;
 	}
+	changes = sqlite3_changes(dbdata->db);
 	if (changes != 1) {
 		Tcl_AppendResult(interp,"object {",Tcl_GetStringFromObj(object,NULL),"} not found",NULL); 
 		goto error;
 	}
+	if (stmt) {sqlite3_reset(stmt);	sqlite3_clear_bindings(stmt);}
 	return TCL_OK;
 	error:
 		if (buffer != NULL) {Tcl_Free(buffer);}
-		if (stmt != NULL) {sqlite3_finalize(stmt);}
+		if (stmt) {sqlite3_reset(stmt);	sqlite3_clear_bindings(stmt);}
 		dbi_Sqlite3_ClearResult(dbdata);
 		return TCL_ERROR;
 }
@@ -1402,37 +1417,35 @@ int dbi_Sqlite3_Delete(
 	idstring = Tcl_GetStringFromObj(id,&idlen);
 	len = 31 + tablelen + idlen;
 	buffer = Tcl_Alloc(len*sizeof(char));
-	sprintf(buffer,"delete from \"%s\" where \"id\" = '%s'",tablestring,idstring);
-	error = sqlite3_prepare_v2(dbdata->db,buffer,-1,&stmt,&nextsql);
+	sprintf(buffer,"delete from \"%s\" where \"id\" = ?",tablestring);
+	error = dbi_Sqlite3_preparecached(interp,dbdata,buffer,&stmt,&nextsql);
 	if (error != SQLITE_OK) {
 		dbi_Sqlite3_Error(interp,dbdata,"preparing delete statement");
 		goto error;
 	}
+	dbi_Sqlite3_bindarg(interp,stmt,1,id,NULL,0);
 	error = sqlite3_step(stmt);
-	if (error != SQLITE_DONE) {
-		dbi_Sqlite3_Error(interp,dbdata,"processing delete statement");
-		goto error;
-	}
-	error = sqlite3_finalize(stmt); stmt = NULL;
-	changes = sqlite3_changes(dbdata->db);
 	Tcl_Free(buffer); buffer = NULL;
 	switch (error) {
 		case SQLITE_OK:
+		case SQLITE_DONE:
 			break;
 		default:
 			Tcl_AppendResult(interp,"error deleting object identified by id = '",Tcl_GetStringFromObj(id,NULL), 
 			"' in table \"",	Tcl_GetStringFromObj(table,NULL), "\":\n",sqlite3_errmsg(dbdata->db), NULL);
 			goto error;
 	}
+	changes = sqlite3_changes(dbdata->db);
 	if (changes != 1) {
 		Tcl_AppendResult(interp,"object {",Tcl_GetStringFromObj(object,NULL), "} not found", NULL);
 		goto error;
 	}
 	dbi_Sqlite3_ClearResult(dbdata);
+	if (stmt) {sqlite3_reset(stmt);	sqlite3_clear_bindings(stmt);}
 	return TCL_OK;
 	error:
 		if (buffer != NULL) {Tcl_Free(buffer);}
-		if (stmt != NULL) {sqlite3_finalize(stmt);}
+		if (stmt) {sqlite3_reset(stmt);	sqlite3_clear_bindings(stmt);}
 		dbi_Sqlite3_ClearResult(dbdata);
 		return TCL_ERROR;
 }
@@ -1654,7 +1667,13 @@ int dbi_Sqlite3_Exec(
 			dbdata->tuple = -1;
 		}
 		dbi_Sqlite3_ClearResult(dbdata);
-		if (!cache && stmt) {sqlite3_finalize(stmt);}
+		if (stmt) {
+			if (!cache) {
+				sqlite3_finalize(stmt);
+			} else {
+				sqlite3_reset(stmt);	sqlite3_clear_bindings(stmt);
+			}
+		}
 	} else {
 		dbdata->result = result;
 		result = NULL;
@@ -1673,7 +1692,13 @@ int dbi_Sqlite3_Exec(
 			if (error) {dbi_Sqlite3_Error(interp,dbdata,"autorollback transaction");}
 		}
 		if (entry != NULL) {Tcl_DeleteHashEntry(entry);}
-		if (!cache && stmt) {sqlite3_finalize(stmt);}
+		if (stmt) {
+			if (!cache) {
+				sqlite3_finalize(stmt);
+			} else {
+				sqlite3_reset(stmt);	sqlite3_clear_bindings(stmt);
+			}
+		}
 		if (stmt2) {sqlite3_finalize(stmt2);}
 		if (result != NULL) {Tcl_DecrRefCount(result);}
 		/* dbi_Sqlite3_ClearResult(dbdata); */

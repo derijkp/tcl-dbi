@@ -200,6 +200,18 @@ interface::test {unset list} {
 	$object get {person test}
 } {id test first_name first}
 
+interface::test {unset error constraint} {
+	$object set {person test} id test first_name first name test score 19.5
+	$object unset {person test} id
+} {error unsetting fields on object identified by id = 'test' in table "person":
+constraint failed} error
+
+interface::test {unset error fields} {
+	$object set {person test} id test first_name first name test score 19.5
+	$object unset {person test} blabla
+} {error preparing unset statement:
+error no such column: blabla} error
+
 interface::test {unset error} {
 	catch {$object delete {person test}}
 	$object unset {person test} name
