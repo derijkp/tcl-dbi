@@ -925,8 +925,9 @@ int dbi_Sqlite3_ClearResult(
 		dbdata->result = NULL;
 	}
 	if (dbdata->stmt != NULL) {
-		sqlite3_finalize(dbdata->stmt);
+		if (!(dbdata->cached)) {sqlite3_finalize(dbdata->stmt);}
 		dbdata->stmt = NULL;
+		dbdata->cached = 0;
 	}
 	if (dbdata->resultfields != NULL) {
 		Tcl_DecrRefCount(dbdata->resultfields);
@@ -1470,30 +1471,7 @@ int dbi_Sqlite3_getrow(
 		return TCL_ERROR;
 }
 
-int dbi_Sqlite3_preparenext(
-	Tcl_Interp *interp,
-	dbi_Sqlite3_Data *dbdata,
-	sqlite3_stmt **stmtPtr,
-	char **sql)
-{
-	sqlite3_stmt *stmt=NULL;
-	const char *nextsql;
-	int error;
-	*stmtPtr = NULL;
-	nextsql = *sql;
-	while (stmt == NULL) {
-		error = sqlite3_prepare_v2(dbdata->db,nextsql,-1,&stmt,&nextsql);
-		if (error != SQLITE_OK) {
-			sqlite3_finalize(stmt); stmt = NULL;
-			dbi_Sqlite3_Error(interp,dbdata,"preparing statement");
-			return TCL_ERROR;
-		}
-		if (*nextsql == '\0') break;
-	}
-	*sql = (char *)nextsql;
-	*stmtPtr = stmt;
-	return TCL_OK;
-}
+char *emptystring="";
 
 int dbi_Sqlite3_Exec(
 	Tcl_Interp *interp,
@@ -1504,18 +1482,20 @@ int dbi_Sqlite3_Exec(
 	int objc,
 	Tcl_Obj **objv)
 {
-	Tcl_Obj *line;
-	sqlite3_stmt *stmt=NULL;
+	Tcl_HashEntry *entry=NULL;
+	sqlite3_stmt *stmt=NULL, *stmt2=NULL;
+	Tcl_Obj *line, *result=NULL;
 	char *cmdstring = NULL, *nullstring;
-	char *nextsql = NULL;
-	int error,error2,cmdlen,nulllen;
-	int usefetch,changes=-1,cols=0;
-	int numargs,i;
+	const char *nextsql = NULL, *nextsql2 = NULL;
+	int error=SQLITE_OK,error2 = SQLITE_OK,cmdlen,nulllen,resultflat;
+	int usefetch,changes=-1,cache,cols=0;
+	int numargs,i,stage,multisql,new,toclose=0;
 	usefetch = flags & EXEC_USEFETCH;
+	cache = flags & EXEC_CACHE;
 	if (usefetch) {
-		dbdata->resultflat = 0;
+		resultflat = 0;
 	} else {
-		dbdata->resultflat = flags & EXEC_FLAT;
+		resultflat = flags & EXEC_FLAT;
 	}
 	if (dbdata->db == NULL) {
 		Tcl_AppendResult(interp,"dbi object has no open database, open a connection first", NULL);
@@ -1524,27 +1504,6 @@ int dbi_Sqlite3_Exec(
 	dbi_Sqlite3_ClearResult(dbdata);
 	cmdstring = Tcl_GetStringFromObj(cmd,&cmdlen);
 	nextsql = cmdstring;
-	error = dbi_Sqlite3_preparenext(interp,dbdata,&(dbdata->stmt),&nextsql);
-	if (error) {
-		Tcl_AppendResult(interp," while executing command: \"",	cmdstring, "\"", NULL);
-		return TCL_ERROR;
-	}
-	numargs = sqlite3_bind_parameter_count(dbdata->stmt);
-	if ((numargs != 0) && (*nextsql != '\0')) {
-		error = dbi_Sqlite3_preparenext(interp,dbdata,&(dbdata->stmt),&nextsql);
-		if (dbdata->stmt != NULL) {
-			sqlite3_finalize(dbdata->stmt); dbdata->stmt = NULL;
-			Tcl_AppendResult(interp,"only one SQL command can be given when parameters are used", NULL);
-			Tcl_AppendResult(interp," while executing command: \"",	cmdstring, "\"", NULL);
-			return TCL_ERROR;
-		}
-	}
-	if (objc != numargs) {
-		sqlite3_finalize(dbdata->stmt); dbdata->stmt = NULL;
-		Tcl_AppendResult(interp,"wrong number of arguments given to exec", NULL);
-		Tcl_AppendResult(interp," while executing command: \"",	cmdstring, "\"", NULL);
-		return TCL_ERROR;
-	}
 	if (nullvalue == NULL) {
 		nullstring = NULL; nulllen = 0;
 		dbdata->nullvalue = dbdata->defnullvalue;
@@ -1555,128 +1514,169 @@ int dbi_Sqlite3_Exec(
 	if (usefetch) {
 		dbdata->nullvalue = dbdata->defnullvalue;
 	}
-	if (numargs > 0) {
-		/* the SQL takes arguments */
-		for(i = 1; i <= numargs; i++){
-			dbi_Sqlite3_bindarg(interp,dbdata->stmt,i,objv[i-1],nullstring,nulllen);
+	/* go over sql */
+	stage = 1;
+	multisql = 0;
+	/* prepare first statement, check cache if asked
+	 */
+	if (cache) {
+		entry = Tcl_CreateHashEntry(&(dbdata->preparedhash), nextsql, &new);
+		if (!new) {
+			stmt = (sqlite3_stmt *)Tcl_GetHashValue(entry);
+			sqlite3_reset(stmt);
+			sqlite3_clear_bindings(stmt);
+			nextsql = emptystring;
 		}
-		error = sqlite3_step(dbdata->stmt);
-		if ((error == SQLITE_ERROR) || (error == SQLITE_MISUSE)) {
-			error = sqlite3_finalize(dbdata->stmt); dbdata->stmt = NULL;
+		error = SQLITE_OK;
+	}
+	while (stmt == NULL) {
+		error = sqlite3_prepare_v2(dbdata->db,nextsql,-1,&stmt,&nextsql);
+		if (error != SQLITE_OK) break;
+	}
+	multisql = 0;
+	stage = 1;
+	while (1) {
+		if (error != SQLITE_OK) {
+			dbi_Sqlite3_Error(interp,dbdata,"preparing statement");
+			goto error;
 		}
-	} else {
-		/* no arguments, multiple commands are possible */
-		int toclose=0;
 		if (*nextsql != '\0') {
+			/* already prepare next statement to check if sql has more than 1 command (multisql)
+			 */
+			while (1) {
+				nextsql2 = nextsql;
+				error2 = sqlite3_prepare_v2(dbdata->db,nextsql2,-1,&stmt2,&nextsql2);
+				if ((stmt2 != NULL)||(error2 != SQLITE_OK)) {
+					multisql = 1;
+					break;
+				}
+				if (*nextsql2 == '\0') break;
+			}
+		}
+		if (cache) {
+			if (multisql) {
+				Tcl_AppendResult(interp,"only one SQL command can be given when -cache is used", NULL);
+				Tcl_AppendResult(interp," while executing command: \"",	cmdstring, "\"", NULL);
+				goto error;
+			}
+			if (new) {
+				Tcl_SetHashValue(entry,(ClientData)stmt);
+				entry = NULL;
+			}
+		}
+		/* Start transaction in stage 1 if multisql
+		 */
+		if ((stage == 1) && multisql) {
 			error = dbi_Sqlite3_Transaction_Start(interp,dbdata);
-/*fprintf(stdout,"transaction start:%s: %d\n%s\n",nextsql,error,dbdata->errormsg);fflush(stdout);*/
 			if (error) {
 				if (strcmp("cannot start a transaction within a transaction",dbdata->errormsg) == 0) {
 					sqlite3_free(dbdata->errormsg); dbdata->errormsg=NULL;
-					toclose = 0;
 				} else {
-					dbi_Sqlite3_ClearResult(dbdata); return TCL_ERROR;
+					goto error;
 				}
 			} else {
 				toclose = 1;
 			}
 		}
-		while (1) {
-			error = sqlite3_step(dbdata->stmt);
-			if ((error == SQLITE_ERROR) || (error == SQLITE_MISUSE)) {
-				error = sqlite3_finalize(dbdata->stmt); dbdata->stmt = NULL;
-				break;
-			}
-			error2 = dbi_Sqlite3_preparenext(interp,dbdata,&stmt,&nextsql);
-			if (error2) {
-				sqlite3_finalize(dbdata->stmt); dbdata->stmt = NULL;
-				Tcl_AppendResult(interp," while executing command: \"",	cmdstring, "\"", NULL);
-				if (toclose) {
-					error = dbi_Sqlite3_Transaction_Rollback(interp,dbdata);
-					if (error) {dbi_Sqlite3_Error(interp,dbdata,"autorollback transaction");}
-				}
-				return TCL_ERROR;
-			}
-			if (stmt == NULL) {
-				break;
-			} else {
-				error2 = sqlite3_finalize(dbdata->stmt);
-				dbdata->stmt = stmt;
-				if (error2) {
-					if (toclose) {
-						error = dbi_Sqlite3_Transaction_Rollback(interp,dbdata);
-						if (error) {dbi_Sqlite3_Error(interp,dbdata,"autorollback transaction");}
-					}
-					return TCL_ERROR;
-				}
-			}
+		stage++;
+		/* bind arguments
+		 */
+		numargs = sqlite3_bind_parameter_count(stmt);
+		if (objc < numargs) {
+			Tcl_AppendResult(interp,"wrong number of arguments given to exec", NULL);
+			Tcl_AppendResult(interp," while executing command: \"",	cmdstring, "\"", NULL);
+			goto error;
 		}
-		if (toclose) {
-			error2 = dbi_Sqlite3_Transaction_Commit(interp,dbdata,1);
-			if (error2) {
-				dbi_Sqlite3_ClearResult(dbdata);
-				dbi_Sqlite3_Error(interp,dbdata,"autocommitting transaction");return error2;
+		if (numargs > 0) {
+			for(i = 1; i <= numargs; i++){
+				dbi_Sqlite3_bindarg(interp,stmt,i,objv[i-1],nullstring,nulllen);
 			}
+			objv += numargs; objc -= numargs;
+		}
+		/* run prepared statement (step)
+		 */
+		error = sqlite3_step(stmt);
+		if ((error == SQLITE_ERROR) || (error == SQLITE_MISUSE)) {
+			Tcl_AppendResult(interp," while executing command: \"",	cmdstring, "\"", NULL);
+			goto error;
+		}
+		if ((stmt2 == NULL) && (error2 == SQLITE_OK)) break;
+		stmt = stmt2; nextsql = nextsql2; error = error2;
+	}
+	if (toclose) {
+		error2 = dbi_Sqlite3_Transaction_Commit(interp,dbdata,1);
+		if (error2) {
+			dbi_Sqlite3_ClearResult(dbdata);
+			dbi_Sqlite3_Error(interp,dbdata,"autocommitting transaction");goto error;
 		}
 	}
 	switch (error) {
 		case SQLITE_DONE:
-			cols = sqlite3_column_count(dbdata->stmt);
+			cols = sqlite3_column_count(stmt);
 			changes = sqlite3_changes(dbdata->db);
-			error2 = dbi_Sqlite3_getcolnames(interp,dbdata);
-			if (error2) {goto error;}
-			dbdata->result = Tcl_NewListObj(0,NULL);
+			result = Tcl_NewListObj(0,NULL);
 			break;
 		case SQLITE_ROW:
-			cols = sqlite3_column_count(dbdata->stmt);
-			error2 = dbi_Sqlite3_getcolnames(interp,dbdata);
-			if (error2) {goto error;}
-			dbdata->result = Tcl_NewListObj(0,NULL);
+			cols = sqlite3_column_count(stmt);
+			result = Tcl_NewListObj(0,NULL);
 			while (error == SQLITE_ROW) {
-				error = dbi_Sqlite3_getrow(interp,dbdata->stmt,dbdata->nullvalue,&line);
+				error = dbi_Sqlite3_getrow(interp,stmt,dbdata->nullvalue,&line);
 				if (error) {
-					dbi_Sqlite3_ClearResult(dbdata); return error;
+					goto error;
 				}
-				if (dbdata->resultflat) {
-					error = Tcl_ListObjAppendList(interp,dbdata->result,line);
+				if (resultflat) {
+					error = Tcl_ListObjAppendList(interp,result,line);
 					Tcl_DecrRefCount(line);
 				} else {
-					error = Tcl_ListObjAppendElement(interp,dbdata->result,line);
+					error = Tcl_ListObjAppendElement(interp,result,line);
 				}
 				if (error) {
 					Tcl_DecrRefCount(line);
-					dbi_Sqlite3_ClearResult(dbdata);
-					return error;
+					goto error;
 				}
-				error = sqlite3_step(dbdata->stmt);
+				error = sqlite3_step(stmt);
 			}
 			if (error != SQLITE_DONE) {
-				dbi_Sqlite3_ClearResult(dbdata);return error;
+				goto error;
 			}
-			error = sqlite3_finalize(dbdata->stmt);dbdata->stmt = NULL;
-			if (error) {Tcl_DecrRefCount(dbdata->result);dbdata->result=NULL;return error;}
 			break;
 		default:
-			sqlite3_finalize(dbdata->stmt); dbdata->stmt = NULL;
 			Tcl_AppendResult(interp,"database error executing command \"",
 				cmdstring, "\":\n",	sqlite3_errmsg(dbdata->db), NULL);
 			goto error;
 	}
 	if (!usefetch) {
 		if (cols != 0) {
-			Tcl_SetObjResult(interp,dbdata->result);
-			dbdata->result = NULL;
+			Tcl_SetObjResult(interp,result);
+			result = NULL;
 		} else if (changes != -1) {
 			Tcl_SetObjResult(interp,Tcl_NewIntObj(changes));
 			dbdata->tuple = -1;
 		}
 		dbi_Sqlite3_ClearResult(dbdata);
+		if (!cache && stmt) {sqlite3_finalize(stmt);}
 	} else {
+		dbdata->result = result;
+		result = NULL;
 		dbdata->tuple = -1;
+		dbdata->cached = cache;
+		dbdata->stmt = stmt;
+		error2 = dbi_Sqlite3_getcolnames(interp,dbdata);
+		if (error2) {goto error;}
 	}
+	if (stmt2) {sqlite3_finalize(stmt2);}
+	if (result != NULL) {Tcl_DecrRefCount(result);}
 	return TCL_OK;
 	error:
-		dbi_Sqlite3_ClearResult(dbdata);
+		if (toclose) {
+			error = dbi_Sqlite3_Transaction_Rollback(interp,dbdata);
+			if (error) {dbi_Sqlite3_Error(interp,dbdata,"autorollback transaction");}
+		}
+		if (entry != NULL) {Tcl_DeleteHashEntry(entry);}
+		if (!cache && stmt) {sqlite3_finalize(stmt);}
+		if (stmt2) {sqlite3_finalize(stmt2);}
+		if (result != NULL) {Tcl_DecrRefCount(result);}
+		/* dbi_Sqlite3_ClearResult(dbdata); */
 		return TCL_ERROR;
 }
 
@@ -1761,7 +1761,7 @@ int dbi_Sqlite3_Tables(
 	int error;
 	Tcl_Obj *cmd = Tcl_NewStringObj("SELECT name FROM sqlite_master WHERE type in ('table','view') and name not like '_dbi_%' ORDER BY name",-1);
 	Tcl_IncrRefCount(cmd);
-	error = dbi_Sqlite3_Exec(interp,dbdata,cmd,EXEC_FLAT,NULL,0,NULL);
+	error = dbi_Sqlite3_Exec(interp,dbdata,cmd,EXEC_FLAT|EXEC_CACHE,NULL,0,NULL);
 	Tcl_DecrRefCount(cmd);
 	return error;
 }
@@ -1881,9 +1881,27 @@ int dbi_Sqlite3_Createdb(
 		return TCL_ERROR;
 }
 
+int dbi_Sqlite3_Clearcache(
+	dbi_Sqlite3_Data *dbdata)
+{
+	Tcl_HashSearch search;
+	Tcl_HashEntry *entry;
+	sqlite3_stmt *stmt=NULL;
+	entry = Tcl_FirstHashEntry(&(dbdata->preparedhash),&search);
+	while (entry != NULL) {
+		stmt = (sqlite3_stmt *)Tcl_GetHashValue(entry);
+		if (stmt != NULL) sqlite3_finalize(stmt);
+		entry = Tcl_NextHashEntry(&search);
+	}
+	Tcl_DeleteHashTable(&(dbdata->preparedhash));
+	Tcl_InitHashTable(&(dbdata->preparedhash),TCL_STRING_KEYS);
+	return TCL_OK;
+}
+
 int dbi_Sqlite3_Close(
 	dbi_Sqlite3_Data *dbdata)
 {
+	dbi_Sqlite3_Clearcache(dbdata);
 	while (dbdata->clonesnum) {
 		Tcl_DeleteCommandFromToken(dbdata->interp,dbdata->clones[0]->token);
 	}
@@ -1949,6 +1967,7 @@ int dbi_Sqlite3_Destroy(
 	if (dbdata->database != NULL) {
 		dbi_Sqlite3_Close(dbdata);
 	}
+	Tcl_DeleteHashTable(&(dbdata->preparedhash));
 	if (dbdata->parent == NULL) {
 		/* this is not a clone, so really remove defnullvalue */
 		Tcl_DecrRefCount(dbdata->defnullvalue);
@@ -2137,6 +2156,9 @@ int Dbi_sqlite3_DbObjCmd(
 					break;
 				case Flat:
 					flags |= EXEC_FLAT;
+					break;
+				case Cache:
+					flags |= EXEC_CACHE;
 					break;
 			}
 			i++;
@@ -2407,6 +2429,7 @@ int Dbi_sqlite3_DoNewDbObjCmd(
 		sprintf(buffer,"::dbi::sqlite3::dbi%d",dbi_num);
 		dbi_nameObj = Tcl_NewStringObj(buffer,strlen(buffer));
 	}
+	Tcl_InitHashTable(&(dbdata->preparedhash),TCL_STRING_KEYS);
 	dbi_name = Tcl_GetStringFromObj(dbi_nameObj,NULL);
 	dbdata->token = Tcl_CreateObjCommand(interp,dbi_name,(Tcl_ObjCmdProc *)Dbi_sqlite3_DbObjCmd,
 		(ClientData)dbdata,(Tcl_CmdDeleteProc *)dbi_Sqlite3_Destroy);
@@ -2470,6 +2493,7 @@ int Dbi_sqlite3_Clone(
 	clone_dbdata->stmt = NULL;
 	clone_dbdata->pFunc = NULL;
 	clone_dbdata->pCollate = NULL;
+	Tcl_InitHashTable(&(clone_dbdata->preparedhash),TCL_STRING_KEYS);
 	return TCL_OK;
 }
 

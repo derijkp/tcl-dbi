@@ -36,6 +36,7 @@ typedef struct dbi_Sqlite3_Data {
 	Tcl_Interp *interp;
 	sqlite3 *db;
 	sqlite3_stmt *stmt;
+	int cached;
 	Tcl_Obj *result;
 	Tcl_Obj *resultfields;
 	Tcl_Obj *database;
@@ -50,6 +51,7 @@ typedef struct dbi_Sqlite3_Data {
 	struct dbi_Sqlite3_Data *parent;
 	struct dbi_Sqlite3_Data **clones;
 	int clonesnum;
+	Tcl_HashTable preparedhash;
 	SqlFunc *pFunc;
 	SqlCollate *pCollate;
 } dbi_Sqlite3_Data;
