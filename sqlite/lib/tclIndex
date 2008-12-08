@@ -21,5 +21,3 @@ set auto_index(::dbi::sqlite::serial_delete) [list source [file join $dir init.t
 set auto_index(::dbi::sqlite::serial_set) [list source [file join $dir init.tcl]]
 set auto_index(::dbi::sqlite::serial_next) [list source [file join $dir init.tcl]]
 set auto_index(::dbi::sqlite::open_test) [list source [file join $dir init.tcl]]
-set auto_index(::package::architecture) [list source [file join $dir package.tcl]]
-set auto_index(::package::init) [list source [file join $dir package.tcl]]

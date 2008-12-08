@@ -6,4 +6,3 @@ exec tclsh "$0" "$@"
 # --------
 package require pkgtools
 pkgtools::version $argv
-
