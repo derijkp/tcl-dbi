@@ -278,6 +278,21 @@ interface::test {list_concat} {
 	}
 } {{John {Do {Test Case}}} {john do}}
 
+interface::test {altercolumn and dropcolumn} {
+	set result {}
+	$object exec {delete from "useof"}
+	$object exec {insert into "useof"("id","person","score") values (1,"pdr",19)}
+	$object exec {alter table "useof" add column tempcol text}
+	array set a [$object info table useof]
+	lappend result $a(type,tempcol)
+	::dbi::sqlite3::altercolumn $object useof tempcol integer
+	array set a [$object info table useof]
+	lappend result $a(type,tempcol)
+	::dbi::sqlite3::dropcolumn $object useof tempcol
+	lappend result [$object fields useof]
+	lappend result [$object exec {select * from "useof"}]
+} {text integer {id person place usetime score score2} {{1 pdr {} {} 19.0 {}}}}
+
 $object destroy
 $object2 destroy
 

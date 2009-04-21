@@ -107,6 +107,7 @@ proc ::dbi::sqlite3::info {db args} {
 				if {[llength $list] == 1} {set list ""}
 				foreach {pos name type nullable default temp} $list {
 					lappend fields $name
+					lappend result otype,$name $type
 					if {[regexp {^(.*)\(([0-9]+)\)$} $type temp type size]} {
 						lappend result type,$name $type
 						lappend result length,$name $size
@@ -132,7 +133,11 @@ proc ::dbi::sqlite3::info {db args} {
 					foreach {seqno cid cname} [$db exec -flat "pragma index_info('$name')"] {
 						lappend columns $cname
 					}
-					if {$unique} {lappend result unique,$columns $name}
+					if {$unique} {
+						lappend result unique,$columns $name
+					} else {
+						lappend result index,$columns $name
+					}
 				}
 				set code [lindex [$db exec -flat [subst {select "sql" from "sqlite_master" where name = '$table'}]] 0]
 				if {[regexp {primary key *\(([^)]+)\)} $code temp columns]} {
@@ -333,4 +338,128 @@ proc ::dbi::sqlite3::open_test {db file} {
 		set file [file join [pwd] $file]
 	}
 	return $file
+}
+
+proc ::dbi::sqlite3::list_common {list1 list2} {
+	set result {}
+	foreach el $list1 {
+		if {[lsearch $list2 $el] != -1} {lappend result $el}
+	}
+	return $result
+}
+
+proc ::dbi::sqlite3::recreatetabledef {db table aVar newfields {delcol {}}} {
+	upvar $aVar a
+	set tabledef {}
+	foreach field $newfields {
+		if {[::info exists a(newdef,$field)]} {
+			set temp "\"$field\" $a(newdef,$field)"
+		} else {
+			set temp "\"$field\" $a(otype,$field)"
+			if {[::info exists a(notnull,$field)]} {append temp " not null"}
+		}
+		lappend tabledef $temp
+	}
+	foreach name [array names a primary,*] {
+		set fields [string range $name 8 end]
+		set fields [list_common $fields $newfields]
+		if {![llength $fields]} continue
+		lappend tabledef "primary key([join $fields ,])"
+	}
+	foreach name [array names a unique,*] {
+		set fields [string range $name 7 end]
+		if {[lsearch $fields $delcol] != -1} continue
+		lappend tabledef "unique([join $fields ,])"
+	}
+	foreach name [array names a check,*] {
+		set fields [string range $name 7 end]
+		if {[lsearch $fields $delcol] != -1} continue
+		lappend tabledef "unique([join $fields ,])"
+	}
+	foreach name [array names a foreign,*] {
+		set fields [string range $name 8 end]
+		if {![llength $fields]} continue
+		if {[lsearch $fields $delcol] != -1} continue
+		foreach {ftable ffields} $a($name) break
+		lappend tabledef "foreign key(\"[join $fields {","}]\") references ${ftable}(\"[join $ffields {","}]\")"
+	}
+	return $tabledef
+}
+
+proc ::dbi::sqlite3::gettabledef {db table} {
+	set sql [lindex [$db exec -flat {
+		select sql from sqlite_master where type='table' and name=?;
+	} $table] 0]
+	if {![string length $sql]} {error "table $table not found"}
+	regexp [subst {^CREATE TABLE "?$table"? \\((.*)\\)\$}] [string trim $sql] temp tabledef
+	# split on ,
+	set result {}
+	set curline {}
+	set bracesopen 0
+	foreach line [split $tabledef ,] {
+		if {($bracesopen == 0) && [string length $curline]} {
+			lappend result [string trim $curline]
+			set curline {}
+		}
+		set braces [expr {[regexp -all {\(} $line] - [regexp -all {\)} $line]}]
+		incr bracesopen $braces
+		if {[string length $curline]} {
+			append curline ,$line
+		} else {
+			set curline $line
+		}
+	}
+	if {[string length $curline]} {
+		lappend result [string trim $curline]
+	}
+	return $result
+}
+
+proc ::dbi::sqlite3::dropcolumn {db table column} {
+	array set a [$db info table $table]
+	set pos [lsearch $a(fields) $column]
+	if {$pos == -1} {error "no column $column present in table $table"}
+	set newfields [lreplace $a(fields) $pos $pos]
+	set tabledef [::dbi::sqlite3::gettabledef $db $table]
+	set pos 0
+	foreach line $tabledef {
+		if {[regexp "^\"?$column\"?\[ \t\n\]+" $line]} break
+		incr pos
+	}
+	set tabledef [lreplace $tabledef $pos $pos]
+	$db begin
+	$db exec [subst {create temp table temp_table as select "[join $newfields {","}]" from "$table"}]
+	$db exec [subst {drop table "$table"}]
+	$db exec [subst {create table "$table" ([join $tabledef ,\n])}]
+	$db exec [subst {insert into "$table" select * from temp_table}]
+	$db exec [subst {drop table temp_table}]
+	$db commit
+}
+
+if 0 {
+	set sql [lindex [$db exec -flat [subst {
+		select sql from sqlite_master
+		where type='table' and name='$table';
+	}]] 0]
+}
+
+proc ::dbi::sqlite3::altercolumn {db table column newdef} {
+	array set a [$db info table $table]
+	set pos [lsearch $a(fields) $column]
+	if {$pos == -1} {error "no column $column present in table $table"}
+	set tabledef [::dbi::sqlite3::gettabledef $db $table]
+	set pos 0
+	foreach line $tabledef {
+		if {[regexp "^\"?$column\"?\[ \t\n\]+" $line]} break
+		incr pos
+	}
+	set tabledef [lreplace $tabledef $pos $pos "$column $newdef"]
+	$db begin
+	catch {$db exec [subst {drop table temp_table}]}
+	$db exec [subst {create temp table temp_table as select "[join $a(fields) {","}]" from "$table"}]
+	$db exec [subst {drop table "$table"}]
+	$db exec [subst {create table "$table" ([join $tabledef ,\n])}]
+	$db exec [subst {insert into "$table" select * from temp_table}]
+	$db exec [subst {drop table temp_table}]
+	$db commit
 }

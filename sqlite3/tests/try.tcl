@@ -10,7 +10,6 @@ set version 1.0
 package require interface
 package require dbi
 package require dbi_sqlite3
-
 set object [dbi_sqlite3]
 set object2 [dbi_sqlite3]
 
