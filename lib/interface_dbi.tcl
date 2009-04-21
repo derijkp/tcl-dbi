@@ -360,6 +360,28 @@ interface::test {parameters with 6 quotes} {
 	$object exec -flat {select "name" from "person" where "id" = ?} test
 } {a'b'c'd'e'f'}
 
+# check
+# ------
+
+interface::test {check} {
+	catch {$object exec {delete from "useof"}}
+	set result [catch {
+		$object exec {insert into "useof"("id","person","score") values (1,"pdr",21)}
+	} temp]
+	lappend result [catch {
+		$object exec {insert into "useof"("id","person","score") values (1,"pdr",19)}
+	} temp]
+	lappend result [catch {
+		$object exec {update "useof" set "score2" = 21 where "id" = 1}
+	} temp]
+	lappend result [catch {
+		$object exec {update "useof" set "score" = 19, "score2" = 18 where "id" = 1}
+	} temp]
+	lappend result [catch {
+		$object exec {update "useof" set "score" = 18, "score2" = 19 where "id" = 1}
+	} temp]
+} {1 0 0 1 0}
+
 # serial
 # ------
 
