@@ -1,0 +1,89 @@
+<manpage package="dbi" title="dbi_sqlite" id="dbi_sqlite" cat="dbi">
+<namesection>
+<name>dbi_sqlite3</name>
+<desc>create dbi object for accessing sqlite3 databases</desc>
+</namesection>
+
+<synopsis>
+<syntax><cmd>dbi_interface</cmd> ?<m>objectName</m>?</syntax>
+</synopsis>
+
+<section>
+<title>DESCRIPTION</title>
+
+<p>
+The <cmd>dbi_sqlite</cmd> command creates an object <m>objectName</m> that
+can be used to connect to sqlite databases using its native API. If
+<m>objectName</m> is not provided, a name will be automatically generated
+and returned by the command The object created supports the <ref
+manpage="interface_dbi">dbi interface</ref> for accessing and querying
+databases.
+</p>
+
+<p>
+The object supports transactions, lines, serials, views and checks.
+Foreign keys are accepted, but not checked sqlite3 dbi objects do not
+support column permissions, roles, domains or permissions, as these are
+not supported by sqlite3.
+</p>
+
+<section>
+<title>Extra commands supported</title>
+<commandlist>
+
+<commanddef>
+<command><cmd>objectName</cmd> <method>function</method> <m>name</m> <m>script</m></command>
+<desc>Create an Sqlite function with name <m>name</m>. <m>script</m> will be executed
+when the function is called (with parameters apended to it). 
+</desc>
+</commanddef>
+
+<commanddef>
+<command><cmd>objectName</cmd> <method>collate</method> <m>name</m> <m>script</m></command>
+<desc>Create a new Sqlite collation with name <m>name</m>. <m>script</m> will be executed
+when the collation is used with to strings as parameters. The application defined collation 
+routine should return negative, zero or positive if the first string is less than, equal to, 
+or greater than the second string
+</desc>
+</commanddef>
+
+</commandlist>
+</section>
+
+<section>
+<title>Extra collations</title>
+The dbi interface also adds two new collations:
+<dl>
+<dt>DICT</dt><dd>dictionary sort: Sort alphabetically, but numbers are treated as integers:
+e.g. test2 wil be sorted before test10</dd>
+<dt>DICTREAL</dt><dd>dictionary sort: Sort alphabetically, but numbers are treated as reals:
+e.g. a2.0555 wil be sorted before a2.08.</dd>
+</dl>
+</section>
+
+<section>
+<title>Extra functions</title>
+The dbi interface also adds two new functions to sqlite:
+<dl>
+<dt>regexp</dt><dd>This function has to parameters: the pattern and the value. Thus allows the 
+use of regular expressions in queries, e.g.: where "first_name" regexp '^[Jj]o'</dd>
+<dt>list_concat</dt><dd>This aggregate function returns a proper list of all elements in the query</dd>
+</dl>
+</section>
+
+<seealso>
+<ref>interface_dbi</ref>
+<ref>interface_dbi_admin</ref>
+</seealso>
+
+<keywords>
+<keyword>dbi</keyword>
+<keyword>sqlite</keyword>
+<keyword>sqlite3</keyword>
+<keyword>interface</keyword>
+<keyword>database</keyword>
+<keyword>sql</keyword>
+</keywords>
+
+</manpage>
+

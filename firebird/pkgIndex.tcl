@@ -7,7 +7,6 @@
 # script is sourced, the variable $dir must contain the
 # full path name of this file's directory.
 
-# $Format: "package ifneeded dbi_firebird $ProjectMajorVersion$.$ProjectMinorVersion$ \\"$
 package ifneeded dbi_firebird 2.0 \
 [subst -nocommands {
 	namespace eval ::dbi {}

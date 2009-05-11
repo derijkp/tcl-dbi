@@ -12,32 +12,25 @@ package require dbi
 package require dbi_sqlite3
 set object [dbi_sqlite3]
 set object2 [dbi_sqlite3]
-
 array set opt [subst {
 	-testdb test.db
 	-user2 PDR
 	-object2 $object2
 }]
-
 file delete $opt(-testdb)
 source ../../tests/tools.tcl
-
 dbi_sqlite3 db
 db create $opt(-testdb)
-
 ::dbi::opendb
 ::dbi::initdb
 
-	$object exec {delete from "location";}
-	$object exec {delete from "person";}
-	set r1 [$object exec {select "first_name" from "person";}]
-	catch {$object exec {
-		insert into "person" values(1,'Peter','De Rijk',19.5);
-		insert into "person" values(1,'John','Doe',error);
-		insert into "person" ("id","first_name") values(3,'Jane');
-	}}
-	list $r1 [$object exec {select "first_name" from "person";}]
-
+	catch {$object delete {person test}}
+	catch {$object delete {person test2}}
+	$object begin
+	$object set {person test} first_name first name test score 19.5
+	$object set {person test2} first_name first2
+	$object rollback
+	$object get {person test}
 
 db open :memory:
 db exec {

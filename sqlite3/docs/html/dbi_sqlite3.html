@@ -1,0 +1,86 @@
+
+
+<synopsis>
+<syntax><i>dbi_interface</i> ?<b>objectName</b>?</syntax>
+</synopsis>
+
+
+<h2>DESCRIPTION</h2>
+
+<p>
+The <i>dbi_sqlite</i> command creates an object <b>objectName</b> that
+can be used to connect to sqlite databases using its native API. If
+<b>objectName</b> is not provided, a name will be automatically generated
+and returned by the command The object created supports the <ref
+manpage="interface_dbi">dbi interface</ref> for accessing and querying
+databases.
+</p>
+
+<p>
+The object supports transactions, lines, serials, views and checks.
+Foreign keys are accepted, but not checked sqlite3 dbi objects do not
+support column permissions, roles, domains or permissions, as these are
+not supported by sqlite3.
+</p>
+
+
+<h2>Extra commands supported</h2>
+<dl>
+
+
+<dt><i>objectName</i> <i>function</i> <b>name</b> <b>script</b></dt>
+<dd>Create an Sqlite function with name <b>name</b>. <b>script</b> will be executed
+when the function is called (with parameters apended to it). 
+</dd>
+
+
+
+<dt><i>objectName</i> <i>collate</i> <b>name</b> <b>script</b></dt>
+<dd>Create a new Sqlite collation with name <b>name</b>. <b>script</b> will be executed
+when the collation is used with to strings as parameters. The application defined collation 
+routine should return negative, zero or positive if the first string is less than, equal to, 
+or greater than the second string
+</dd>
+
+
+</dl>
+
+
+
+<h2>Extra collations</h2>
+The dbi interface also adds two new collations:
+<dl>
+<dt>DICT</dt><dd>dictionary sort: Sort alphabetically, but numbers are treated as integers:
+e.g. test2 wil be sorted before test10</dd>
+<dt>DICTREAL</dt><dd>dictionary sort: Sort alphabetically, but numbers are treated as reals:
+e.g. a2.0555 wil be sorted before a2.08.</dd>
+</dl>
+
+
+
+<h2>Extra functions</h2>
+The dbi interface also adds two new functions to sqlite:
+<dl>
+<dt>regexp</dt><dd>This function has to parameters: the pattern and the value. Thus allows the 
+use of regular expressions in queries, e.g.: where "first_name" regexp '^\[Jj\]o'</dd>
+<dt>list_concat</dt><dd>This aggregate function returns a proper list of all elements in the query</dd>
+</dl>
+
+
+<h2>SEE ALSO</h2><ul>
+<a href="interface_dbi.html">interface_dbi</a>
+<a href="interface_dbi_admin.html">interface_dbi_admin</a>
+</ul>
+
+<h2>KEYWORDS</h2><ul>
+<li>dbi</li>
+<li>sqlite</li>
+<li>sqlite3</li>
+<li>interface</li>
+<li>database</li>
+<li>sql</li>
+</ul>
+
+
+
+
