@@ -78,6 +78,18 @@ extracted.
 </desc>
 </commanddef>
 
+<commanddef>
+<command><cmd>objectName</cmd> <method>progress</method> <m>n</m> <m>callback</m></command>
+<desc>
+This method registers a callback that is invoked periodically during query
+processing. There are two arguments: the number of SQLite virtual machine
+opcodes between invocations  <m>n</m>, and the TCL command <m>callback</m>
+to invoke. Setting the progress  <m>callback</m> to an empty string
+disables it. The progress callback can be used to display the status of a
+lengthy query or to process GUI events during a lengthy query.
+</desc>
+</commanddef>
+
 </commandlist>
 </section>
 

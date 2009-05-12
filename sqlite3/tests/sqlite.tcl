@@ -309,6 +309,27 @@ interface::test {backup and restore} {
 	list $tables $adata
 } {{address location multi person types use v_test {} {address location multi person types use v_test}} {{{1 Universiteitsplein 1 2610 Wilrijk} {2 Melkweg 10 1 Heelal} {3 Road 0 ??? {}}} {{1 Universiteitsplein 1 2610 Wilrijk} {2 Melkweg 10 1 Heelal} {3 Road 0 ??? {}}}}}
 
+interface::test {progress} {
+	set ::progress 0
+	proc testprogress {} {
+		incr ::progress
+		return 0
+	}
+	$object progress 4 testprogress
+	$object exec {select * from address}
+	expr {$::progress > 0}
+} 1
+
+interface::test {progress error} {
+	proc testprogress {} {
+		return 1
+	}
+	$object progress 4 testprogress
+	$object exec {select * from address}
+	expr {$::progress > 0}
+} {1database error executing command "select * from address":
+interrupted} error
+
 $object destroy
 $object2 destroy
 

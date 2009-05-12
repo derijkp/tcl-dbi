@@ -68,7 +68,7 @@ static SqlFunc *findSqlFunc(dbi_Sqlite3_Data *pDb, const char *zName){
   for(i=0; zName[i]; i++){ pNew->zName[i] = tolower(zName[i]); }
   pNew->zName[i] = 0;
   for(p=pDb->pFunc; p; p=p->pNext){ 
-    if( strcmp(p->zName, pNew->zName)==0 ){
+    if (strcmp(p->zName, pNew->zName)==0) {
       Tcl_Free((char*)pNew);
       return p;
     }
@@ -89,13 +89,24 @@ static int safeToUseEvalObjv(Tcl_Interp *interp, Tcl_Obj *pCmd){
   const char *z;
   int n;
   z = Tcl_GetStringFromObj(pCmd, &n);
-  while( n-- > 0 ){
+  while( n-- > 0) {
     int c = *(z++);
-    if( c=='$' || c=='[' || c==';' ) return 0;
+    if (c=='$' || c=='[' || c==';' ) return 0;
   }
   return 1;
 }
 
+/* following function slightly adapted from tclsqlite */
+static int DbProgressHandler(void *cd){
+  dbi_Sqlite3_Data *pDb = (dbi_Sqlite3_Data*)cd;
+  int rc;
+
+  rc = Tcl_Eval(pDb->interp, pDb->zProgress);
+  if( rc!=TCL_OK || atoi(Tcl_GetStringResult(pDb->interp)) ){
+    return 1;
+  }
+  return 0;
+}
 /******************************************************************/
 
 int Dbi_sqlite3_collate_dictionary(void *userdata,int llen,const void *s1,int rlen,const void *s2)
@@ -391,7 +402,7 @@ static void Dbi_sqlite3_tclSqlFunc(sqlite3_context *context, int argc, sqlite3_v
 	int i;
 	int rc;
 	
-	if( argc==0 ){
+	if (argc==0) {
 		/* If there are no arguments to the function, call Tcl_EvalObjEx on the
 		** script object directly. This allows the TCL compiler to generate
 		** bytecode for the command on the first invocation and thus make
@@ -400,7 +411,7 @@ static void Dbi_sqlite3_tclSqlFunc(sqlite3_context *context, int argc, sqlite3_v
 		Tcl_IncrRefCount(pCmd);
 		rc = Tcl_EvalObjEx(p->interp, pCmd, 0);
 		Tcl_DecrRefCount(pCmd);
-	}else{
+	} else {
 		/* If there are arguments to the function, make a shallow copy of the
 		** script object, lappend the arguments, then evaluate the copy.
 		**
@@ -412,7 +423,7 @@ static void Dbi_sqlite3_tclSqlFunc(sqlite3_context *context, int argc, sqlite3_v
 		*/
 		Tcl_Obj **aArg;
 		int nArg;
-		if( Tcl_ListObjGetElements(p->interp, p->pScript, &nArg, &aArg) ){
+		if (Tcl_ListObjGetElements(p->interp, p->pScript, &nArg, &aArg)) {
 			sqlite3_result_error(context, Tcl_GetStringResult(p->interp), -1); 
 			return;
 		}
@@ -423,7 +434,7 @@ static void Dbi_sqlite3_tclSqlFunc(sqlite3_context *context, int argc, sqlite3_v
 			Tcl_Obj *pVal;
 		 	 		
 			/* Set pVal to contain the i'th column of this row. */
-			switch( sqlite3_value_type(pIn) ){
+			switch( sqlite3_value_type(pIn)) {
 		 	 case SQLITE_BLOB: {
 		 	 	int bytes = sqlite3_value_bytes(pIn);
 		 	 	pVal = Tcl_NewByteArrayObj(sqlite3_value_blob(pIn), bytes);
@@ -431,9 +442,9 @@ static void Dbi_sqlite3_tclSqlFunc(sqlite3_context *context, int argc, sqlite3_v
 		 	 }
 		 	 case SQLITE_INTEGER: {
 		 	 	sqlite_int64 v = sqlite3_value_int64(pIn);
-		 	 	if( v>=-2147483647 && v<=2147483647 ){
+		 	 	if (v>=-2147483647 && v<=2147483647) {
 		 	 		pVal = Tcl_NewIntObj(v);
-		 	 	}else{
+		 	 	} else {
 		 	 		pVal = Tcl_NewWideIntObj(v);
 		 	 	}
 		 	 	break;
@@ -454,13 +465,13 @@ static void Dbi_sqlite3_tclSqlFunc(sqlite3_context *context, int argc, sqlite3_v
 		 	 }
 			}
 			rc = Tcl_ListObjAppendElement(p->interp, pCmd, pVal);
-			if( rc ){
+			if (rc) {
 		 	 Tcl_DecrRefCount(pCmd);
 		 	 sqlite3_result_error(context, Tcl_GetStringResult(p->interp), -1); 
 		 	 return;
 			}
 		}
-		if( !p->useEvalObjv ){
+		if (!p->useEvalObjv) {
 			/* Tcl_EvalObjEx() will automatically call Tcl_EvalObjv() if pCmd
 			** is a list without a string representation.	To prevent this from
 			** happening, make sure pCmd has a valid string representation */
@@ -470,32 +481,32 @@ static void Dbi_sqlite3_tclSqlFunc(sqlite3_context *context, int argc, sqlite3_v
 		Tcl_DecrRefCount(pCmd);
 	}
 	
-	if( rc && rc!=TCL_RETURN ){
+	if (rc && rc!=TCL_RETURN) {
 		sqlite3_result_error(context, Tcl_GetStringResult(p->interp), -1); 
-	}else{
+	} else {
 		Tcl_Obj *pVar = Tcl_GetObjResult(p->interp);
 		int n;
 		unsigned char *data;
 		char *zType = pVar->typePtr ? pVar->typePtr->name : "";
 		char c = zType[0];
-		if( c=='b' && strcmp(zType,"bytearray")==0 && pVar->bytes==0 ){
+		if (c=='b' && strcmp(zType,"bytearray")==0 && pVar->bytes==0) {
 			/* Only return a BLOB type if the Tcl variable is a bytearray and
 			** has no string representation. */
 			data = Tcl_GetByteArrayFromObj(pVar, &n);
 			sqlite3_result_blob(context, data, n, SQLITE_TRANSIENT);
-		}else if( (c=='b' && strcmp(zType,"boolean")==0) ||
-		 	 	(c=='i' && strcmp(zType,"int")==0) ){
+		} else if ((c=='b' && strcmp(zType,"boolean")==0) ||
+		 	 	(c=='i' && strcmp(zType,"int")==0)) {
 			Tcl_GetIntFromObj(0, pVar, &n);
 			sqlite3_result_int(context, n);
-		}else if( c=='d' && strcmp(zType,"double")==0 ){
+		} else if (c=='d' && strcmp(zType,"double")==0) {
 			double r;
 			Tcl_GetDoubleFromObj(0, pVar, &r);
 			sqlite3_result_double(context, r);
-		}else if( c=='w' && strcmp(zType,"wideInt")==0 ){
+		} else if (c=='w' && strcmp(zType,"wideInt")==0) {
 			Tcl_WideInt v;
 			Tcl_GetWideIntFromObj(0, pVar, &v);
 			sqlite3_result_int64(context, v);
-		}else{
+		} else {
 			data = (unsigned char *)Tcl_GetStringFromObj(pVar, &n);
 			sqlite3_result_text(context, (char *)data, n, SQLITE_TRANSIENT);
 		}
@@ -577,6 +588,10 @@ int dbi_Sqlite3_bindarg(
 		double r;
 		Tcl_GetDoubleFromObj(interp, pVar, &r);
 		sqlite3_bind_double(stmt, i, r);
+	} else if (c=='w' && strcmp(zType,"wideInt")==0){
+		Tcl_WideInt v;
+		Tcl_GetWideIntFromObj(interp, pVar, &v);
+		sqlite3_bind_int64(stmt, i, v);
 	} else {
 		char *data;
 		data = Tcl_GetStringFromObj(pVar, &n);
@@ -1997,13 +2012,13 @@ int dbi_Sqlite3_Destroy(
 		/* this is not a clone, so really remove defnullvalue */
 		Tcl_DecrRefCount(dbdata->defnullvalue);
 	}
-	while( dbdata->pFunc ){
+	while( dbdata->pFunc) {
 		SqlFunc *pFunc = dbdata->pFunc;
 		dbdata->pFunc = pFunc->pNext;
 		Tcl_DecrRefCount(pFunc->pScript);
 		Tcl_Free((char*)pFunc);
 	}
-	while( dbdata->pCollate ){
+	while( dbdata->pCollate) {
 		SqlCollate *pCollate = dbdata->pCollate;
 		dbdata->pCollate = pCollate->pNext;
 		Tcl_Free((char*)pCollate);
@@ -2068,6 +2083,7 @@ int Dbi_sqlite3_DbObjCmd(
 		"create", "drop","clone","clones","parent",
 		"get","set","unset","insert","delete",
 		"function","collate","backup","restore",
+		"progress",
 		(char *) NULL};
 	enum ISubCmdIdx {
 		Interface, Open, Exec, Fetch, Close,
@@ -2076,7 +2092,8 @@ int Dbi_sqlite3_DbObjCmd(
 		Destroy, Serial, Supports,
 		Create, Drop, Clone, Clones, Parent,
 		Get,Set,Unset,Insert,Delete,
-		Function,Collate,Backup,Restore
+		Function,Collate,Backup,Restore,
+		Progress
 	};
 	if (objc < 2) {
 		Tcl_WrongNumArgs(interp, 1, objv, "option ?...?");
@@ -2388,10 +2405,10 @@ int Dbi_sqlite3_DbObjCmd(
 		pFunc->useEvalObjv = safeToUseEvalObjv(interp, pScript);
 		error = sqlite3_create_function(dbdata->db, zName, -1, SQLITE_UTF8,
 			  pFunc, Dbi_sqlite3_tclSqlFunc, 0, 0);
-		if( error!=SQLITE_OK ){
+		if (error!=SQLITE_OK) {
 			error = TCL_ERROR;
 			Tcl_SetResult(interp, (char *)sqlite3_errmsg(dbdata->db), TCL_VOLATILE);
-		}else{
+		} else {
 			/* Must flush any cached statements */
 			/*flushStmtCache( pDb );*/
 		}
@@ -2403,20 +2420,20 @@ int Dbi_sqlite3_DbObjCmd(
 		char *zName;
 		char *zScript;
 		int nScript;
-		if( objc!=4 ){
+		if (objc!=4) {
 			Tcl_WrongNumArgs(interp, 2, objv, "name script");
 			return TCL_ERROR;
 		}
 		zName = Tcl_GetStringFromObj(objv[2], 0);
 		zScript = Tcl_GetStringFromObj(objv[3], &nScript);
 		pCollate = (SqlCollate*)Tcl_Alloc( sizeof(*pCollate) + nScript + 1 );
-		if( pCollate==0 ) return TCL_ERROR;
+		if (pCollate==0 ) return TCL_ERROR;
 		pCollate->interp = interp;
 		pCollate->pNext = dbdata->pCollate;
 		pCollate->zScript = (char*)&pCollate[1];
 		dbdata->pCollate = pCollate;
 		strcpy(pCollate->zScript, zScript);
-		if( sqlite3_create_collation(dbdata->db, zName, SQLITE_UTF8, pCollate, Dbi_sqlite3_tclSqlCollate) ){
+		if (sqlite3_create_collation(dbdata->db, zName, SQLITE_UTF8, pCollate, Dbi_sqlite3_tclSqlCollate)) {
 			Tcl_SetResult(interp, (char *)sqlite3_errmsg(dbdata->db), TCL_VOLATILE);
 			return TCL_ERROR;
 		}
@@ -2430,33 +2447,33 @@ int Dbi_sqlite3_DbObjCmd(
 		sqlite3 *pDest;
 		sqlite3_backup *pBackup;
 		int rc;
-		if( objc==3 ){
+		if (objc==3) {
 			zSrcDb = "main";
 			zDestFile = Tcl_GetString(objv[2]);
-		}else if( objc==4 ){
+		} else if (objc==4) {
 			zSrcDb = Tcl_GetString(objv[2]);
 			zDestFile = Tcl_GetString(objv[3]);
-		}else{
+		} else {
 			Tcl_WrongNumArgs(interp, 2, objv, "?database? filename");
 			return TCL_ERROR;
 		}
 		rc = sqlite3_open(zDestFile, &pDest);
-		if( rc!=SQLITE_OK ){
+		if (rc!=SQLITE_OK) {
 			Tcl_AppendResult(interp, "cannot open target database: ", sqlite3_errmsg(pDest), (char*)0);
 			sqlite3_close(pDest);
 			return TCL_ERROR;
 		}
 		pBackup = sqlite3_backup_init(pDest, "main", dbdata->db, zSrcDb);
-		if( pBackup==0 ){
+		if (pBackup==0) {
 			Tcl_AppendResult(interp, "backup failed: ", sqlite3_errmsg(pDest), (char*)0);
 			sqlite3_close(pDest);
 			return TCL_ERROR;
 		}
-		while(  (rc = sqlite3_backup_step(pBackup,100))==SQLITE_OK ){}
+		while(  (rc = sqlite3_backup_step(pBackup,100))==SQLITE_OK) {}
 		sqlite3_backup_finish(pBackup);
-		if( rc==SQLITE_DONE ){
+		if (rc==SQLITE_DONE) {
 			rc = TCL_OK;
-		}else{
+		} else {
 			Tcl_AppendResult(interp, "backup failed: ", sqlite3_errmsg(pDest), (char*)0);
 			rc = TCL_ERROR;
 		}
@@ -2465,53 +2482,90 @@ int Dbi_sqlite3_DbObjCmd(
 		}
 	case Restore:
 		{
+		/* following function slightly adapted from tclsqlite */
 		const char *zSrcFile;
 		const char *zDestDb;
 		sqlite3 *pSrc;
 		sqlite3_backup *pBackup;
 		int nTimeout = 0;
 		int rc;
-		if( objc==3 ){
+		if (objc==3) {
 			zDestDb = "main";
 			zSrcFile = Tcl_GetString(objv[2]);
-		} else if( objc==4 ){
+		} else if (objc==4) {
 			zDestDb = Tcl_GetString(objv[2]);
 			zSrcFile = Tcl_GetString(objv[3]);
-		}else{
+		} else {
 			Tcl_WrongNumArgs(interp, 2, objv, "?database? filename");
 			return TCL_ERROR;
 		}
 		rc = sqlite3_open_v2(zSrcFile, &pSrc, SQLITE_OPEN_READONLY, 0);
-		if( rc!=SQLITE_OK ){
+		if (rc!=SQLITE_OK) {
 			Tcl_AppendResult(interp, "cannot open source database: ",
 			sqlite3_errmsg(pSrc), (char*)0);
 			sqlite3_close(pSrc);
 			return TCL_ERROR;
 		}
 		pBackup = sqlite3_backup_init(dbdata->db, zDestDb, pSrc, "main");
-		if( pBackup==0 ){
+		if (pBackup==0) {
 			Tcl_AppendResult(interp, "restore failed: ",
 			sqlite3_errmsg(dbdata->db), (char*)0);
 			sqlite3_close(pSrc);
 			return TCL_ERROR;
 		}
-		while( (rc = sqlite3_backup_step(pBackup,100))==SQLITE_OK || rc==SQLITE_BUSY ){
-			if( rc==SQLITE_BUSY ){
-				if( nTimeout++ >= 3 ) break;
+		while( (rc = sqlite3_backup_step(pBackup,100))==SQLITE_OK || rc==SQLITE_BUSY) {
+			if (rc==SQLITE_BUSY) {
+				if (nTimeout++ >= 3 ) break;
 				sqlite3_sleep(100);
 			}
 		}
 		sqlite3_backup_finish(pBackup);
-		if( rc==SQLITE_DONE ){
+		if (rc==SQLITE_DONE) {
 			rc = TCL_OK;
-		}else if( rc==SQLITE_BUSY || rc==SQLITE_LOCKED ){
+		} else if (rc==SQLITE_BUSY || rc==SQLITE_LOCKED) {
 			Tcl_AppendResult(interp, "restore failed: source database busy", (char*)0);
 			rc = TCL_ERROR;
-		}else{
+		} else {
 			Tcl_AppendResult(interp, "restore failed: ", sqlite3_errmsg(dbdata->db), (char*)0);
 			rc = TCL_ERROR;
 		}
 		sqlite3_close(pSrc);
+		break;
+		}
+	case Progress:
+		{
+		/* following function slightly adapted from tclsqlite */
+		if (objc==2) {
+			if (dbdata->zProgress) {
+				Tcl_AppendResult(interp, dbdata->zProgress, 0);
+			}
+		} else if (objc==4) {
+			char *zProgress;
+			int len;
+			int N;
+			if (TCL_OK!=Tcl_GetIntFromObj(interp, objv[2], &N)) {
+				return TCL_ERROR;
+			}
+			if (dbdata->zProgress) {
+				Tcl_Free(dbdata->zProgress);
+			}
+			zProgress = Tcl_GetStringFromObj(objv[3], &len);
+			if (zProgress && len>0) {
+				dbdata->zProgress = Tcl_Alloc( len + 1 );
+				memcpy(dbdata->zProgress, zProgress, len+1);
+			} else {
+				dbdata->zProgress = 0;
+			}
+			if (dbdata->zProgress) {
+				dbdata->interp = interp;
+				sqlite3_progress_handler(dbdata->db, N, DbProgressHandler, dbdata);
+			} else {
+				sqlite3_progress_handler(dbdata->db, 0, 0, 0);
+			}
+		} else {
+			Tcl_WrongNumArgs(interp, 2, objv, "n callback");
+			return TCL_ERROR;
+		}
 		break;
 		}
 	}

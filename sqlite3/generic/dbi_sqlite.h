@@ -54,6 +54,7 @@ typedef struct dbi_Sqlite3_Data {
 	Tcl_HashTable preparedhash;
 	SqlFunc *pFunc;
 	SqlCollate *pCollate;
+	char *zProgress;
 } dbi_Sqlite3_Data;
 
 EXTERN int dbi_sqlite3_Init(Tcl_Interp *interp);
