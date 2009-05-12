@@ -22,7 +22,7 @@ databases.
 
 <p>
 The object supports transactions, lines, serials, views and checks.
-Foreign keys are accepted, but not checked sqlite3 dbi objects do not
+Foreign keys are accepted, but not checked. sqlite3 dbi objects do not
 support column permissions, roles, domains or permissions, as these are
 not supported by sqlite3.
 </p>
@@ -44,6 +44,37 @@ when the function is called (with parameters apended to it).
 when the collation is used with to strings as parameters. The application defined collation 
 routine should return negative, zero or positive if the first string is less than, equal to, 
 or greater than the second string
+</desc>
+</commanddef>
+
+<commanddef>
+<command><cmd>objectName</cmd> <method>backup</method> <m>?database?</m> <m>filename</m></command>
+<desc>
+The "backup" method makes a backup copy of a live database. The
+optional <m>database</m> argument tells which database in the current
+connection should be backed up. The default value is main (or, in other
+words, the primary database file). To back up TEMP tables use temp. To
+backup an auxilary database added to the connection using the ATTACH
+command, use the name of that database as it was assigned in the ATTACH
+command. <m>filename</m> is the name of a file into which the backup
+is written. <m>filename</m> does not have to exist ahead of time, but if
+it does, it must be a well-formed SQLite database.
+</desc>
+</commanddef>
+
+<commanddef>
+<command><cmd>objectName</cmd> <method>restore</method> <m>?database?</m> <m>filename</m></command>
+<desc>
+The "restore" method copies the content a separate database file into the
+current database connection, overwriting any preexisting content. The
+optional <m>database</m> argument tells which database in the current
+connection should be overwritten with new content. The default value is
+main (or, in other words, the primary database file). To repopulate the
+TEMP tables use temp. To overwrite an auxilary database added to the
+connection using the ATTACH command, use the name of that database as it
+was assigned in the ATTACH command. <m>filename</m> is the name of a
+existing well-formed SQLite database file from which the content is
+extracted.
 </desc>
 </commanddef>
 

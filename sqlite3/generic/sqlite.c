@@ -2067,7 +2067,7 @@ int Dbi_sqlite3_DbObjCmd(
 		"destroy", "serial","supports",
 		"create", "drop","clone","clones","parent",
 		"get","set","unset","insert","delete",
-		"function","collate",
+		"function","collate","backup","restore",
 		(char *) NULL};
 	enum ISubCmdIdx {
 		Interface, Open, Exec, Fetch, Close,
@@ -2076,7 +2076,7 @@ int Dbi_sqlite3_DbObjCmd(
 		Destroy, Serial, Supports,
 		Create, Drop, Clone, Clones, Parent,
 		Get,Set,Unset,Insert,Delete,
-		Function,Collate
+		Function,Collate,Backup,Restore
 	};
 	if (objc < 2) {
 		Tcl_WrongNumArgs(interp, 1, objv, "option ?...?");
@@ -2420,6 +2420,98 @@ int Dbi_sqlite3_DbObjCmd(
 			Tcl_SetResult(interp, (char *)sqlite3_errmsg(dbdata->db), TCL_VOLATILE);
 			return TCL_ERROR;
 		}
+		break;
+		}
+	case Backup:
+		{
+		/* following function slightly adapted from tclsqlite */
+		const char *zDestFile;
+		const char *zSrcDb;
+		sqlite3 *pDest;
+		sqlite3_backup *pBackup;
+		int rc;
+		if( objc==3 ){
+			zSrcDb = "main";
+			zDestFile = Tcl_GetString(objv[2]);
+		}else if( objc==4 ){
+			zSrcDb = Tcl_GetString(objv[2]);
+			zDestFile = Tcl_GetString(objv[3]);
+		}else{
+			Tcl_WrongNumArgs(interp, 2, objv, "?database? filename");
+			return TCL_ERROR;
+		}
+		rc = sqlite3_open(zDestFile, &pDest);
+		if( rc!=SQLITE_OK ){
+			Tcl_AppendResult(interp, "cannot open target database: ", sqlite3_errmsg(pDest), (char*)0);
+			sqlite3_close(pDest);
+			return TCL_ERROR;
+		}
+		pBackup = sqlite3_backup_init(pDest, "main", dbdata->db, zSrcDb);
+		if( pBackup==0 ){
+			Tcl_AppendResult(interp, "backup failed: ", sqlite3_errmsg(pDest), (char*)0);
+			sqlite3_close(pDest);
+			return TCL_ERROR;
+		}
+		while(  (rc = sqlite3_backup_step(pBackup,100))==SQLITE_OK ){}
+		sqlite3_backup_finish(pBackup);
+		if( rc==SQLITE_DONE ){
+			rc = TCL_OK;
+		}else{
+			Tcl_AppendResult(interp, "backup failed: ", sqlite3_errmsg(pDest), (char*)0);
+			rc = TCL_ERROR;
+		}
+		sqlite3_close(pDest);
+		break;
+		}
+	case Restore:
+		{
+		const char *zSrcFile;
+		const char *zDestDb;
+		sqlite3 *pSrc;
+		sqlite3_backup *pBackup;
+		int nTimeout = 0;
+		int rc;
+		if( objc==3 ){
+			zDestDb = "main";
+			zSrcFile = Tcl_GetString(objv[2]);
+		} else if( objc==4 ){
+			zDestDb = Tcl_GetString(objv[2]);
+			zSrcFile = Tcl_GetString(objv[3]);
+		}else{
+			Tcl_WrongNumArgs(interp, 2, objv, "?database? filename");
+			return TCL_ERROR;
+		}
+		rc = sqlite3_open_v2(zSrcFile, &pSrc, SQLITE_OPEN_READONLY, 0);
+		if( rc!=SQLITE_OK ){
+			Tcl_AppendResult(interp, "cannot open source database: ",
+			sqlite3_errmsg(pSrc), (char*)0);
+			sqlite3_close(pSrc);
+			return TCL_ERROR;
+		}
+		pBackup = sqlite3_backup_init(dbdata->db, zDestDb, pSrc, "main");
+		if( pBackup==0 ){
+			Tcl_AppendResult(interp, "restore failed: ",
+			sqlite3_errmsg(dbdata->db), (char*)0);
+			sqlite3_close(pSrc);
+			return TCL_ERROR;
+		}
+		while( (rc = sqlite3_backup_step(pBackup,100))==SQLITE_OK || rc==SQLITE_BUSY ){
+			if( rc==SQLITE_BUSY ){
+				if( nTimeout++ >= 3 ) break;
+				sqlite3_sleep(100);
+			}
+		}
+		sqlite3_backup_finish(pBackup);
+		if( rc==SQLITE_DONE ){
+			rc = TCL_OK;
+		}else if( rc==SQLITE_BUSY || rc==SQLITE_LOCKED ){
+			Tcl_AppendResult(interp, "restore failed: source database busy", (char*)0);
+			rc = TCL_ERROR;
+		}else{
+			Tcl_AppendResult(interp, "restore failed: ", sqlite3_errmsg(dbdata->db), (char*)0);
+			rc = TCL_ERROR;
+		}
+		sqlite3_close(pSrc);
 		break;
 		}
 	}
