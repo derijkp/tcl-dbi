@@ -107,6 +107,10 @@ static int DbProgressHandler(void *cd){
   }
   return 0;
 }
+
+extern int createIncrblobChannel(Tcl_Interp *interp, dbi_Sqlite3_Data *pDb, const char *zDb, const char *zTable, const char *zColumn, sqlite_int64 iRow,int isReadonly);
+extern void closeIncrblobChannels(dbi_Sqlite3_Data *pDb);
+
 /******************************************************************/
 
 int Dbi_sqlite3_collate_dictionary(void *userdata,int llen,const void *s1,int rlen,const void *s2)
@@ -2023,6 +2027,7 @@ int dbi_Sqlite3_Destroy(
 		dbdata->pCollate = pCollate->pNext;
 		Tcl_Free((char*)pCollate);
 	}
+	closeIncrblobChannels(dbdata);
 	Tcl_Free((char *)dbdata);
 	Tcl_DeleteExitHandler((Tcl_ExitProc *)dbi_Sqlite3_Destroy, clientdata);
 	return TCL_OK;
@@ -2083,7 +2088,7 @@ int Dbi_sqlite3_DbObjCmd(
 		"create", "drop","clone","clones","parent",
 		"get","set","unset","insert","delete",
 		"function","collate","backup","restore",
-		"progress",
+		"progress","incrblob",
 		(char *) NULL};
 	enum ISubCmdIdx {
 		Interface, Open, Exec, Fetch, Close,
@@ -2093,7 +2098,7 @@ int Dbi_sqlite3_DbObjCmd(
 		Create, Drop, Clone, Clones, Parent,
 		Get,Set,Unset,Insert,Delete,
 		Function,Collate,Backup,Restore,
-		Progress
+		Progress,IncrBlob
 	};
 	if (objc < 2) {
 		Tcl_WrongNumArgs(interp, 1, objv, "option ?...?");
@@ -2565,6 +2570,34 @@ int Dbi_sqlite3_DbObjCmd(
 		} else {
 			Tcl_WrongNumArgs(interp, 2, objv, "n callback");
 			return TCL_ERROR;
+		}
+		break;
+		}
+	case IncrBlob:
+		{
+		/* following function slightly adapted from tclsqlite */
+		int isReadonly = 0;
+		const char *zDb = "main";
+		const char *zTable;
+		const char *zColumn;
+		sqlite_int64 iRow;
+		int rc;
+		/* Check for the -readonly option */
+		if( objc>3 && strcmp(Tcl_GetString(objv[2]), "-readonly")==0 ){
+			isReadonly = 1;
+		}
+		if( objc!=(5+isReadonly) && objc!=(6+isReadonly) ){
+			Tcl_WrongNumArgs(interp, 2, objv, "?-readonly? ?DB? TABLE COLUMN ROWID");
+			return TCL_ERROR;
+		}
+		if( objc==(6+isReadonly) ){
+			zDb = Tcl_GetString(objv[2]);
+		}
+		zTable = Tcl_GetString(objv[objc-3]);
+		zColumn = Tcl_GetString(objv[objc-2]);
+		rc = Tcl_GetWideIntFromObj(interp, objv[objc-1], &iRow);
+		if( rc==TCL_OK ){
+			rc = createIncrblobChannel(interp, dbdata, zDb, zTable, zColumn, iRow, isReadonly);
 		}
 		break;
 		}

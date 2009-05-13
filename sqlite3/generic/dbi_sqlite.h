@@ -31,6 +31,8 @@ struct SqlCollate {
   SqlCollate *pNext;    /* Next function on the list of them all */
 };
 
+typedef struct IncrblobChannel IncrblobChannel;
+
 typedef struct dbi_Sqlite3_Data {
 	Tcl_Command token;
 	Tcl_Interp *interp;
@@ -55,7 +57,17 @@ typedef struct dbi_Sqlite3_Data {
 	SqlFunc *pFunc;
 	SqlCollate *pCollate;
 	char *zProgress;
+	IncrblobChannel *pIncrblob;
 } dbi_Sqlite3_Data;
+
+struct IncrblobChannel {
+	sqlite3_blob *pBlob;      /* sqlite3 blob handle */
+	dbi_Sqlite3_Data *pDb;            /* Associated database connection */
+	int iSeek;                /* Current seek offset */
+	Tcl_Channel channel;      /* Channel identifier */
+	IncrblobChannel *pNext;   /* Linked list of all open incrblob channels */
+	IncrblobChannel *pPrev;   /* Linked list of all open incrblob channels */
+};
 
 EXTERN int dbi_sqlite3_Init(Tcl_Interp *interp);
 

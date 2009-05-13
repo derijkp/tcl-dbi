@@ -330,6 +330,43 @@ interface::test {progress error} {
 } {1database error executing command "select * from address":
 interrupted} error
 
+interface::test {incrblob read} {
+	set result {}
+	catch {$object exec {drop table btest}}
+	$object exec {create table btest (id integer, t text, b blob)}
+	$object exec {insert into btest (id,t,b) values (?,?,?)} 1 abcdefghijklmnopqrstuvwxyz ABCDEFGHIJKLMNOPQRSTUVWXYZ
+	$object exec {insert into btest (id,t,b) values (?,?,?)} 2 abcdefghijklmnopqrstuvwxyz ABCDEFGHIJKLMNOPQRSTUVWXYZ
+	set r1 [$object get [list btest 1] rowid]
+	set r2 [$object get [list btest 2] rowid]
+	set f [$object incrblob btest b $r1]
+	lappend result [read $f]
+	close $f
+	set f [$object incrblob btest t $r2]
+	seek $f 10
+	set temp [read $f 2]
+	seek $f 5
+	append temp [read $f 2]
+	close $f
+	lappend result $temp
+	set result
+} {ABCDEFGHIJKLMNOPQRSTUVWXYZ klfg}
+
+interface::test {incrblob write} {
+	catch {$object exec {drop table btest}}
+	$object exec {create table btest (id integer, t text, b blob)}
+	$object exec {insert into btest (id,t,b) values (?,?,?)} 1 abcdefghijklmnopqrstuvwxyz ABCDEFGHIJKLMNOPQRSTUVWXYZ
+	set r1 [$object get [list btest 1] rowid]
+	set f [$object incrblob btest b $r1]
+	puts -nonewline $f ab
+	seek $f -1 end
+	puts -nonewline $f z
+	close $f
+	set f [$object incrblob btest b $r1]
+	set result [read $f]
+	close $f
+	set result
+} abCDEFGHIJKLMNOPQRSTUVWXYz
+
 $object destroy
 $object2 destroy
 

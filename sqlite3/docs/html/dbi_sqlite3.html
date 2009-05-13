@@ -86,6 +86,22 @@ lengthy query or to process GUI events during a lengthy query.
 </dd>
 
 
+
+<dt><i>objectName</i> <i>incrblob</i> <b>?-readonly?</b> <b>?db?</b> <b>table</b> <b>column</b> <b>rowid</b></dt>
+<dd>
+This method opens a TCL channel that can be used to read or write
+into a preexisting BLOB in the database, identified by <b>table</b>
+<b>column</b>, <b>rowid</b>, and optionally <b>db</b>. This optional
+database name is not the filename that contains the database but rather
+the symbolic name of the database that is assigned when the database is
+connected using ATTACH. For the main database file, the database name is
+"main". For TEMP tables, the database name is "temp". The command returns
+a new TCL channel for reading or writing to the BLOB. The channel is
+opened using the underlying sqlite3_blob_open() C-langauge interface.
+Close the channel using the close command of Tcl.
+</dd>
+
+
 </dl>
 
 
