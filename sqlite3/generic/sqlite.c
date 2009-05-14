@@ -2628,6 +2628,8 @@ int Dbi_sqlite3_DoNewDbObjCmd(
 	dbdata->errormsg = NULL;
 	dbdata->pFunc = NULL;
 	dbdata->pCollate = NULL;
+	dbdata->zProgress = NULL;
+	dbdata->pIncrblob = NULL;
 	if (dbi_nameObj == NULL) {
 		dbi_num++;
 		sprintf(buffer,"::dbi::sqlite3::dbi%d",dbi_num);
@@ -2697,6 +2699,8 @@ int Dbi_sqlite3_Clone(
 	clone_dbdata->stmt = NULL;
 	clone_dbdata->pFunc = NULL;
 	clone_dbdata->pCollate = NULL;
+	clone_dbdata->zProgress = NULL;
+	clone_dbdata->pIncrblob = NULL;
 	Tcl_InitHashTable(&(clone_dbdata->preparedhash),TCL_STRING_KEYS);
 	return TCL_OK;
 }
