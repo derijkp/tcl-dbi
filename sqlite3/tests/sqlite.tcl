@@ -35,6 +35,22 @@ eval interface test dbi-1.0 $object [array get opt]
 ::dbi::opendb
 ::dbi::initdb
 
+interface::test {backup and restore} {
+	set tables [$object tables]
+	set adata [list [$object exec {select * from address}]]
+	catch {file delete $opt(-testdb).backup}
+	$object backup $opt(-testdb).backup
+	$object close
+	catch {file delete $opt(-testdb)}
+	$object create $opt(-testdb)
+	$object open $opt(-testdb)
+	lappend tables [$object tables]
+	$object restore $opt(-testdb).backup
+	lappend tables [$object tables]
+	lappend adata [$object exec {select * from address}]
+	list $tables $adata
+} {{address location multi person types useof v_test {} {address location multi person types useof v_test}} {{{1 Universiteitsplein 1 2610 Wilrijk} {2 Melkweg 10 1 Heelal} {3 Road 0 ??? {}}} {{1 Universiteitsplein 1 2610 Wilrijk} {2 Melkweg 10 1 Heelal} {3 Road 0 ??? {}}}}}
+
 interface::test {serial share} {
 	$object exec {delete from "location";}
 	$object exec {delete from "address";}
@@ -293,22 +309,6 @@ interface::test {altercolumn and dropcolumn} {
 	lappend result [$object exec {select * from "useof"}]
 } {text integer {id person place usetime score score2} {{1 pdr {} {} 19.0 {}}}}
 
-interface::test {backup and restore} {
-	set tables [$object tables]
-	set adata [list [$object exec {select * from address}]]
-	catch {file delete $opt(-testdb).backup}
-	$object backup $opt(-testdb).backup
-	$object close
-	catch {file delete $opt(-testdb)}
-	$object create $opt(-testdb)
-	$object open $opt(-testdb)
-	lappend tables [$object tables]
-	$object restore $opt(-testdb).backup
-	lappend tables [$object tables]
-	lappend adata [$object exec {select * from address}]
-	list $tables $adata
-} {{address location multi person types use v_test {} {address location multi person types use v_test}} {{{1 Universiteitsplein 1 2610 Wilrijk} {2 Melkweg 10 1 Heelal} {3 Road 0 ??? {}}} {{1 Universiteitsplein 1 2610 Wilrijk} {2 Melkweg 10 1 Heelal} {3 Road 0 ??? {}}}}}
-
 interface::test {progress} {
 	set ::progress 0
 	proc testprogress {} {
@@ -329,6 +329,8 @@ interface::test {progress error} {
 	expr {$::progress > 0}
 } {1database error executing command "select * from address":
 interrupted} error
+
+$object progress 0 {}
 
 interface::test {incrblob read} {
 	set result {}
