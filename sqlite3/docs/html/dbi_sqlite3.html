@@ -102,6 +102,28 @@ Close the channel using the close command of Tcl.
 </dd>
 
 
+
+<dt><i>objectName</i> <i>import</i> <b>conflict-algorithm</b> <b>table</b> <b>filename</b> ?<b>separator</b>? ?<b>nullindicator</b>? ?<b>header</b>?</dt>
+<dd>
+This method imports the data from the file <b>filename</b> in the table <b>table</b>.
+By default different fields are separated by tabs; the separator can be changed using the
+<b>separator</b> option. An empty value is imported as a NULL value. This can be changed by using the
+<b>nullindicator</b> option.
+As in the default sqlite imnport, the method does not properly support quoting in csv files (yet),
+meaning fields cannot contain the separator character, or be multiline.
+<p>
+<b>header</b>: By default, the method assumes that the file loaded will contain the same number of columns in 
+the same order as the the table, and no header. If <b>header</b> is given, but empty, the first 
+line in the file is taken as a header to determine what columns are in the file. If not empty, it 
+is used as a list of fields in the file.
+</p>
+<p>
+<b>conflict-algorithm</b> can be either of rollback,abort,fail,ignore,replace. It gives the conflict resolution algorithm 
+that will be used when errors occur during inserts.
+</p>
+</dd>
+
+
 </dl>
 
 
@@ -121,7 +143,7 @@ e.g. a2.0555 wil be sorted before a2.08.</dd>
 The dbi interface also adds two new functions to sqlite:
 <dl>
 <dt>regexp</dt><dd>This function has to parameters: the pattern and the value. Thus allows the 
-use of regular expressions in queries, e.g.: where "first_name" regexp '^\[Jj\]o'</dd>
+use of regular expressions in queries, e.g.: where "first_name" regexp '^[Jj]o'</dd>
 <dt>list_concat</dt><dd>This aggregate function returns a proper list of all elements in the query</dd>
 </dl>
 

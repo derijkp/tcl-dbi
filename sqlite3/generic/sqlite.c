@@ -110,6 +110,7 @@ static int DbProgressHandler(void *cd){
 
 extern int createIncrblobChannel(Tcl_Interp *interp, dbi_Sqlite3_Data *pDb, const char *zDb, const char *zTable, const char *zColumn, sqlite_int64 iRow,int isReadonly);
 extern void closeIncrblobChannels(dbi_Sqlite3_Data *pDb);
+extern int dbi_Sqlite3_Import(Tcl_Interp *interp,dbi_Sqlite3_Data *dbdata,int objc,Tcl_Obj *objv[]);
 
 /******************************************************************/
 
@@ -2088,7 +2089,7 @@ int Dbi_sqlite3_DbObjCmd(
 		"create", "drop","clone","clones","parent",
 		"get","set","unset","insert","delete",
 		"function","collate","backup","restore",
-		"progress","incrblob",
+		"progress","incrblob","import",
 		(char *) NULL};
 	enum ISubCmdIdx {
 		Interface, Open, Exec, Fetch, Close,
@@ -2098,7 +2099,7 @@ int Dbi_sqlite3_DbObjCmd(
 		Create, Drop, Clone, Clones, Parent,
 		Get,Set,Unset,Insert,Delete,
 		Function,Collate,Backup,Restore,
-		Progress,IncrBlob
+		Progress,IncrBlob,Import
 	};
 	if (objc < 2) {
 		Tcl_WrongNumArgs(interp, 1, objv, "option ?...?");
@@ -2601,6 +2602,8 @@ int Dbi_sqlite3_DbObjCmd(
 		}
 		break;
 		}
+	case Import:
+		return dbi_Sqlite3_Import(interp,dbdata,objc,objv);
 	}
 	return error;
 }

@@ -106,6 +106,28 @@ Close the channel using the close command of Tcl.
 </desc>
 </commanddef>
 
+<commanddef>
+<command><cmd>objectName</cmd> <method>import</method> <m>conflict-algorithm</m> <m>table</m> <m>filename</m> ?<m>separator</m>? ?<m>nullindicator</m>? ?<m>header</m>?</command>
+<desc>
+This method imports the data from the file <m>filename</m> in the table <m>table</m>.
+By default different fields are separated by tabs; the separator can be changed using the
+<m>separator</m> option. An empty value is imported as a NULL value. This can be changed by using the
+<m>nullindicator</m> option.
+As in the default sqlite imnport, the method does not properly support quoting in csv files (yet),
+meaning fields cannot contain the separator character, or be multiline.
+<p>
+<m>header</m>: By default, the method assumes that the file loaded will contain the same number of columns in 
+the same order as the the table, and no header. If <m>header</m> is given, but empty, the first 
+line in the file is taken as a header to determine what columns are in the file. If not empty, it 
+is used as a list of fields in the file.
+</p>
+<p>
+<m>conflict-algorithm</m> can be either of rollback,abort,fail,ignore,replace. It gives the conflict resolution algorithm 
+that will be used when errors occur during inserts.
+</p>
+</desc>
+</commanddef>
+
 </commandlist>
 </section>
 

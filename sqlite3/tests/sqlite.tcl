@@ -369,6 +369,51 @@ interface::test {incrblob write} {
 	set result
 } abCDEFGHIJKLMNOPQRSTUVWXYz
 
+interface::test {import} {
+	catch {$object exec {drop table csv}}
+	$object exec {create table csv(a integer,b integer)}
+	$object import rollback csv test.csv \t
+	set result [$object exec {select * from csv}]
+	$object exec {drop table csv}
+	set result
+} {{1 2} {3 4}}
+
+interface::test {import error} {
+	catch {$object exec {drop table csv}}
+	$object exec {create table csv(a integer)}
+	$object import rollback csv test.csv \t
+	set result [$object exec {select * from csv}]
+	$object exec {drop table csv}
+	set result
+} {Error: test.csv line 1: expected 1 columns of data but found 2, failed while processing line: 1} error
+
+interface::test {import header} {
+	catch {$object exec {drop table csv}}
+	$object exec {create table csv(a integer,b integer)}
+	$object import rollback csv test.csv \t {} {b a}
+	set result [$object exec {select * from csv}]
+	$object exec {drop table csv}
+	set result
+} {{2 1} {4 3}}
+
+interface::test {import header} {
+	catch {$object exec {drop table csv}}
+	$object exec {create table csv("a" integer,"b" integer,"1:c" integer)}
+	$object import rollback csv testh.csv \t {} {}
+	set result [$object exec {select * from csv}]
+	$object exec {drop table csv}
+	set result
+} {{2 {} 1} {4 {} 3}}
+
+interface::test {import header error} {
+	catch {$object exec {drop table csv}}
+	$object exec {create table csv(b integer,"1:c" integer)}
+	$object import rollback csv testh.csv \t {} {}
+	set result [$object exec {select * from csv}]
+	$object exec {drop table csv}
+	set result
+} {Error: table csv has no column named a} error
+
 $object destroy
 $object2 destroy
 

@@ -12,8 +12,6 @@
 **    May you share freely, never taking more than you give.
 **
 *************************************************************************
-** A TCL Interface to SQLite.  Append this file to sqlite3.c and
-** compile the whole thing to build a TCL-enabled version of SQLite.
 */
 #include "tclInt.h"
 #include <string.h>

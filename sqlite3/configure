@@ -6583,7 +6583,7 @@ done
 #-----------------------------------------------------------------------
 
 
-    vars="sqlite.c dbi_sqlite_incrblob.c"
+    vars="sqlite.c dbi_sqlite_incrblob.c dbi_sqlite_import.c"
     for i in $vars; do
 	case $i in
 	    \$*)
