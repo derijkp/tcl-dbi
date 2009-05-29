@@ -1072,7 +1072,7 @@ int dbi_Sqlite3_Get(
 	}
 	buffer = Tcl_Alloc(len*sizeof(char));
 	if (objc == 0) {
-		sprintf(buffer,"select * from \"%s\" where \"id\" = '%s'",tablestring,idstring);
+		sprintf(buffer,"select * from \"%s\" where \"id\" = ?",tablestring);
 	} else {
 		strcpy(buffer,"select ");
 		pos = buffer+7;
@@ -1254,10 +1254,10 @@ int dbi_Sqlite3_Insert(
 	if (fid == NULL) {
 		id = Tcl_NewIntObj(sqlite3_last_insert_rowid(dbdata->db));
 		error = Tcl_ListObjAppendElement(interp,result,id);
-		if (error) {Tcl_DecrRefCount(result); Tcl_DecrRefCount(id); return error;}
+		if (error) {Tcl_DecrRefCount(result); Tcl_DecrRefCount(id); goto error;}
 	} else {
 		error = Tcl_ListObjAppendElement(interp,result,fid);
-		if (error) {Tcl_DecrRefCount(result); return error;}
+		if (error) {Tcl_DecrRefCount(result); goto error;}
 	}
 	Tcl_SetObjResult(interp,result);
 	if (stmt) {sqlite3_reset(stmt);	sqlite3_clear_bindings(stmt);}
@@ -1265,7 +1265,7 @@ int dbi_Sqlite3_Insert(
 	return TCL_OK;
 	error:
 		if (buffer != NULL) {Tcl_Free(buffer);}
-	if (stmt) {sqlite3_reset(stmt);	sqlite3_clear_bindings(stmt);}
+		if (stmt) {sqlite3_reset(stmt);	sqlite3_clear_bindings(stmt);}
 		dbi_Sqlite3_ClearResult(dbdata);
 		return TCL_ERROR;
 }
@@ -1316,7 +1316,7 @@ int dbi_Sqlite3_Set(
 		sprintf(pos,", \"%s\" = ?",fieldstring);
 		pos += (8 + fieldlen);
 	}
-	sprintf(pos," where \"id\" = '%s'",idstring);
+	sprintf(pos," where \"id\" = ?");
 	/* run sql */
 	error = dbi_Sqlite3_preparecached(interp,dbdata,buffer,&stmt,&nextsql);
 	if (error != SQLITE_OK) {
@@ -1328,6 +1328,7 @@ int dbi_Sqlite3_Set(
 		dbi_Sqlite3_bindarg(interp,stmt,j,objv[i],nullstring,nulllen);
 		j++;
 	}
+	dbi_Sqlite3_bindarg(interp,stmt,j,id,nullstring,nulllen);
 	error = sqlite3_step(stmt);
 	switch (error) {
 		case SQLITE_OK:
@@ -1340,14 +1341,16 @@ int dbi_Sqlite3_Set(
 	}
 	Tcl_Free(buffer); buffer = NULL;
 	changes = sqlite3_changes(dbdata->db);
+	if (stmt) {sqlite3_reset(stmt);	sqlite3_clear_bindings(stmt);}
+	dbi_Sqlite3_ClearResult(dbdata);
 	if (changes != 1) {
 		return dbi_Sqlite3_Insert(interp,dbdata,table,id,NULL,objc,objv);
 	}
-	if (stmt) {sqlite3_reset(stmt);	sqlite3_clear_bindings(stmt);}
 	return TCL_OK;
 	error:
 		if (buffer != NULL) {Tcl_Free(buffer);}
 		if (stmt) {sqlite3_reset(stmt);	sqlite3_clear_bindings(stmt);}
+		dbi_Sqlite3_ClearResult(dbdata);
 		return TCL_ERROR;
 }
 

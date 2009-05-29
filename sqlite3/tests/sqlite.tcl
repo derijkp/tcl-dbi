@@ -14,8 +14,15 @@ package require dbi_sqlite3
 set object [dbi_sqlite3]
 set object2 [dbi_sqlite3]
 
-interface test dbi_admin-$version $object \
+#array set opt {
+#	-testleak 5000
+#}
+
+array set opt {
 	-testdb test.db
+}
+
+eval interface test dbi_admin-$version $object [array get opt]
 
 interface::test {destroy without opening a database} {
 	dbi_sqlite3 db
