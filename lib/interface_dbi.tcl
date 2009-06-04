@@ -112,6 +112,17 @@ interface::test {non select query with -nullvalue update to NULL} {
 	set result	
 } {{nul hasnull NULL 9.5} {nul hasnull NULL NULL}}
 
+interface::test {insert nulls if value not given} {
+	$object exec {
+		insert into "person" ("id") values(?)
+	} test
+	set id [$object exec {
+		select "id" from "person" where "first_name" is null
+	}]
+	$object exec {delete from "person" where "id" = 'test'}
+	set id
+} test
+
 interface::test {error: select "try" from "person"} {
 	$object exec {select "try" from "person"}
 } {* while executing command: "select "try" from "person""} error match
