@@ -306,12 +306,15 @@ interface::test {altercolumn and dropcolumn} {
 	$object exec {delete from "useof"}
 	$object exec {insert into "useof"("id","person","score") values (1,"pdr",19)}
 	$object exec {alter table "useof" add column tempcol text}
+	$object exec {alter table "useof" add column tempcol2 text}
+	$object exec {alter table "useof" add column tempcol3 text}
 	array set a [$object info table useof]
 	lappend result $a(type,tempcol)
 	::dbi::sqlite3::altercolumn $object useof tempcol integer
 	array set a [$object info table useof]
 	lappend result $a(type,tempcol)
 	::dbi::sqlite3::dropcolumn $object useof tempcol
+	::dbi::sqlite3::dropcolumn $object useof tempcol2 tempcol3
 	lappend result [$object fields useof]
 	lappend result [$object exec {select * from "useof"}]
 } {text integer {id person place usetime score score2} {{1 pdr {} {} 19.0 {}}}}

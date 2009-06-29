@@ -415,18 +415,25 @@ proc ::dbi::sqlite3::gettabledef {db table} {
 	return $result
 }
 
-proc ::dbi::sqlite3::dropcolumn {db table column} {
+proc ::dbi::sqlite3::dropcolumn {db table column args} {
+	set columns [list $column]
+	eval lappend columns $args
 	array set a [$db info table $table]
-	set pos [lsearch $a(fields) $column]
-	if {$pos == -1} {error "no column $column present in table $table"}
-	set newfields [lreplace $a(fields) $pos $pos]
-	set tabledef [::dbi::sqlite3::gettabledef $db $table]
-	set pos 0
-	foreach line $tabledef {
-		if {[regexp "^\"?$column\"?\[ \t\n\]+" $line]} break
-		incr pos
+	set newfields $a(fields)
+	foreach column $columns {
+		set pos [lsearch $newfields $column]
+		if {$pos == -1} {error "no column $column present in table $table"}
+		set newfields [lreplace $newfields $pos $pos]
 	}
-	set tabledef [lreplace $tabledef $pos $pos]
+	set tabledef [::dbi::sqlite3::gettabledef $db $table]
+	foreach column $columns {
+		set pos 0
+		foreach line $tabledef {
+			if {[regexp "^\"?$column\"?\[ \t\n\]+" $line]} break
+			incr pos
+		}
+		set tabledef [lreplace $tabledef $pos $pos]
+	}
 	$db begin
 	$db exec [subst {create temp table temp_table as select "[join $newfields {","}]" from "$table"}]
 	$db exec [subst {drop table "$table"}]
