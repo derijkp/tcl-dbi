@@ -13,6 +13,12 @@
 #include <time.h>
 #include "dbi_sqlite.h"
 
+int dbi_Sqlite3_getresultfield(
+	Tcl_Interp *interp,
+	sqlite3_stmt *stmt,
+	int i,
+	Tcl_Obj **result);
+
 int dbi_Sqlite3_getrow(
 	Tcl_Interp *interp,
 	sqlite3_stmt *stmt,
@@ -674,7 +680,7 @@ int dbi_Sqlite3_Fetch(
 	int objc,
 	Tcl_Obj *objv[])
 {
-	Tcl_Obj *element;
+	Tcl_Obj *element,*line;
 	Tcl_Obj *tuple = NULL, *field = NULL, *nullvalue = NULL;
 	int fetch_option,ituple=-1,ifield=-1;
 	int error;
@@ -690,7 +696,7 @@ int dbi_Sqlite3_Fetch(
 	enum switchesIdx {
 		Nullvalue,
 	};
-	if (dbdata->result == NULL) {
+	if (dbdata->nfields == -1) {
 		Tcl_AppendResult(interp, "no result available: invoke exec method with -usefetch option first", NULL);
 		return TCL_ERROR;
 	}
@@ -772,12 +778,10 @@ int dbi_Sqlite3_Fetch(
 	 * result info
 	 * -----------
 	 */
-	error = Tcl_ListObjGetElements(interp,dbdata->result,&(dbdata->ntuples),&(dbdata->resultlines));
-	if (error) return TCL_ERROR;
 	switch (fetch_option) {
 		case Lines:
-			Tcl_SetObjResult(interp,Tcl_NewIntObj(dbdata->ntuples));
-			return TCL_OK;
+			Tcl_AppendResult(interp,"dbi_sqlite3: fetch lines not supported", NULL);
+			return TCL_ERROR;
 		case Fields:
 			if (dbdata->resultfields != NULL) {
 				Tcl_SetObjResult(interp,dbdata->resultfields);
@@ -792,10 +796,33 @@ int dbi_Sqlite3_Fetch(
 	 * ----------
 	 */
 	if (ituple == -1) {
-		ituple = ++(dbdata->tuple);
+		ituple = dbdata->tuple+1;
+		if (dbdata->tuple == -1) {dbdata->tuple = 0;}
+	} else {
+		if (dbdata->tuple == -1) {dbdata->tuple = 0;}
 	}
-	if (ituple > dbdata->ntuples) {
+	if ((dbdata->ntuples != -1)&&(ituple >= dbdata->ntuples)) {
 		goto out_of_position;
+	}
+	if (ituple != dbdata->tuple) {
+		if (ituple < dbdata->tuple) {
+			Tcl_AppendResult(interp,"firebird error: backwards positioning for fetch not supported",NULL);
+			return TCL_ERROR;
+		}
+		while (dbdata->tuple < ituple) {
+			error = sqlite3_step(dbdata->stmt);
+			switch (error) {
+				case SQLITE_DONE:
+					dbdata->ntuples = dbdata->tuple;
+					goto out_of_position;
+				case SQLITE_ROW:
+					break;
+				default:
+					Tcl_AppendResult(interp,"database error fetching data :\n", sqlite3_errmsg(dbdata->db), NULL);
+					return TCL_ERROR;
+			}
+			dbdata->tuple++;		
+		}
 	}
 	if (ifield >= dbdata->nfields) {
 		Tcl_Obj *buffer;
@@ -804,38 +831,22 @@ int dbi_Sqlite3_Fetch(
 		Tcl_DecrRefCount(buffer);
 		return TCL_ERROR;
 	}
-	if (ituple >= dbdata->ntuples) {
-		goto out_of_position;
-	}
-	if (ituple != dbdata->tuple) {dbdata->tuple = ituple;}
 	if (nullvalue == NULL) {
 		nullvalue = dbdata->defnullvalue;
 	}
 	switch (fetch_option) {
 		case Data:
 			if (ifield == -1) {
-				if (nullvalue == dbdata->defnullvalue) {
-					Tcl_SetObjResult(interp, dbdata->resultlines[ituple]);
-				} else {
-					Tcl_Obj *line,**valuev;
-					int valuec,i;
-					error = Tcl_ListObjGetElements(interp,dbdata->resultlines[ituple],&valuec,&valuev);
-					if (error) {return TCL_ERROR;}
-					line = Tcl_NewObj();
-					for(i = 0 ; i < valuec ; i++) {
-						if (valuev[i] == dbdata->defnullvalue) {
-							error = Tcl_ListObjAppendElement(interp,line,nullvalue);
-						} else {
-							error = Tcl_ListObjAppendElement(interp,line,valuev[i]);
-						}
-						if (error) {return TCL_ERROR;}
-					}
-					Tcl_SetObjResult(interp, line);
+				error = dbi_Sqlite3_getrow(interp,dbdata->stmt,nullvalue,&line);
+				if (error) {
+					Tcl_AppendResult(interp, "some error ", NULL);
+					return TCL_ERROR;
 				}
+				Tcl_SetObjResult(interp, line);
 			} else {
-				error = Tcl_ListObjIndex(interp,dbdata->resultlines[ituple],ifield,&element);
+				error = dbi_Sqlite3_getresultfield(interp,dbdata->stmt,ifield,&element);
 				if (error) {return TCL_ERROR;}
-				if (element == dbdata->defnullvalue) {
+				if (element == NULL) {
 					Tcl_SetObjResult(interp, nullvalue);
 				} else {
 					Tcl_SetObjResult(interp, element);
@@ -843,9 +854,9 @@ int dbi_Sqlite3_Fetch(
 			}
 			break;
 		case Isnull:
-			error = Tcl_ListObjIndex(interp,dbdata->resultlines[ituple],ifield,&element);
+			error = dbi_Sqlite3_getresultfield(interp,dbdata->stmt,ifield,&element);
 			if (error) {return TCL_ERROR;}
-			if (element == dbdata->defnullvalue) {
+			if (element == NULL) {
 				Tcl_SetObjResult(interp,Tcl_NewIntObj(1));
 			} else {
 				Tcl_SetObjResult(interp,Tcl_NewIntObj(0));
@@ -858,7 +869,12 @@ int dbi_Sqlite3_Fetch(
 			if (dbdata->resultfields == NULL) {
 				return TCL_OK;
 			}
-			error = Tcl_ListObjGetElements(interp,dbdata->resultlines[ituple],&valuec,&valuev);
+			error = dbi_Sqlite3_getrow(interp,dbdata->stmt,nullvalue,&line);
+			if (error) {
+				Tcl_AppendResult(interp, "some error ", NULL);
+				return TCL_ERROR;
+			}
+			error = Tcl_ListObjGetElements(interp,line,&valuec,&valuev);
 			if (error) {return TCL_ERROR;}
 			error = Tcl_ListObjGetElements(interp,dbdata->resultfields,&fieldc,&fieldv);
 			if (error) {return TCL_ERROR;}
@@ -881,7 +897,7 @@ int dbi_Sqlite3_Fetch(
 	out_of_position:
 		{
 		Tcl_Obj *buffer;
-		buffer = Tcl_NewIntObj(dbdata->ntuples);
+		buffer = Tcl_NewIntObj(dbdata->ntuples+1);
 		Tcl_AppendResult(interp, "line ",Tcl_GetStringFromObj(buffer,NULL) ," out of range", NULL);
 		Tcl_DecrRefCount(buffer);
 		return TCL_ERROR;
@@ -958,7 +974,7 @@ int dbi_Sqlite3_getcolnames(
 	dbdata->resultfields = line;
 	dbdata->nfields = numcols;
 	Tcl_IncrRefCount(dbdata->resultfields);
-	dbdata->ntuples = 0;
+	dbdata->ntuples = -1;
 	return TCL_OK;
 }
 
@@ -966,14 +982,22 @@ int dbi_Sqlite3_ClearResult(
 	dbi_Sqlite3_Data *dbdata
 )
 {
+	int i;
+	for (i = 0 ; i < dbdata->clonesnum; i++) {
+		dbi_Sqlite3_ClearResult(dbdata->clones[i]);
+	}
+	dbdata->nfields = -1;
 	if (dbdata->result != NULL) {
 		Tcl_DecrRefCount(dbdata->result);
 		dbdata->result = NULL;
 	}
 	if (dbdata->stmt != NULL) {
-		if (!(dbdata->cached)) {sqlite3_finalize(dbdata->stmt);}
-		dbdata->stmt = NULL;
-		dbdata->cached = 0;
+		if (!(dbdata->cached)) {
+			sqlite3_finalize(dbdata->stmt);
+			dbdata->stmt = NULL;
+		} else {
+			sqlite3_reset(dbdata->stmt);	sqlite3_clear_bindings(dbdata->stmt);
+		}
 	}
 	if (dbdata->resultfields != NULL) {
 		Tcl_DecrRefCount(dbdata->resultfields);
@@ -1650,10 +1674,19 @@ int dbi_Sqlite3_Exec(
 		case SQLITE_DONE:
 			cols = sqlite3_column_count(stmt);
 			changes = sqlite3_changes(dbdata->db);
-			result = Tcl_NewListObj(0,NULL);
 			break;
 		case SQLITE_ROW:
 			cols = sqlite3_column_count(stmt);
+			break;
+		default:
+			Tcl_AppendResult(interp,"database error executing command \"",
+				cmdstring, "\":\n",	sqlite3_errmsg(dbdata->db), NULL);
+			goto error;
+	}
+	dbdata->stmt = stmt;
+	dbdata->cached = cache;
+	if (!usefetch) {
+		if (cols != 0) {
 			result = Tcl_NewListObj(0,NULL);
 			while (error == SQLITE_ROW) {
 				error = dbi_Sqlite3_getrow(interp,stmt,dbdata->nullvalue,&line);
@@ -1675,14 +1708,6 @@ int dbi_Sqlite3_Exec(
 			if (error != SQLITE_DONE) {
 				goto error;
 			}
-			break;
-		default:
-			Tcl_AppendResult(interp,"database error executing command \"",
-				cmdstring, "\":\n",	sqlite3_errmsg(dbdata->db), NULL);
-			goto error;
-	}
-	if (!usefetch) {
-		if (cols != 0) {
 			Tcl_SetObjResult(interp,result);
 			result = NULL;
 		} else if (changes != -1) {
@@ -1690,24 +1715,12 @@ int dbi_Sqlite3_Exec(
 			dbdata->tuple = -1;
 		}
 		dbi_Sqlite3_ClearResult(dbdata);
-		if (stmt) {
-			if (!cache) {
-				sqlite3_finalize(stmt);
-			} else {
-				sqlite3_reset(stmt);	sqlite3_clear_bindings(stmt);
-			}
-		}
 	} else {
-		dbdata->result = result;
-		result = NULL;
 		dbdata->tuple = -1;
-		dbdata->cached = cache;
-		dbdata->stmt = stmt;
 		error2 = dbi_Sqlite3_getcolnames(interp,dbdata);
 		if (error2) {goto error;}
 	}
 	if (stmt2) {sqlite3_finalize(stmt2);}
-	if (result != NULL) {Tcl_DecrRefCount(result);}
 	return TCL_OK;
 	error:
 		if (toclose) {
@@ -1724,7 +1737,7 @@ int dbi_Sqlite3_Exec(
 		}
 		if (stmt2) {sqlite3_finalize(stmt2);}
 		if (result != NULL) {Tcl_DecrRefCount(result);}
-		/* dbi_Sqlite3_ClearResult(dbdata); */
+		dbi_Sqlite3_ClearResult(dbdata);
 		return TCL_ERROR;
 }
 
@@ -1739,7 +1752,7 @@ int dbi_Sqlite3_Supports(
 		"columnperm","roles","domains","permissions",
 		(char *) NULL};
 	static CONST int supports[] = {
-		1,1,1,1,0,0,
+		0,0,1,1,0,0,
 		1,1,1,1,1,
 		0,0,0,0};
 	enum keywordsIdx {
@@ -2253,6 +2266,7 @@ int Dbi_sqlite3_DbObjCmd(
 			Tcl_AppendResult(interp,"dbi object has no open database, open a connection first", NULL);
 			return error;
 		}
+		dbi_Sqlite3_ClearResult(dbdata);
 		error = dbi_Sqlite3_Transaction_Commit(interp,dbdata,1);
 		if (error) {sqlite3_free(dbdata->errormsg); dbdata->errormsg=NULL;}
 		error = dbi_Sqlite3_Transaction_Start(interp,dbdata);
@@ -2267,6 +2281,7 @@ int Dbi_sqlite3_DbObjCmd(
 			Tcl_AppendResult(interp,"dbi object has no open database, open a connection first", NULL);
 			return error;
 		}
+		dbi_Sqlite3_ClearResult(dbdata);
 		error = dbi_Sqlite3_Transaction_Commit(interp,dbdata,1);
 		if (error) {dbi_Sqlite3_Error(interp,dbdata,"committing transaction");return error;}
 		return TCL_OK;
@@ -2279,6 +2294,7 @@ int Dbi_sqlite3_DbObjCmd(
 			Tcl_AppendResult(interp,"dbi object has no open database, open a connection first", NULL);
 			return error;
 		}
+		dbi_Sqlite3_ClearResult(dbdata);
 		error = dbi_Sqlite3_Transaction_Rollback(interp,dbdata);
 		if (error) {dbi_Sqlite3_Error(interp,dbdata,"rolling back transaction");return error;}
 		return TCL_OK;
@@ -2636,6 +2652,7 @@ int Dbi_sqlite3_DoNewDbObjCmd(
 	dbdata->pCollate = NULL;
 	dbdata->zProgress = NULL;
 	dbdata->pIncrblob = NULL;
+	dbdata->nfields = -1;
 	if (dbi_nameObj == NULL) {
 		dbi_num++;
 		sprintf(buffer,"::dbi::sqlite3::dbi%d",dbi_num);
