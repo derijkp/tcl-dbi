@@ -91,6 +91,7 @@ int dbi_Sqlite3_Import(
     char *zConflict;            /* The conflict algorithm to use */
     sqlite3_stmt *pStmt;        /* A statement */
     int nCol;                   /* Number of columns in the table */
+    int aCol;                   /* actual number of cols in line */
     int nByte;                  /* Number of bytes in an SQL string */
     int i, j;                   /* Loop counters */
     int nSep;                   /* Number of bytes in zSep[] */
@@ -265,7 +266,8 @@ int dbi_Sqlite3_Import(
           }
         }
       }
-      if( i+1!=nCol ){
+      aCol = i+1;
+      if( i+1>nCol ){
         char *zErr;
         int nErr = strlen30(zFile) + 200;
         zErr = malloc(nErr);
@@ -281,7 +283,7 @@ int dbi_Sqlite3_Import(
       }
       for(i=0; i<nCol; i++){
         /* check for null data, if so, bind as null */
-        if( (nNull>0 && strcmp(azCol[i], zNull)==0)
+        if( i >= aCol || (nNull>0 && strcmp(azCol[i], zNull)==0)
           || strlen30(azCol[i])==0 
         ){
           sqlite3_bind_null(pStmt, i+1);

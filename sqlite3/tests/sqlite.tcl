@@ -386,7 +386,7 @@ interface::test {import} {
 	set result [$object exec {select * from csv}]
 	$object exec {drop table csv}
 	set result
-} {{1 2} {3 4}}
+} {{1 2} {3 4} {5 {}} {6 7}}
 
 interface::test {import error} {
 	catch {$object exec {drop table csv}}
@@ -404,7 +404,7 @@ interface::test {import header} {
 	set result [$object exec {select * from csv}]
 	$object exec {drop table csv}
 	set result
-} {{2 1} {4 3}}
+} {{2 1} {4 3} {{} 5} {7 6}}
 
 interface::test {import header} {
 	catch {$object exec {drop table csv}}
