@@ -1143,16 +1143,6 @@ int dbi_Firebird_Fetch(
 	if ((dbdata->ntuples != -1)&&(ituple > dbdata->ntuples)) {
 		goto out_of_position;
 	}
-	if (ifield >= nfields) {
-		Tcl_Obj *buffer;
-		buffer = Tcl_NewIntObj(ifield);
-		Tcl_AppendResult(interp, "field ",Tcl_GetStringFromObj(buffer,NULL) ," out of range", NULL);
-		Tcl_DecrRefCount(buffer);
-		return TCL_ERROR;
-	}
-	if ((dbdata->ntuples != -1)&&(ituple >= dbdata->ntuples)) {
-		goto out_of_position;
-	}
 	/* move to the requested line */
 	if (ituple != dbdata->tuple) {
 		if (ituple < dbdata->tuple) {
@@ -1164,6 +1154,13 @@ int dbi_Firebird_Fetch(
 			if (fetch_stat) {dbdata->ntuples = dbdata->tuple;goto out_of_position;}
 			dbdata->tuple++;		
 		}
+	}
+	if (ifield >= nfields) {
+		Tcl_Obj *buffer;
+		buffer = Tcl_NewIntObj(ifield);
+		Tcl_AppendResult(interp, "field ",Tcl_GetStringFromObj(buffer,NULL) ," out of range", NULL);
+		Tcl_DecrRefCount(buffer);
+		return TCL_ERROR;
 	}
 	if (nullvalue == NULL) {
 		nullvalue = dbdata->defnullvalue;
