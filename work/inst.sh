@@ -1,25 +1,42 @@
 #!/bin/sh
+set -ex
 
 # $Format: "export version=$ProjectMajorVersion$.$ProjectMinorVersion$.$ProjectPatchLevel$"$
 export version=1.0.0
-
-# quick install (lib only)
-rm -rf /home/peter/build/tca/Windows-intel/exts/dbi$version
-rm -rf /home/peter/build/tca/Windows-intel/exts/dbi$version/lib
-cp -r /home/peter/build/tca/Linux-i686/exts/dbi$version/lib /home/peter/build/tca/Windows-intel/exts/dbi$version/
+name=dbi
 
 # full compile and install linux
-cd /home/peter/dev/dbi/Linux-i686
-make distclean
-../configure --prefix=/home/peter/tcl/dirtcl
-make
-rm -rf /home/peter/build/tca/Linux-i686/exts/dbi$version
-/home/peter/dev/dbi/build/install.tcl /home/peter/build/tca/Linux-i686/exts
+echo "---------- Full install Linux-i686 to tca ----------"
+mkdir -p $HOME/dev/${name}/linux-ix86
+cd $HOME/dev/${name}/linux-ix86
+. $HOME/mybin/cross-compat-i686.sh
+../build/version.tcl
+make distclean || true
+PATH=$CROSSNBIN:$PATH ../configure --prefix=$DIRTCL
+PATH=$CROSSNBIN:$PATH make
+rm -rf $HOME/build/tca/Linux-i686/exts/${name}$version
+$HOME/tcl/dirtcl-i686/tclsh $HOME/dev/${name}/build/install.tcl $HOME/build/tca/Linux-i686/exts
+
+# full compile and install linux 64bit
+echo "---------- Full install Linux-x86_64 to tca ----------"
+mkdir -p $HOME/dev/${name}/linux-x86_64
+cd $HOME/dev/${name}/linux-x86_64
+. $HOME/mybin/cross-compat-x86_64.sh
+../build/version.tcl
+make distclean || true
+PATH=$CROSSNBIN:$PATH ../configure --prefix=$DIRTCL
+PATH=$CROSSNBIN:$PATH make
+rm -rf $HOME/build/tca/Linux-x86_64/exts/${name}$version
+$HOME/tcl/dirtcl-x86_64/tclsh $HOME/dev/${name}/build/install.tcl $HOME/build/tca/Linux-x86_64/exts
 
 # full cross-compile and install windows
-cd /home/peter/dev/dbi/windows-intel
-make distclean
-cross-bconfigure.sh --prefix=/home/peter/tcl/win-dirtcl
-cross-make.sh
-rm -rf /home/peter/build/tca/Windows-intel/exts/dbi$version
-wine /home/peter/build/tca/Windows-intel/tclsh84.exe /home/peter/dev/dbi/build/install.tcl /home/peter/build/tca/Windows-intel/exts
+echo "---------- Full install windows-intel to tca ----------"
+mkdir -p $HOME/dev/${name}/win32-ix86
+cd $HOME/dev/${name}/win32-ix86
+. $HOME/mybin/cross-compat-i686-pc-mingw32.sh
+../build/version.tcl
+make distclean || true
+PATH=$CROSSBIN:$PATH ../configure --prefix=$DIRTCL --host=$HOST --build=i386-linux
+PATH=$CROSSBIN:$PATH make
+rm -rf $HOME/build/tca/Windows-intel/exts/${name}$version
+wintclsh z:$HOME/dev/${name}/build/install.tcl z:$HOME/build/tca/Windows-intel/exts
