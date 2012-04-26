@@ -13,6 +13,9 @@
 #include <time.h>
 #include "dbi_sqlite.h"
 
+/* #define DEBUG 1 */
+#include "debug.h"
+
 int dbi_Sqlite3_getresultfield(
 	Tcl_Interp *interp,
 	sqlite3_stmt *stmt,
@@ -986,6 +989,7 @@ int dbi_Sqlite3_ClearResult(
 	for (i = 0 ; i < dbdata->clonesnum; i++) {
 		dbi_Sqlite3_ClearResult(dbdata->clones[i]);
 	}
+	DPRINT("dbi_Sqlite3_ClearResult cached=%d stmt=%d",dbdata->cached,dbdata->stmt);
 	dbdata->nfields = -1;
 	if (dbdata->result != NULL) {
 		Tcl_DecrRefCount(dbdata->result);
@@ -1720,7 +1724,10 @@ int dbi_Sqlite3_Exec(
 		error2 = dbi_Sqlite3_getcolnames(interp,dbdata);
 		if (error2) {goto error;}
 	}
-	if (stmt2) {sqlite3_finalize(stmt2);}
+	if (stmt2) {
+		DPRINT("dbi_Sqlite3_Exec stmt2 stmt=%d",stmt2);
+		sqlite3_finalize(stmt2);
+	}
 	return TCL_OK;
 	error:
 		if (toclose) {
@@ -1729,13 +1736,17 @@ int dbi_Sqlite3_Exec(
 		}
 		if (entry != NULL) {Tcl_DeleteHashEntry(entry);}
 		if (stmt) {
+			DPRINT("dbi_Sqlite3_Exec error stmt cach=%d stmt=%d",cache,stmt);
 			if (!cache) {
 				sqlite3_finalize(stmt);
 			} else {
 				sqlite3_reset(stmt);	sqlite3_clear_bindings(stmt);
 			}
 		}
-		if (stmt2) {sqlite3_finalize(stmt2);}
+		if (stmt2) {
+			DPRINT("dbi_Sqlite3_Exec error stmt2 stmt=%d",stmt2);
+			sqlite3_finalize(stmt2);
+		}
 		if (result != NULL) {Tcl_DecrRefCount(result);}
 		dbi_Sqlite3_ClearResult(dbdata);
 		return TCL_ERROR;
@@ -1951,7 +1962,12 @@ int dbi_Sqlite3_Clearcache(
 	entry = Tcl_FirstHashEntry(&(dbdata->preparedhash),&search);
 	while (entry != NULL) {
 		stmt = (sqlite3_stmt *)Tcl_GetHashValue(entry);
-		if (stmt != NULL) sqlite3_finalize(stmt);
+		if (stmt != NULL) {
+			if (!dbdata->cached || dbdata->stmt != stmt) {
+				DPRINT("dbi_Sqlite3_Clearcache stmt=%d",stmt);
+				sqlite3_finalize(stmt);
+			}
+		}
 		entry = Tcl_NextHashEntry(&search);
 	}
 	Tcl_DeleteHashTable(&(dbdata->preparedhash));
