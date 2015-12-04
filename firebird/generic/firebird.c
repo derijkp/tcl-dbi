@@ -530,38 +530,49 @@ int dbi_Firebird_Fill_in_sqlda(
 				var->sqllen = (short)size;
 				break;
 			case SQL_SHORT:
-				error = Tcl_GetIntFromObj(interp,objv[ipos],&temp);
-				if (error) {goto error;}
 				if (var->sqlscale < 0) {
+					double temp;
 					ISC_INT64 tens;
+					error = Tcl_GetDoubleFromObj(interp,objv[ipos],&temp);
+					if (error) {goto error;}
 					short i;
 					tens = 1;
 					for (i = 0; i > var->sqlscale; i--) tens *= 10;
 					*(short *)var->sqldata = (short)(temp*tens);
 				} else if (var->sqlscale > 1) {
+					int temp;
+					error = Tcl_GetIntFromObj(interp,objv[ipos],&temp);
+					if (error) {goto error;}
 					*(short *)var->sqldata = (short)(temp/var->sqlscale);
 				} else {
+					int temp;
+					error = Tcl_GetIntFromObj(interp,objv[ipos],&temp);
+					if (error) {goto error;}
 					*(short *)var->sqldata = (short)temp;
 				}
 				break;
 			case SQL_LONG:
-				error = Tcl_GetIntFromObj(interp,objv[ipos],&temp);
-				*(long *)(var->sqldata) = (long)temp;
-				if (error) {goto error;}
 				if (var->sqlscale < 0) {
+					double temp;
 					ISC_INT64 tens;
+					error = Tcl_GetDoubleFromObj(interp,objv[ipos],&temp);
+					if (error) {goto error;}
 					short i;
 					tens = 1;
 					for (i = 0; i > var->sqlscale; i--) tens *= 10;
 					*(long *)var->sqldata = (long)(temp*tens);
 				} else if (var->sqlscale > 1) {
+					int temp;
+					error = Tcl_GetIntFromObj(interp,objv[ipos],&temp);
 					*(long *)var->sqldata = (long)(temp/var->sqlscale);
 				} else {
+					int temp;
+					error = Tcl_GetIntFromObj(interp,objv[ipos],&temp);
+					if (error) {goto error;}
 					*(long *)var->sqldata = (long)temp;
 				}
 				break;
 			case SQL_INT64:
-				break;
 				{
 				double temp;
 				error = Tcl_GetDoubleFromObj(interp,objv[ipos],&temp);
@@ -571,9 +582,10 @@ int dbi_Firebird_Fill_in_sqlda(
 					short i;
 					tens = 1;
 					for (i = 0; i > var->sqlscale; i--) tens *= 10;
-					*(ISC_INT64 *)var->sqldata = (ISC_INT64)temp*(ISC_INT64)tens;
+					tens = (ISC_INT64)(temp*tens);
+					*(ISC_INT64 *)var->sqldata = tens;
 				} else if (var->sqlscale > 1) {
-					*(ISC_INT64 *)var->sqldata = (ISC_INT64)temp/(ISC_INT64)var->sqlscale;
+					*(ISC_INT64 *)var->sqldata = (ISC_INT64)(temp/var->sqlscale);
 				} else {
 					*(ISC_INT64 *)var->sqldata = (ISC_INT64)temp;
 				}
@@ -821,10 +833,10 @@ int dbi_Firebird_Fetch_One(
 				}
 				dscale = var->sqlscale;
 				if (dscale < 0) {
-					ISC_INT64 tens;
+					double tens;
 					short i;
 					tens = 1;
-					for (i = 0; i > dscale; i--) tens *= 10;
+					for (i = 0; i > dscale; i--) tens *= 10.0;
 					element = Tcl_NewDoubleObj(value/tens);
 				} else if (dscale > 1) {
 					element = Tcl_NewIntObj(value*dscale);

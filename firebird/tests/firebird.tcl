@@ -274,6 +274,27 @@ interface::test {info dependencies} {
 	$object info domain testdomain
 } {varchar(10) nullable}
 
+interface::test {DECIMAL type} {
+	$object exec {drop table "test"}
+	$object exec {
+		create table "test" (
+			"id" integer not null primary key,
+			"dec" decimal(9,4),
+			"dec2" decimal(18,4)
+		)
+	}
+	$object exec {
+		insert into "test"("id","dec","dec2") values(1,1.5,2.89)
+	}
+	$object exec {
+		insert into "test"("id","dec","dec2") values(2,1.34543,1234.5678)
+	}
+	$object exec {
+		insert into "test"("id","dec","dec2") values(3,?,?)
+	} 18.9 1.58
+	$object exec {select * from "test"}
+} {{1 1.5 2.89} {2 1.3454 1234.5678} {3 18.8999 1.58}}
+
 $object destroy
 $object2 destroy
 
