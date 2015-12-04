@@ -39,7 +39,7 @@ AC_DEFUN(SC_FIREBIRD_INCLUDE, [
 	    else
 		# Check in the includedir, if --prefix was specified
 		eval "temp_includedir=${includedir}"
-		for i in  `ls -d ${temp_includedir} 2>/dev/null`  /usr/local/include /usr/include "/Program Files/Firebird/include /usr/lib/firebird2/lib"; do
+		for i in  `ls -d ${temp_includedir} 2>/dev/null`  /usr/local/include /usr/include "/Program Files/Firebird/include /usr/lib/firebird2/lib /opt/firebird/include"; do
 		    if test -f "$i/ibase.h" ; then
 				ac_cv_c_firebirdinclude=$i
 				break
@@ -99,7 +99,7 @@ AC_DEFUN(SC_FIREBIRD_LIB, [
 	    else
 		# Check in the libdir, if --prefix was specified
 		eval "temp_libdir=${libdir}"
-		for i in  `ls -d ${temp_libdir} 2>/dev/null`  /usr/local/lib /usr/lib "/Program Files/Firebird/lib /usr/lib/firebird2/include" ; do
+		for i in  `ls -d ${temp_libdir} 2>/dev/null`  /usr/local/lib /usr/lib "/Program Files/Firebird/lib /usr/lib/firebird2/include /opt/firebird/lib" ; do
 		    if test -f "$i/libfbclient.so" ; then
 				ac_cv_c_firebird=$i
 				break

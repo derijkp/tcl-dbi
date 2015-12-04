@@ -3106,6 +3106,7 @@ AC_DEFUN([TEA_SETUP_COMPILER_CC], [
 
     AC_PROG_CC
     AC_PROG_CPP
+    AC_PROG_CXX
 
     #--------------------------------------------------------------------
     # Checks to see if the make program sets the $MAKE variable.
