@@ -3,6 +3,8 @@
 exec tclsh "$0" "$@"
 puts "source [info script]"
 
+set testdb localhost:/home/firebird/testdbi.gdb
+
 set f [open ~/.password]
 array set config_pw [split [read $f] "\n\t "]
 close $f
@@ -18,10 +20,10 @@ set object [dbi_firebird]
 set object2 [dbi_firebird]
 
 #interface test dbi_admin-$version $object \
-#	-testdb /home/ib/testdbi.gdb
+#	-testdb /home/firebird/testdbi.gdb
 # cs
 interface test dbi_admin-$version $object \
-	-testdb localhost:/home/ib/testdbi.gdb \
+	-testdb $testdb \
 	-openargs [list -user test -password $config_pw(test)]
 
 interface::test {destroy without opening a database} {
@@ -31,13 +33,13 @@ interface::test {destroy without opening a database} {
 } 1
 
 #array set opt [subst {
-#	-testdb /home/ib/testdbi.gdb
+#	-testdb /home/firebird/testdbi.gdb
 #	-user2 PDR
 #	-object2 $object2
 #}]
 # cs
 array set opt [subst {
-	-testdb localhost:/home/ib/testdbi.gdb
+	-testdb $testdb
 	-openargs {-user test -password $config_pw(test)}
 	-user2 test2
 	-object2 $object2
@@ -265,17 +267,19 @@ interface::test {info dependencies} {
 		select "score" from "test"
 	}
 	set result [$object info dependencies test]
-	lrange $result 0 8
-} {{score computed_field *} {score trigger CHECK_*} {score trigger CHECK_*} {score trigger CHECK_*} {score2 trigger CHECK_*} {score trigger CHECK_*} {score2 trigger CHECK_*} {score trigger TEST_INSERT} {{} view vtest}} match
+	lrange [lsort $result] 0 9
+} {{score computed_field *} {score trigger CHECK_*} {score trigger CHECK_*} {score trigger CHECK_*} {score trigger CHECK_*} {score trigger TEST_INSERT} {score view vtest} {score2 trigger CHECK_*} {score2 trigger CHECK_*}} match
 
 interface::test {info dependencies} {
-	catch {drop domain "testdomain"}
+	catch {$object exec {drop domain "testdomain"}} msg
 	$object exec {create domain "testdomain" varchar(10)}
 	$object info domain testdomain
 } {varchar(10) nullable}
 
 interface::test {DECIMAL type} {
-	$object exec {drop table "test"}
+	catch {$object exec {drop view "vtest"}}
+	catch {$object exec {drop table "test"}}
+	catch {$object exec {drop exception test_except}}
 	$object exec {
 		create table "test" (
 			"id" integer not null primary key,
