@@ -1,4 +1,3 @@
-/* $Format: "#define DBI_VERSION \"$ProjectMajorVersion$.$ProjectMinorVersion$\""$ */
 #define DBI_VERSION "1.0"
 
 #define DONT_TD_VOID

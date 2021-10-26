@@ -1,4 +1,3 @@
-/* $Format: "#define DBI_VERSION \"$ProjectMajorVersion$.$ProjectMinorVersion$.$ProjectPatchLevel$\""$ */
 #define DBI_VERSION "1.0.0"
 
 #include <sqlite.h>
