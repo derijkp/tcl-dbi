@@ -74,21 +74,28 @@ mkdir ~/tmp
 cd ~/tmp
 
 # required libs
-sudo yum install epel-release -y
+# sudo yum install epel-release -y
 sudo yum install -y libtommath
+sudo yum install -y libtomcrypt
 sudo yum install -y icu
 
 cd ~/tmp
-wget https://github.com/FirebirdSQL/firebird/releases/download/v4.0.0/Firebird-4.0.0.2496-0.amd64.tar.gz
-tar xvzf Firebird-4.0.0.2496-0.amd64.tar.gz
-cd ~/tmp/Firebird-4.0.0.2496-0.amd64
+if [ "$bits" = '32' ] ; then
+	wget https://github.com/FirebirdSQL/firebird/releases/download/v4.0.0/Firebird-4.0.0.2496-0.i686.tar.gz
+	tar xvzf Firebird-4.0.0.2496-0.i686.tar.gz
+	cd ~/tmp/Firebird-4.0.0.2496-0.i686
+else
+	wget https://github.com/FirebirdSQL/firebird/releases/download/v4.0.0/Firebird-4.0.0.2496-0.amd64.tar.gz
+	tar xvzf Firebird-4.0.0.2496-0.amd64.tar.gz
+	cd ~/tmp/Firebird-4.0.0.2496-0.amd64
+fi
 
 # remove search for libncurses in install.sh (gives error, but works without)
 mv install.sh install.sh.ori
 grep -v LIBCURSES install.sh.ori > install.sh
 chmod u+x install.sh
 
-echo $'\n' | sudo ./install.sh
+echo $'\n' | sudo ./install.sh || true
 
 
 # Build
