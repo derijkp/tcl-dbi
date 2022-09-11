@@ -3105,6 +3105,7 @@ AC_DEFUN([TEA_SETUP_COMPILER_CC], [
     fi
 
     AC_PROG_CC
+    AC_PROG_CXX
     AC_PROG_CPP
 
     #--------------------------------------------------------------------
