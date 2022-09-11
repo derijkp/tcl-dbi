@@ -7,7 +7,7 @@
 # script is sourced, the variable $dir must contain the
 # full path name of this file's directory.
 
-package ifneeded dbi_firebird 2.0 \
+package ifneeded dbi_firebird 2.1 \
 [subst -nocommands {
 	namespace eval ::dbi {}
 	namespace eval ::dbi::firebird {}

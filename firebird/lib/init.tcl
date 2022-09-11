@@ -5,14 +5,18 @@
 
 namespace eval dbi::firebird {}
 
-set ::dbi::firebird::version 2.0
+set ::dbi::firebird::version 2.1
 set ::dbi::firebird::patchlevel 0
 package provide dbi_firebird $::dbi::firebird::version
 
 package require pkgtools
 pkgtools::init $dbi::firebird::dir dbi_firebird
 
-array set ::dbi::firebird::typetrans {261 blob 14 char 40 cstring 11 d_float 27 double 10 float 16 int64 8 integer 9 quad 7 smallint 12 date 13 time 35 timestamp 37 varchar}
+array set ::dbi::firebird::typetrans {
+	7 smallint 8 integer 9 quad 10 float 11 d_float 12 date 13 time 14 char 16 int64 
+	23 boolean 24 decfloat16 25 decfloat34 26 int128 27 double 28 time_w_zone 29 timestamp_w_zone
+	35 timestamp 37 varchar 40 cstring 261 blob
+}
 
 #
 # Procs

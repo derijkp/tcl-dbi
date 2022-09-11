@@ -8,4 +8,4 @@ namespace eval ::dbi {}
 namespace eval ::dbi::firebird {}
 set ::dbi::firebird::dir $dir
 source [file join $dir lib init.tcl]
-extension provide dbi_firebird 2.0.0
+extension provide dbi_firebird 2.1.0
