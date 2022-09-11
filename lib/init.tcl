@@ -19,6 +19,13 @@ namespace eval ::interface {}
 
 lappend auto_path [file join $::dbi::dir lib]
 lappend auto_path $dbi::dir
+proc dbi::init {} {
+	foreach file [glob $::dbi::dir/*/pkgIndex.tcl] {
+		set dir [file dir $file]
+		source $file
+	}
+}
+dbi::init
 
 proc dbi::info {item} {
 	switch $item {

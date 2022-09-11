@@ -32,7 +32,7 @@ interface::test {interface list} {
 dbi::setup
 
 # -------------------------------------------------------
-# 							Tests
+# Tests
 # -------------------------------------------------------
 interface::test {open and close} {
 	if {![::info exists opt(-openargs)]} {set opt(-openargs) {}}
@@ -377,10 +377,10 @@ interface::test {parameters with 6 quotes} {
 interface::test {check} {
 	catch {$object exec {delete from "useof"}}
 	set result [catch {
-		$object exec {insert into "useof"("id","person","score") values (1,"pdr",21)}
+		$object exec {insert into "useof"("id","person","score") values (1,'pdr',21)}
 	} temp]
 	lappend result [catch {
-		$object exec {insert into "useof"("id","person","score") values (1,"pdr",19)}
+		$object exec {insert into "useof"("id","person","score") values (1,'pdr',19)}
 	} temp]
 	lappend result [catch {
 		$object exec {update "useof" set "score2" = 21 where "id" = 1}
@@ -965,8 +965,12 @@ if {[$object supports roles]} {
 }
 
 interface::test {info roles} {
-	$object info roles
-} {test try} {skipon {![$object supports roles]}}
+	set roles [$object info roles]
+	foreach role {test try} {
+		if {[lsearch $roles $role] == -1} {error "role $role should be present"}
+	}
+	set a {}
+} {} {skipon {![$object supports roles]}}
 
 if {[$object supports roles]} {
 	catch {$object exec "grant \"test\" to [$object info user]"}
