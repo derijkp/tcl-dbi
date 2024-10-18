@@ -21,7 +21,7 @@ set -e
 
 script="$(readlink -f "$0")"
 dir="$(dirname "$script")"
-source "${dir}/start_hbb3.sh"
+source "${dir}/start_hbb.sh"
 
 # Parse arguments
 # ===============
@@ -51,6 +51,10 @@ set -x
 
 # set up environment
 # ------------------
+yuminstall devtoolset-9
+## use source instead of scl enable so it can run in a script
+## scl enable devtoolset-9 bash
+source /opt/rh/devtoolset-9/enable
 
 sudo yum install -y wget
 
@@ -67,62 +71,46 @@ destdir=$dirtcldir/exts
 #ln -sf $dirtcldir/tclsh8.6 tclsh
 PATH=$dirtcldir:$PATH
 
-# firebird
-# --------
-
-mkdir ~/tmp
-cd ~/tmp
-
-# required libs
-# sudo yum install epel-release -y
-sudo yum install -y libtommath
-sudo yum install -y libtomcrypt
-sudo yum install -y icu
-
-firebirdversion=5.0.1
-firebirdurl=https://github.com/FirebirdSQL/firebird/releases/download/v5.0.1/Firebird-5.0.1.1469-0-linux-x64.tar.gz
-
-
-cd ~/tmp
-if [ "$bits" = '32' ] ; then
-	# wget https://github.com/FirebirdSQL/firebird/releases/download/v4.0.0/Firebird-4.0.0.2496-0.i686.tar.gz
-	wget https://github.com/FirebirdSQL/firebird/releases/download/v5.0.1/Firebird-5.0.1.1469-0-linux-x86.tar.gz
-	tar xvzf Firebird-5.0.1.1469-0-linux-x86.tar.gz
-	cd ~/tmp/Firebird-5.0.1.1469-0-linux-x86
-else
-	# wget https://github.com/FirebirdSQL/firebird/releases/download/v4.0.0/Firebird-4.0.0.2496-0.amd64.tar.gz
-	wget https://github.com/FirebirdSQL/firebird/releases/download/v5.0.1/Firebird-5.0.1.1469-0-linux-x64.tar.gz
-	tar xvzf Firebird-5.0.1.1469-0-linux-x64.tar.gz
-	cd ~/tmp/Firebird-5.0.1.1469-0-linux-x64
-fi
-
-# remove search for libncurses in install.sh (gives error, but works without)
-mv install.sh install.sh.ori
-grep -v LIBCURSES install.sh.ori > install.sh
-chmod u+x install.sh
-
-echo $'\n' | sudo ./install.sh || true
-
 # Build
 # -----
 
+# sqlite3
+# -------
+
+cd /build
+wget https://www.sqlite.org/2024/sqlite-amalgamation-3460100.zip
+unzip sqlite-amalgamation-3460100.zip
+wget https://www.sqlite.org/2024/sqlite-autoconf-3460100.tar.gz
+tar xvzf sqlite-autoconf-3460100.tar.gz
+cd /build/sqlite-autoconf-3460100
+make distclean || true
+CFLAGS="-Os -DSQLITE_ENABLE_FTS3=1 -DSQLITE_ENABLE_FTS3_PARENTHESIS=1 -DSQLITE_ENABLE_RTREE=1" \
+    ./configure --enable-shared --enable-static --enable-threadsafe --enable-dynamic-extensions \
+        --prefix="/build/sqlite-3460100-$arch"
+make
+make install
+
 # Compile
-mkdir -p /io/firebird/linux-$arch
-cd /io/firebird/linux-$arch
+mkdir -p /io/sqlite3/linux-$arch
+cd /io/sqlite3/linux-$arch
 ../build/version.tcl
 if [ "$clean" = 1 ] ; then
-	make distclean || true
-	if [ "$debug" = 1 ] ; then
-		../configure --enable-symbols --disable-threads --prefix="$dirtcldir"
-	else
-		../configure --disable-threads --with-firebird=/opt/firebird/lib --prefix="$dirtcldir"
-	fi
+    make distclean || true
+    if [ "$debug" = 1 ] ; then
+        ../configure --enable-symbols --disable-threads \
+            --with-sqlite3include=/build/sqlite-3460100-$arch/include --with-sqlite3=/build/sqlite-3460100-$arch/lib \
+            --prefix="$dirtcldir"
+    else
+        ../configure --disable-threads \
+            --with-sqlite3include=/build/sqlite-3460100-$arch/include --with-sqlite3=/build/sqlite-3460100-$arch/lib \
+            --prefix="$dirtcldir"
+    fi
 fi
 
 # make
 make
 make install
-rm -rf $dirtcldir/exts/dbi_firebird* || true
-mv $dirtcldir/lib/dbi_firebird* $dirtcldir/exts
+rm -rf $dirtcldir/exts/dbi_sqlite* || true
+mv $dirtcldir/lib/dbi_sqlite* $dirtcldir/exts/dbi_sqlite3-1.0.0
 
-echo "Finished building genomecomb extension"
+echo "Finished building dbi_sqlite3 extension in $builddir/dirtcl$tcl_version-$arch/exts/dbi_sqlite3-1.0.0"

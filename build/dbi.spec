@@ -6,7 +6,7 @@ Copyright:	BSD
 Group:	Development/Languages/Tcl
 Source:	dbi-1.0.0.src.tar.gz
 URL: http://tcl-dbi.sourceforge.net/
-Packager: Peter De Rijk <Peter.DeRijk@ua.ac.be>
+Packager: Peter De Rijk <Peter.DeRijk@uantwerpen.be>
 Requires: tcl >= 8.3.2 interface >= 1.0
 Prefix: /usr
 %description
