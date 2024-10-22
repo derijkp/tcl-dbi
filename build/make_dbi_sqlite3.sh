@@ -78,9 +78,8 @@ PATH=$dirtcldir:$PATH
 # -------
 
 cd /build
-wget https://www.sqlite.org/2024/sqlite-amalgamation-3460100.zip
-unzip sqlite-amalgamation-3460100.zip
 wget https://www.sqlite.org/2024/sqlite-autoconf-3460100.tar.gz
+rm -rf /build/sqlite-autoconf-3460100 || true
 tar xvzf sqlite-autoconf-3460100.tar.gz
 cd /build/sqlite-autoconf-3460100
 make distclean || true
