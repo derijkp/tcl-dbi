@@ -1,1 +1,167 @@
-../sqlite3/docs/html/dbi_sqlite3.html
+
+
+<synopsis>
+<syntax><i>dbi_interface</i> ?<b>objectName</b>?</syntax>
+</synopsis>
+
+
+<h2>DESCRIPTION</h2>
+
+<p>
+The <i>dbi_sqlite</i> command creates an object <b>objectName</b> that
+can be used to connect to sqlite databases using its native API. If
+<b>objectName</b> is not provided, a name will be automatically generated
+and returned by the command The object created supports the <ref
+manpage="interface_dbi">dbi interface</ref> for accessing and querying
+databases.
+</p>
+
+<p>
+The object supports transactions, lines, serials, views and checks.
+Foreign keys are accepted, but not checked. sqlite3 dbi objects do not
+support column permissions, roles, domains or permissions, as these are
+not supported by sqlite3.
+</p>
+
+
+<h2>Extra commands supported</h2>
+<dl>
+
+
+<dt><i>objectName</i> <i>function</i> <b>name</b> <b>script</b></dt>
+<dd>Create an Sqlite function with name <b>name</b>. <b>script</b> will be executed
+when the function is called (with parameters apended to it). 
+</dd>
+
+
+
+<dt><i>objectName</i> <i>collate</i> <b>name</b> <b>script</b></dt>
+<dd>Create a new Sqlite collation with name <b>name</b>. <b>script</b> will be executed
+when the collation is used with to strings as parameters. The application defined collation 
+routine should return negative, zero or positive if the first string is less than, equal to, 
+or greater than the second string
+</dd>
+
+
+
+<dt><i>objectName</i> <i>backup</i> <b>?database?</b> <b>filename</b></dt>
+<dd>
+The "backup" method makes a backup copy of a live database. The
+optional <b>database</b> argument tells which database in the current
+connection should be backed up. The default value is main (or, in other
+words, the primary database file). To back up TEMP tables use temp. To
+backup an auxilary database added to the connection using the ATTACH
+command, use the name of that database as it was assigned in the ATTACH
+command. <b>filename</b> is the name of a file into which the backup
+is written. <b>filename</b> does not have to exist ahead of time, but if
+it does, it must be a well-formed SQLite database.
+</dd>
+
+
+
+<dt><i>objectName</i> <i>restore</i> <b>?database?</b> <b>filename</b></dt>
+<dd>
+The "restore" method copies the content a separate database file into the
+current database connection, overwriting any preexisting content. The
+optional <b>database</b> argument tells which database in the current
+connection should be overwritten with new content. The default value is
+main (or, in other words, the primary database file). To repopulate the
+TEMP tables use temp. To overwrite an auxilary database added to the
+connection using the ATTACH command, use the name of that database as it
+was assigned in the ATTACH command. <b>filename</b> is the name of a
+existing well-formed SQLite database file from which the content is
+extracted.
+</dd>
+
+
+
+<dt><i>objectName</i> <i>progress</i> <b>n</b> <b>callback</b></dt>
+<dd>
+This method registers a callback that is invoked periodically during query
+processing. There are two arguments: the number of SQLite virtual machine
+opcodes between invocations  <b>n</b>, and the TCL command <b>callback</b>
+to invoke. Setting the progress  <b>callback</b> to an empty string
+disables it. The progress callback can be used to display the status of a
+lengthy query or to process GUI events during a lengthy query.
+</dd>
+
+
+
+<dt><i>objectName</i> <i>incrblob</i> <b>?-readonly?</b> <b>?db?</b> <b>table</b> <b>column</b> <b>rowid</b></dt>
+<dd>
+This method opens a TCL channel that can be used to read or write
+into a preexisting BLOB in the database, identified by <b>table</b>
+<b>column</b>, <b>rowid</b>, and optionally <b>db</b>. This optional
+database name is not the filename that contains the database but rather
+the symbolic name of the database that is assigned when the database is
+connected using ATTACH. For the main database file, the database name is
+"main". For TEMP tables, the database name is "temp". The command returns
+a new TCL channel for reading or writing to the BLOB. The channel is
+opened using the underlying sqlite3_blob_open() C-langauge interface.
+Close the channel using the close command of Tcl.
+</dd>
+
+
+
+<dt><i>objectName</i> <i>import</i> <b>conflict-algorithm</b> <b>table</b> <b>filename</b> ?<b>separator</b>? ?<b>nullindicator</b>? ?<b>header</b>?</dt>
+<dd>
+This method imports the data from the file <b>filename</b> in the table <b>table</b>.
+By default different fields are separated by tabs; the separator can be changed using the
+<b>separator</b> option. An empty value is imported as a NULL value. This can be changed by using the
+<b>nullindicator</b> option.
+As in the default sqlite imnport, the method does not properly support quoting in csv files (yet),
+meaning fields cannot contain the separator character, or be multiline.
+<p>
+<b>header</b>: By default, the method assumes that the file loaded will contain the same number of columns in 
+the same order as the the table, and no header. If <b>header</b> is given, but empty, the first 
+line in the file is taken as a header to determine what columns are in the file. If not empty, it 
+is used as a list of fields in the file.
+</p>
+<p>
+<b>conflict-algorithm</b> can be either of rollback,abort,fail,ignore,replace. It gives the conflict resolution algorithm 
+that will be used when errors occur during inserts.
+</p>
+</dd>
+
+
+</dl>
+
+
+
+<h2>Extra collations</h2>
+The dbi interface also adds two new collations:
+<dl>
+<dt>DICT</dt><dd>dictionary sort: Sort alphabetically, but numbers are treated as integers:
+e.g. test2 wil be sorted before test10</dd>
+<dt>DICTREAL</dt><dd>dictionary sort: Sort alphabetically, but numbers are treated as reals:
+e.g. a2.0555 wil be sorted before a2.08.</dd>
+</dl>
+
+
+
+<h2>Extra functions</h2>
+The dbi interface also adds two new functions to sqlite:
+<dl>
+<dt>regexp</dt><dd>This function has to parameters: the pattern and the value. Thus allows the 
+use of regular expressions in queries, e.g.: where "first_name" regexp '^\[Jj\]o'</dd>
+<dt>list_concat</dt><dd>This aggregate function returns a proper list of all elements in the query</dd>
+</dl>
+
+
+<h2>SEE ALSO</h2><ul>
+<a href="interface_dbi.html">interface_dbi</a>
+<a href="interface_dbi_admin.html">interface_dbi_admin</a>
+</ul>
+
+<h2>KEYWORDS</h2><ul>
+<li>dbi</li>
+<li>sqlite</li>
+<li>sqlite3</li>
+<li>interface</li>
+<li>database</li>
+<li>sql</li>
+</ul>
+
+
+
+

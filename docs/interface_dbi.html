@@ -1,1 +1,423 @@
-html/interface_dbi.html
+
+
+
+<h2>DESCRIPTION</h2>
+<p>
+The dbi <a href="interface.html">interface</a> is designed for creating access to different SQL databases.
+It presents a generic api to open, query, and change databases.
+</p>
+
+
+
+<h2>THE DBI INTERFACE</h2>
+<dl>
+
+
+<dt><i>objectName</i> <i>open</i> <b>database</b> ?<b>arg</b> ...?</dt>
+<dd>Opens the given 'database'. Extra arguments can (must) be given, depending on the backend
+used. <b>database</b> is an identifier of the database. What this is exactly, can depend on 
+the implementation.
+<p>
+<b>arg ..</b> usually consists of one or more of the following optional parameters:
+<dl>
+
+<dt><b>-user</b> username</dt>
+<dd>connect to the database as username</dt> instead of connecting as the 
+current user.</dd>
+
+
+<dt><b>-password</b> password</dt>
+<dd>provide a password if required</dd>
+
+
+<dt><b>-role</b> role</dt>
+<dd>connect using the given role</dt></dd>
+
+
+<dt><b>-host</b> host</dt>
+<dd>connect to a database on a different host</dd>
+
+</dl>
+</p>
+</dd>
+
+
+
+<dt><i>objectName</i> <i>exec</i> ?<b>options</b>? <b>sql</b> ?<b>param</b> ...?</dt>
+<dd>Executes arbitrary SQL commands in the currently open database. when a select 
+query has been processed, and the -usefetch option is not used, the command returns a list 
+of lists: each element of this list contains the selected values of one record (in a list).
+Otherwise nothing is returned
+<p>
+<b>sql</b> contains the commands to be executed. When <b>sql</b> contains
+placeholders (indicated by ?), extra parameters must be given (<b>param</b>, that will 
+be used to fill in the gaps. If an sql error occurs, all changes made in the current 
+transaction will be rolled back. If no explicit has been explicitly started by the user  
+using "objectName begin", this means all changes made in the current exec.
+</p>
+<p>
+The following <b>options</b> can be present:
+<dl>
+
+<dt><b>-flat</b> 
+<dd>if present, the result will be returned as a flat list instead of a list of lists.
+Each element in the list will contain the value of one column. eg. If a query returns
+2 rows of each 2 elements, a list of 4 elements is returned</dd>
+
+
+<dt><b>-usefetch</b> 
+<dd>if present, the command does not return the resultset of a select query as a list.
+The fetch method will be used to get the results instead.</dd>
+
+
+<dt><b>-nullvalue</b> nullval</dt>
+<dd>nullval will be returned for each NULL value in the result instead of an empty string
+For sql commands using input parameters, parameters which are given a value of nullval 
+will put a NULL value in the ?</dd>
+
+
+<dt><b>-blobid</b> 
+<dd>if present, return blobids instead of blob values for select queries. The id can be used to access the 
+blob using the blob subcommand (eg. to get only parts of really large blob). If the dbi object does not 
+support this function (check with "object supportd blobid"), this option will be ignored</dd>
+For update and insert functions, the blob fields must be given a blobid (created with the newblob subcommand)
+as a parameter.
+
+
+<dt><b>-cache</b> 
+<dd>if present, the current query is cached (using prepared statement) for future use. If the
+same query is run again with the -cache option, it will run faster. dbi objects that do not
+support caching should ignore the option</dd>
+
+</dl>
+</p>
+<p>
+example:
+<pre>db exec {select "value" from "test_table" where "id" = ?} 100
+</pre>
+</p>
+</dd>
+
+
+
+<dt><i>objectName</i> <i>fetch</i> ?<b>options</b>? ?<b>option</b>? ?<b>line</b>? ?<b>field</b>?</dt>
+<dd>Fetches one line of data of the result of a previous query. This will only work after 
+the exec method has been invoked with the -usefetch option. Normally, the next line in
+the result will be fetched. The optional arguments	can be used to fetch a specific 
+line and/or field. by specifying <b>option</b>, other information about the result may 
+be obtained.
+<p>
+When calling exec again, the results are cleared, and cannot be fetched any longer
+using the fetch method. If you want to use the exec method while keeping the
+resultset available, use a clone (see further) of the dbi object.
+</p>
+<p>
+If present, <b>line</b> is an an integer &gt;= 0 indicating which line of the result to fetch.
+If <b>line</b> is "current", the current line will be fetched. Not all databases allow 
+backward positioning in a result set, so not all objects that support the dbi interface 
+will be able to fetch lines earlier than the current line. <b>field</b> is also an integer 
+&gt;= 0 indicating the field of the result to fetch.
+</p>
+<p>
+If <b>option</b> is present, 
+information about the result is returned instead of the result data itself. It can have 
+any of the following values:
+
+<dl><dt>pos</dt><dd>return the current position in the result. The first line is position 0</dd></dl>
+<dl><dt>fields</dt><dd>return the fields present in the resultset</dd></dl>
+<dl><dt>isnull</dt><dd>returns 1 if the result contains a NULL value at the given line and field</dd></dl>
+<dl><dt>lines</dt><dd>returns the number of lines in the result. This function cannot always be supported by a dbi object</dd></dl>
+
+</p>
+<p>
+The following <b>options</b> can be present:
+<dl>
+
+<dt><b>-nullvalue</b> nullval</dt>
+<dd>nullval will be returned for each NULL value in the result instead of an empty string</dd>
+
+</dl>
+</p>
+<p>
+examples:
+<pre>db fetch</pre>
+<pre>db fetch isnull current 1</pre>
+</p>
+</dd>
+
+
+
+<dt><i>objectName</i> <i>tables</i></dt>
+<dd>Returns a list with tables present in the current database
+</dd>
+
+
+
+<dt><i>objectName</i> <i>fields</i> <b>tableName</b></dt>
+<dd>Returns a list with the fields present in the <b>tableName</b>
+</dd>
+
+
+
+<dt><i>objectName</i> <i>close</i></dt>
+<dd>Closes the current database connection
+</dd>
+
+
+
+<dt><i>objectName</i> <i>begin</i></dt>
+<dd>Starts a transaction
+</dd>
+
+
+
+<dt><i>objectName</i> <i>commit</i></dt>
+<dd>Commits the current transaction
+</dd>
+
+
+
+<dt><i>objectName</i> <i>rollback</i></dt>
+<dd>Does a rollback for the current transaction
+</dd>
+
+
+
+<dt><i>objectName</i> <i>destroy</i></dt>
+<dd>Destroys the dbi object
+</dd>
+
+
+
+<dt><i>objectName</i> <i>serial</i> <b>option</b> args ...</dt>
+<dd>Creates or manages a serial field
+	<dl>
+	
+	<dt><i>objectName</i> <i>serial</i> add <b>table</b> <b>field</b> ?<b>value</b>?</dt>
+	<dd>Converts the integer field <b>field</b> in the given <b>table</b> into a serial 
+	field (using generators, triggers, ...) and optionally initialise it with <b>value</b>
+	</dd>
+	
+	
+	
+	<dt><i>objectName</i> <i>serial</i> delete <b>table</b> <b>field</b></dt>
+	<dd>Returns the given serial field in the given table into a normal integer field
+	</dd>
+	
+	
+	
+	<dt><i>objectName</i> <i>serial</i> set <b>table</b> <b>field</b> ?<b>value</b>?</dt>
+	<dd>Returns the current value for given serial field. If the argument <b>value</b> 
+		is present, the given serial field will be set to this value first.
+	</dd>
+	
+	
+	
+	<dt><i>objectName</i> <i>serial</i> next <b>table</b> <b>field</b></dt>
+	<dd>Increments the current value of the given serial field by 1, and return the new value
+	</dd>
+	
+	
+	</dl>
+</dd>
+
+
+
+<dt><i>objectName</i> <i>info</i> <b>option</b> args ...</dt>
+<dd>Returns information about the database, database tables, etc.
+Which information is returned depends on <b>option</b>. Some options require further
+arguments. The options and information available can depend on the database and on the 
+implementation of the interface. eg. some databases do not support roles, so you cannot 
+get information about them. Some options that should be avaiable are:
+	<dl>
+	
+	<dt><i>objectName</i> <i>info</i> <i>user</i></dt>
+	<dd>Returns the current user for the database connection</dd>
+	
+	
+	<dt><i>objectName</i> <i>info</i> <i>systemtables</i></dt>
+	<dd>Returns the systemtables. These are not included in the list returned by 
+	"objectName tables".</dd>
+	
+	
+	<dt><i>objectName</i> <i>info</i> <i>views</i></dt>
+	<dd>Returns a list of all views in the current database</dd>
+	
+	
+	<dt><i>objectName</i> <i>info</i> <i>access</i> <b>accesstype</b> <b>user</b> ?<b>table</b>?</dt>
+	<dd>Returns information about the accessibility of tables, ....
+	<b>accesstype</b> determines the type of access that is queried and can be one of:
+	<sl>
+	<li>select</li>
+	<li>insert</li>
+	<li>delete</li>
+	<li>update</li>
+	<li>reference</li>
+	</sl>
+	If the <b>table</b> argument is not given, the command returns a list of
+	all tables <b>user</b> has access to; If the <b>table</b> argument is not provided, 
+	a list of all fields in the given table <b>user</b> has access to is returned
+	</dd>
+	
+	
+	<dt><i>objectName</i> <i>info</i> <i>table</i> <b>table</b></dt>
+	<dd>Returns information about the table <b>table</b>. This information is returned 
+	in the form of a list	containing pairs of elements (a map). The first element in each pair 
+	is a keyword and the second  element  of  each pair  is the value for that keyword.	Possible 
+	pairs are:<dl><dt>fields         </dt><dd>list containing all fields in the table</dd>
+		<dt>type,<b>field</b>        </dt><dd>type of field <b>field</b></dd>
+		<dt>length,<b>field</b>      </dt><dd>size of field <b>field</b></dd>
+		<dt>notnull,<b>field</b>     </dt><dd>1 if field <b>field</b> has a not null constraint, otherwise not present</dd>
+		<dt>primary,<b>field</b>     </dt><dd>present if field <b>field</b> is a primary key, may contain the index</dd>
+		<dt>unique,<b>field</b>      </dt><dd>present if field <b>field</b> has a unique constraint, may contain the index</dd>
+		<dt>foreign,<b>field</b>     </dt><dd>list with table and field referenced by the field <b>field</b>. Is only present if the field <b>field</b> has a foreign key constraint</dd>
+		<dt>constraint,constraint    </dt><dd>'constraint' is a constraint defined for the table, may contain the index enforcingg the constraint as a value</dd>
+		</dl>
+	</dd> 
+	
+	
+	<dt><i>objectName</i> <i>info</i> <i>domains</i></dt>
+	<dd>Returns a list of all domains in the current database</dd>
+	
+	
+	<dt><i>objectName</i> <i>info</i> <i>domain</i></dt>
+	<dd>Returns the definition of the domain provided as an argument</dd>
+	
+	
+	<dt><i>objectName</i> <i>info</i> <i>roles</i></dt>
+	<dd>Returns all roles in the database. If the optional argument username is 
+	provided, only roles accessible by the given user are returned</dd> 
+	
+	</dl>
+</dd>
+
+
+
+<dt><i>objectName</i> <i>supports</i> ?<b>keyword</b>?</dt>
+<dd>Returns 1 if the object supports the feature indicated by <b>keyword</b>, and 0
+if it does not. If <b>keyword</b> is not provided, the keywords for all features are returned
+followed by 0 for unsupported features and 1 for supported. Following keywords can be available:
+
+<dl><dt>lines</dt><dd>support for "objectName fetch lines"</dd></dl>
+<dl><dt>backfetch</dt><dd>support for going back when fetching results</dd></dl>
+<dl><dt>serials</dt><dd>support for making a field into a serial</dd></dl>
+<dl><dt>sharedserials</dt><dd>support for sharing a serial field between two tables</dd></dl>
+<dl><dt>blobparams</dt><dd>support for blobs through parameters</dd></dl>
+<dl><dt>blobids</dt><dd>support for blobs using blobids, and the blob and newblob subcommands</dd></dl>
+<dl><dt>transactions</dt><dd>support for transactions</dd></dl>
+<dl><dt>sharedtransactions</dt><dd>a clone shares the same transaction with its parent</dd></dl>
+<dl><dt>foreignkeys</dt><dd>the dbms backend supports foreign keys</dd></dl>
+<dl><dt>checks</dt><dd>the dbms backend supports foreign keys</dd></dl>
+<dl><dt>views</dt><dd>the dbms backend supports views</dd></dl>
+<dl><dt>columnperm</dt><dd>support for working with permissions per column</dd></dl>
+<dl><dt>roles</dt><dd>support for roles</dd></dl>
+<dl><dt>domains</dt><dd>support for domains</dd></dl>
+
+</dd>
+
+
+
+<dt><i>objectName</i> <i>blob</i> <b>option</b> args ...</dt>
+<dd>manipulate blobs via a blobid returned by exec/fetch using the -blobid option. This is
+not supported for all dbi objects (check with "object supports blobids"). Also, not all subcommands
+presented here are supported for all objects.
+	<dl>
+	
+	<dt><i>objectName</i> <i>blob</i> <i>open</i> <b>blobid</b></dt>
+	<dd>open the blob identified by the given <b>blobid</b> for processing</dd>
+	
+	
+	<dt><i>objectName</i> <i>blob</i> <i>get</i> ?<b>size</b>?</dt>
+	<dd>get the remaining data in the open blob. If <b>size</b> is given, only return <b>size</b> bytes
+	of the blob data</dd>
+	
+	
+	<dt><i>objectName</i> <i>blob</i> <i>skip</i> <b>size</b></dt>
+	<dd>skip <b>size</b> bytes from the open blob</dd>
+	
+	
+	<dt><i>objectName</i> <i>blob</i> <i>close</i></dt>
+	<dd>close the blob currently opened</dd>
+	
+	</dl>
+</dd>
+
+
+
+<dt><i>objectName</i> <i>newblob</i> <b>option</b> args ...</dt>
+<dd>manipulate blobs via a blobid returned by exec/fetch using the -blobid option. This is
+not supported for all dbi objects (check with "object supports blobids"). Also, not all subcommands
+presented here are supported for all objects.
+	<dl>
+	
+	<dt><i>objectName</i> <i>newblob</i> <i>create</i> <b>blobid</b></dt>
+	<dd>create a new blob. The blobid for this blob will be returned when you close the new blob</dd>
+	
+	
+	<dt><i>objectName</i> <i>newblob</i> <i>put</i> <b>data</b></dt>
+	<dd>append <b>data</b> to the newly created blob</dd>
+	
+	
+	<dt><i>objectName</i> <i>newblob</i> <i>close</i></dt>
+	<dd>close the newly created blob. This function will return the blobid</dd>
+	
+	</dl>
+</dd>
+
+
+
+<dt><i>objectName</i> <i>clone</i> ?<b>name</b>?</dt>
+<dd>Creates a clone of the dbi object. You will be able invoke the clone using the
+command <b>name</b>. If not provided, a name will be created and returned as a result.
+A clone is an object very similar to the dbi object it spawned from. It	supports the same
+methods, and has the same connection parameters (user, etc.) A clone is dependend on its
+parent: If the parent is destroyed, or its connection closed, the clone will be destroyed.
+Closing a clone will also destroy it. A clone can be eg. be created for using exec while 
+keeping open a resultset for fetching data line by line, or to compare different resultsets
+using fetch. Creating a clone has several advantages to creating a new connection:
+<ul>
+<li>The user of the interface does not have to know the parameters of the connection to
+temporarily spawn a clone</li>
+<li>If the backend database api allows it, a clone actually shares the connection with its 
+parent, making the creation of a clone a lot faster then creating a new connection.
+</li>
+</ul>
+<p>
+If possible, a clone also shares transactions with its parent. Since this is not always 
+possible; You can check if it actually does this using "objectName supports sharedtransactions".
+</p>
+</dd>
+
+
+
+<dt><i>objectName</i> <i>clones</i></dt>
+<dd>Returns a list of clones spawned from the dbi object. This command will give an
+error when invoked from a clone.
+</dd>
+
+
+
+<dt><i>objectName</i> <i>parent</i></dt>
+<dd>Returns the parent dbi object that spawned this clone. A dbi object 
+that is not a clone, will return its own name.
+</dd>
+
+
+</dl>
+
+
+<h2>SEE ALSO</h2><ul>
+<a href="interface.html">interface</a>
+<a href="interface_dbi_admin.html">interface_dbi_admin</a>
+</ul>
+
+<h2>KEYWORDS</h2><ul>
+<li>interface</li>
+<li>database</li>
+<li>sql</li>
+<li>dbi</li>
+</ul>
+
+
+
+
