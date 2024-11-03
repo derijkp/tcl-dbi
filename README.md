@@ -1,18 +1,33 @@
 dbi
-===  database interface commands for Tcl
-     by Peter De Rijk (Universiteit Antwerpen) 
+===
+  database interface commands for Tcl
+  by Peter De Rijk (VIB - UAntwerp Center for Molecular Neurology) 
 
 What is dbi
 -----------
 
-The dbi interface is a generic Tcl interface for accessing different SQL databases.
+The dbi interface is a generic Tcl [interface](https://github.com/derijkp/tcl-interface)
+for accessing different SQL databases.
 It presents a generic api to open, query, and change databases.
-The dbi package contains the definition of the dbi interface, and some tools.
+The dbi package contains the definition of the 
+[dbi interface](https://derijkp.github.io/tcl-dbi/html/interface_dbi.html)
+and the [dbi admin interface](https://derijkp.github.io/tcl-dbi/html/interface_dbi_admin.html)
+and some tools.
+
+The following implementations are included in the dbi distribution (some
+of which have their own extra commands):
+
+* [Firebird](https://derijkp.github.io/tcl-dbi/dbi_firebird.html)
+* [sqlite3](https://derijkp.github.io/tcl-dbi/dbi_sqlite3.html)
+* [sqlite](https://derijkp.github.io/tcl-dbi/dbi_sqlite.html)
+* [postgresql](https://derijkp.github.io/tcl-dbi/dbi_postgresql.html)
+* [mysql](https://derijkp.github.io/tcl-dbi/dbi_mysql.html)
+* [odbc](https://derijkp.github.io/tcl-dbi/dbi_odbc.html)
 
 Installation
 ------------
 You should be able to obtain the latest version of dbi via www on url
-http://tcl-dbi.sourceforge.net/
+https://derijkp.github.io/tcl-dbi
 
 Compiled packages should be created using the following steps in the package directory:
 (You can also build in any other directory, if you change the path to the configure command)
@@ -21,7 +36,7 @@ make
 make install
 
 Some of the make targets (such as install) need a working Tcl, and a package called pkgtools,
-also available from http://tcl-dbi.sourceforge.net/
+also available from https://github.com/derijkp/pkgtools
 
 The configure command has several options that can be examined using
 /configure --help
@@ -29,22 +44,21 @@ The configure command has several options that can be examined using
 The dbi package contains directories with interfaces to several databases. The
 ones you need should also be compiled in a similar way to the basic dbi package
 
+Portable build
+--------------
+The package also contains scripts to make portable binary Linux builds for the firebird and sqlite3 dbi
+* build/make_dbi_firebird.sh
+* build/make_dbi_sqlite3.sh
+
 How to contact me
 -----------------
-I will do my best to reply as fast as I can to any problems, etc.
-However, the development of dbi is not my only task,
-which is why my response might not be always as fast as you would
-like.
+
+Peter.DeRijk@uantwerpen.be
 
 Peter De Rijk
-University of Antwerp (UIA)
-Department of Biochemistry
+VIB - UAntwerp Center for Molecular Neurology
 Universiteitsplein 1
 B-2610 Antwerp
-
-tel.: 32-03-820.23.16
-fax: 32-03-820.22.48
-E-mail: Peter.DeRijk@ua.ac.be
 
 Legalities
 ----------
